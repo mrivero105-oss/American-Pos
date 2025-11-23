@@ -34,7 +34,7 @@ export const authService = {
         try {
             await signOut(auth);
             localStorage.removeItem('authToken');
-            window.location.href = '/login.html';
+            window.location.href = 'login.html';
         } catch (error) {
             console.error('Logout error:', error);
         }
