@@ -421,6 +421,13 @@ export class POS {
     // Customer Selection Methods
     async showCustomerSelection() {
         await this.loadCustomers(); // Recargar clientes frescos
+
+        // If no customers available (endpoint failed or empty), skip to payment
+        if (!this.customers || this.customers.length === 0) {
+            this.processCheckout(null); // Process without customer
+            return;
+        }
+
         this.renderCustomerList(this.customers);
         this.dom.customerSelectionModal?.classList.remove('hidden');
         // Enfocar el input de búsqueda
