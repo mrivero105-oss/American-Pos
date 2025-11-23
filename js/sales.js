@@ -39,6 +39,7 @@ export class SalesHistory {
             const sales = await api.sales.getAll(date);
             this.renderSales(sales);
         } catch (error) {
+            console.error('Error loading sales:', error);
             ui.showNotification('Error loading sales history', 'error');
         }
     }
