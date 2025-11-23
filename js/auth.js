@@ -1,0 +1,61 @@
+// Firebase Configuration
+const firebaseConfig = {
+    apiKey: "AIzaSyByNb2B41XzZEOnuB63z0z4VIwp_patqaA",
+    authDomain: "american-pos.firebaseapp.com",
+    projectId: "american-pos",
+    storageBucket: "american-pos.firebasestorage.app",
+    messagingSenderId: "248248095933",
+    appId: "1:248248095933:web:b0f75f9e5dfbc4594e93d4"
+};
+
+// Initialize Firebase
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+
+export const authService = {
+    // Login with email and password
+    login: async (email, password) => {
+        try {
+            const userCredential = await signInWithEmailAndPassword(auth, email, password);
+            const token = await userCredential.user.getIdToken();
+            localStorage.setItem('authToken', token);
+            return { success: true, user: userCredential.user };
+        } catch (error) {
+            console.error('Login error:', error);
+            return { success: false, error: error.message };
+        }
+    },
+
+    // Logout
+    logout: async () => {
+        try {
+            await signOut(auth);
+            localStorage.removeItem('authToken');
+            window.location.href = '/login.html';
+        } catch (error) {
+            console.error('Logout error:', error);
+        }
+    },
+
+    // Get current auth token
+    getToken: async () => {
+        const user = auth.currentUser;
+        if (user) {
+            return await user.getIdToken(true); // Force refresh
+        }
+        return localStorage.getItem('authToken');
+    },
+
+    // Check if user is authenticated
+    isAuthenticated: () => {
+        return !!auth.currentUser || !!localStorage.getItem('authToken');
+    },
+
+    // Listen to auth state changes
+    onAuthChange: (callback) => {
+        return onAuthStateChanged(auth, callback);
+    }
+};

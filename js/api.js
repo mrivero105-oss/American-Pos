@@ -1,34 +1,60 @@
 const API_BASE_URL = 'https://american-pos-backend.onrender.com';
 
+// Helper function to get auth headers
+async function getAuthHeaders() {
+    const token = localStorage.getItem('authToken');
+    return {
+        'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` })
+    };
+}
+
+// Helper function to handle auth errors
+function handleAuthError(response) {
+    if (response.status === 401) {
+        localStorage.removeItem('authToken');
+        window.location.href = '/login.html';
+        throw new Error('Unauthorized');
+    }
+}
+
+
 export const api = {
     products: {
         getAll: async () => {
-            const response = await fetch(`${API_BASE_URL}/products`);
+            const response = await fetch(`${API_BASE_URL}/products`, {
+                headers: await getAuthHeaders()
+            });
+            handleAuthError(response);
             if (!response.ok) throw new Error('Error fetching products');
             return response.json();
         },
         create: async (product) => {
             const response = await fetch(`${API_BASE_URL}/products`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await getAuthHeaders(),
                 body: JSON.stringify(product)
             });
+            handleAuthError(response);
             if (!response.ok) throw new Error('Error creating product');
             return response.json();
         },
         update: async (id, product) => {
             const response = await fetch(`${API_BASE_URL}/products/${id}`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await getAuthHeaders(),
                 body: JSON.stringify(product)
             });
+            handleAuthError(response);
             if (!response.ok) throw new Error('Error updating product');
             return response.json();
         },
         delete: async (id) => {
             const response = await fetch(`${API_BASE_URL}/products/${id}`, {
-                method: 'DELETE'
+                method: 'DELETE',
+                headers: await getAuthHeaders()
             });
+            handleAuthError(response);
             if (!response.ok) throw new Error('Error deleting product');
             return response.json();
         }
@@ -37,25 +63,30 @@ export const api = {
         create: async (saleData) => {
             const response = await fetch(`${API_BASE_URL}/sales`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await getAuthHeaders(),
                 body: JSON.stringify(saleData)
             });
+            handleAuthError(response);
             if (!response.ok) throw new Error('Error creating sale');
             return response.json();
         },
         getAll: async (date = null) => {
             let url = `${API_BASE_URL}/sales`;
             if (date) url += `?date=${date}`;
-            const response = await fetch(url);
+            const response = await fetch(url, {
+                headers: await getAuthHeaders()
+            });
+            handleAuthError(response);
             if (!response.ok) throw new Error('Error fetching sales');
             return response.json();
         },
         emailReceipt: async (saleId, email) => {
             const response = await fetch(`${API_BASE_URL}/sales/${saleId}/email`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await getAuthHeaders(),
                 body: JSON.stringify({ email })
             });
+            handleAuthError(response);
             if (!response.ok) throw new Error('Error sending email');
             return response.json();
         }
@@ -64,65 +95,85 @@ export const api = {
         getSummary: async (date = null) => {
             let url = `${API_BASE_URL}/dashboard-summary`;
             if (date) url += `?date=${date}`;
-            const response = await fetch(url);
+            const response = await fetch(url, {
+                headers: await getAuthHeaders()
+            });
+            handleAuthError(response);
             if (!response.ok) throw new Error('Error fetching dashboard summary');
             return response.json();
         }
     },
     settings: {
         getRate: async () => {
-            const response = await fetch(`${API_BASE_URL}/settings/rate`);
+            const response = await fetch(`${API_BASE_URL}/settings/rate`, {
+                headers: await getAuthHeaders()
+            });
+            handleAuthError(response);
             if (!response.ok) throw new Error('Error fetching rate');
             return response.json();
         },
         updateRate: async (rate) => {
             const response = await fetch(`${API_BASE_URL}/settings/rate`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await getAuthHeaders(),
                 body: JSON.stringify({ rate })
             });
+            handleAuthError(response);
             if (!response.ok) throw new Error('Error updating rate');
             return response.json();
         }
     },
     customers: {
         getAll: async () => {
-            const res = await fetch(`${API_BASE_URL}/customers`);
+            const res = await fetch(`${API_BASE_URL}/customers`, {
+                headers: await getAuthHeaders()
+            });
+            handleAuthError(res);
             if (!res.ok) throw new Error('Error al obtener clientes');
             return res.json();
         },
         getById: async (id) => {
-            const res = await fetch(`${API_BASE_URL}/customers/${id}`);
+            const res = await fetch(`${API_BASE_URL}/customers/${id}`, {
+                headers: await getAuthHeaders()
+            });
+            handleAuthError(res);
             if (!res.ok) throw new Error('Error al obtener cliente');
             return res.json();
         },
         create: async (customerData) => {
             const res = await fetch(`${API_BASE_URL}/customers`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await getAuthHeaders(),
                 body: JSON.stringify(customerData)
             });
+            handleAuthError(res);
             if (!res.ok) throw new Error('Error al crear cliente');
             return res.json();
         },
         update: async (id, customerData) => {
             const res = await fetch(`${API_BASE_URL}/customers/${id}`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await getAuthHeaders(),
                 body: JSON.stringify(customerData)
             });
+            handleAuthError(res);
             if (!res.ok) throw new Error('Error al actualizar cliente');
             return res.json();
         },
         delete: async (id) => {
             const res = await fetch(`${API_BASE_URL}/customers/${id}`, {
-                method: 'DELETE'
+                method: 'DELETE',
+                headers: await getAuthHeaders()
             });
+            handleAuthError(res);
             if (!res.ok) throw new Error('Error al borrar cliente');
             return res.json();
         },
         getSales: async (id) => {
-            const res = await fetch(`${API_BASE_URL}/customers/${id}/sales`);
+            const res = await fetch(`${API_BASE_URL}/customers/${id}/sales`, {
+                headers: await getAuthHeaders()
+            });
+            handleAuthError(res);
             if (!res.ok) throw new Error('Error al obtener ventas del cliente');
             return res.json();
         }
