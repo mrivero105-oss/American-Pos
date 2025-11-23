@@ -10,6 +10,7 @@ export class POS {
         this.selectedCustomer = null;
         this.lastSale = null;
         this.exchangeRate = 1.0;
+        this.businessInfo = {};
         this.init();
     }
 
@@ -153,10 +154,14 @@ export class POS {
 
     async loadSettings() {
         try {
-            const data = await api.settings.getRate();
-            this.exchangeRate = data.rate || 1.0;
+            const [rateData, businessData] = await Promise.all([
+                api.settings.getRate(),
+                api.settings.getBusinessInfo()
+            ]);
+            this.exchangeRate = rateData.rate || 1.0;
+            this.businessInfo = businessData || {};
         } catch (error) {
-            console.error('Error loading rate', error);
+            console.error('Error loading settings', error);
         }
     }
 
@@ -494,11 +499,20 @@ export class POS {
 
         const totalBs = this.lastSale.total * this.lastSale.exchangeRate;
 
+        const { name, address, phone, taxId, logoUrl } = this.businessInfo;
+
         this.dom.receiptContent.innerHTML = `
             <div class="text-center mb-6">
-                <h2 class="text-2xl font-bold text-slate-900 mb-2">American POS</h2>
-                <p class="text-sm text-slate-500">Recibo de Venta</p>
-                <p class="text-xs text-slate-400 mt-1">${this.lastSale.timestamp.toLocaleString('es-VE')}</p>
+                ${logoUrl ? `<img src="${logoUrl}" alt="Logo" class="mx-auto h-16 object-contain mb-2">` : ''}
+                <h2 class="text-xl font-bold text-slate-900 leading-tight">${name || 'American POS'}</h2>
+                ${address ? `<p class="text-xs text-slate-500 mt-1">${address}</p>` : ''}
+                ${phone ? `<p class="text-xs text-slate-500">Tel: ${phone}</p>` : ''}
+                ${taxId ? `<p class="text-xs text-slate-500">RIF/NIT: ${taxId}</p>` : ''}
+                
+                <div class="mt-4 pt-2 border-t border-dashed border-slate-300">
+                    <p class="text-sm font-bold text-slate-700 uppercase tracking-wide">Recibo de Venta</p>
+                    <p class="text-xs text-slate-400 mt-1">${this.lastSale.timestamp.toLocaleString('es-VE')}</p>
+                </div>
             </div>
 
             ${this.lastSale.customer ? `
