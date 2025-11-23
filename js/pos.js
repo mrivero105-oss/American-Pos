@@ -11,6 +11,7 @@ export class POS {
         this.lastSale = null;
         this.exchangeRate = 1.0;
         this.businessInfo = {};
+        this.paymentMethods = []; // Initialize payment methods array
         this.init();
     }
 
