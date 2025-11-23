@@ -13,7 +13,7 @@ async function getAuthHeaders() {
 function handleAuthError(response) {
     if (response.status === 401) {
         localStorage.removeItem('authToken');
-        window.location.href = '/login.html';
+        window.location.href = 'login.html';
         throw new Error('Unauthorized');
     }
 }
