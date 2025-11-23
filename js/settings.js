@@ -21,20 +21,27 @@ export class Settings {
             businessPhone: document.getElementById('business-phone'),
             businessTaxId: document.getElementById('business-tax-id'),
             businessLogo: document.getElementById('business-logo'),
-            saveBusinessBtn: document.getElementById('save-business-btn')
+            saveBusinessBtn: document.getElementById('save-business-btn'),
+            // Payment Methods
+            paymentMethodsList: document.getElementById('payment-methods-list'),
+            newPaymentMethodName: document.getElementById('new-payment-method-name'),
+            newPaymentMethodRequiresRef: document.getElementById('new-payment-method-requires-ref'),
+            addPaymentMethodBtn: document.getElementById('add-payment-method-btn')
         };
     }
 
     bindEvents() {
         this.dom.saveRateBtn?.addEventListener('click', () => this.saveRate());
         this.dom.saveBusinessBtn?.addEventListener('click', () => this.saveBusinessInfo());
+        this.dom.addPaymentMethodBtn?.addEventListener('click', () => this.addPaymentMethod());
     }
 
     async loadSettings() {
         try {
-            const [rateData, businessData] = await Promise.all([
+            const [rateData, businessData, paymentMethods] = await Promise.all([
                 api.settings.getRate(),
-                api.settings.getBusinessInfo()
+                api.settings.getBusinessInfo(),
+                api.settings.getPaymentMethods()
             ]);
 
             if (this.dom.rateInput) {
@@ -49,11 +56,12 @@ export class Settings {
                 this.dom.businessLogo.value = businessData.logoUrl || '';
             }
 
-            return rateData.rate;
+            // Store payment methods locally and render
+            this.paymentMethods = paymentMethods || [];
+            this.renderPaymentMethods();
         } catch (error) {
             console.error('Error loading settings:', error);
             ui.showNotification('Error loading settings', 'error');
-            return 1.0;
         }
     }
 
@@ -110,6 +118,93 @@ export class Settings {
         } finally {
             this.dom.saveBusinessBtn.disabled = false;
             this.dom.saveBusinessBtn.textContent = 'Guardar Información';
+        }
+    }
+
+    renderPaymentMethods() {
+        if (!this.dom.paymentMethodsList) return;
+
+        this.dom.paymentMethodsList.innerHTML = this.paymentMethods.map(method => `
+            <tr>
+                <td class="px-4 py-2 whitespace-nowrap text-sm text-slate-900">${method.name}</td>
+                <td class="px-4 py-2 whitespace-nowrap text-sm text-slate-500">
+                    ${method.requiresReference ?
+                '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Sí</span>' :
+                '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-slate-100 text-slate-800">No</span>'}
+                </td>
+                <td class="px-4 py-2 whitespace-nowrap text-right text-sm font-medium">
+                    <button class="text-red-600 hover:text-red-900 delete-method-btn" data-id="${method.id}">
+                        Eliminar
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+
+        // Re-bind delete events
+        this.dom.paymentMethodsList.querySelectorAll('.delete-method-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const id = e.target.dataset.id;
+                this.deletePaymentMethod(id);
+            });
+        });
+    }
+
+    async addPaymentMethod() {
+        const name = this.dom.newPaymentMethodName?.value.trim();
+        const requiresReference = this.dom.newPaymentMethodRequiresRef?.checked;
+
+        if (!name) {
+            ui.showNotification('El nombre es requerido', 'warning');
+            return;
+        }
+
+        const newMethod = {
+            id: name.toLowerCase().replace(/\s+/g, '-'),
+            name: name,
+            requiresReference: requiresReference
+        };
+
+        // Check for duplicates
+        if (this.paymentMethods.some(m => m.id === newMethod.id)) {
+            ui.showNotification('Este método de pago ya existe', 'warning');
+            return;
+        }
+
+        this.paymentMethods.push(newMethod);
+
+        try {
+            await api.settings.updatePaymentMethods(this.paymentMethods);
+            this.renderPaymentMethods();
+
+            // Clear inputs
+            this.dom.newPaymentMethodName.value = '';
+            this.dom.newPaymentMethodRequiresRef.checked = false;
+
+            ui.showNotification('Método de pago agregado');
+        } catch (error) {
+            console.error('Error adding payment method:', error);
+            ui.showNotification('Error al agregar método de pago', 'error');
+            // Revert
+            this.paymentMethods.pop();
+        }
+    }
+
+    async deletePaymentMethod(id) {
+        if (!confirm('¿Estás seguro de eliminar este método de pago?')) return;
+
+        const originalMethods = [...this.paymentMethods];
+        this.paymentMethods = this.paymentMethods.filter(m => m.id !== id);
+
+        try {
+            await api.settings.updatePaymentMethods(this.paymentMethods);
+            this.renderPaymentMethods();
+            ui.showNotification('Método de pago eliminado');
+        } catch (error) {
+            console.error('Error deleting payment method:', error);
+            ui.showNotification('Error al eliminar método de pago', 'error');
+            // Revert
+            this.paymentMethods = originalMethods;
+            this.renderPaymentMethods();
         }
     }
 }

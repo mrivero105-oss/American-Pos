@@ -26,6 +26,7 @@ export class POS {
 
     cacheDOM() {
         this.dom = {
+            // Existing elements
             productGrid: document.getElementById('product-grid'),
             cartItems: document.getElementById('cart-items'),
             cartTotal: document.getElementById('cart-total'),
@@ -48,8 +49,9 @@ export class POS {
             paymentModal: document.getElementById('payment-modal'),
             paymentTotalUsd: document.getElementById('payment-total-usd'),
             paymentTotalVes: document.getElementById('payment-total-ves'),
-            paymentReceivedVes: document.getElementById('payment-received-ves'),
-            paymentReceivedUsd: document.getElementById('payment-received-usd'),
+            // New elements for dynamic payment UI
+            paymentMethodSelect: document.getElementById('payment-method-select'),
+            paymentFields: document.getElementById('payment-fields'),
             paymentChange: document.getElementById('payment-change'),
             cancelPaymentBtn: document.getElementById('cancel-payment-btn'),
             confirmPaymentBtn: document.getElementById('confirm-payment-btn')
@@ -84,8 +86,8 @@ export class POS {
         // Payment modal events
         this.dom.cancelPaymentBtn?.addEventListener('click', () => this.hidePaymentModal());
         this.dom.confirmPaymentBtn?.addEventListener('click', () => this.confirmPayment());
-        this.dom.paymentReceivedVes?.addEventListener('input', () => this.calculateChange());
-        this.dom.paymentReceivedUsd?.addEventListener('input', () => this.calculateChange());
+        this.dom.paymentMethodSelect?.addEventListener('change', () => this.onPaymentMethodChange());
+        // Dynamic fields will attach their own listeners when rendered
 
         // POS Scanner
         const btnScan = document.getElementById('pos-scan-btn');
@@ -168,12 +170,14 @@ export class POS {
 
     async loadSettings() {
         try {
-            const [rateData, businessData] = await Promise.all([
+            const [rateData, businessData, paymentMethods] = await Promise.all([
                 api.settings.getRate(),
-                api.settings.getBusinessInfo()
+                api.settings.getBusinessInfo(),
+                api.settings.getPaymentMethods()
             ]);
             this.exchangeRate = rateData.rate || 1.0;
             this.businessInfo = businessData || {};
+            this.paymentMethods = paymentMethods || [];
         } catch (error) {
             console.error('Error loading settings', error);
         }
@@ -574,83 +578,189 @@ export class POS {
 
         this.dom.paymentTotalUsd.textContent = `$${total.toFixed(2)}`;
         this.dom.paymentTotalVes.textContent = `Bs ${totalBs.toFixed(2)}`;
-        this.dom.paymentReceivedVes.value = '';
-        this.dom.paymentReceivedUsd.value = '';
+        // Populate payment method dropdown
+        this.populatePaymentMethods();
+        // Reset fields
+        this.dom.paymentFields.innerHTML = '';
         this.dom.paymentChange.textContent = 'Bs 0.00';
-
         this.dom.paymentModal?.classList.remove('hidden');
     }
 
     hidePaymentModal() {
         this.dom.paymentModal?.classList.add('hidden');
+        // Clear dynamic fields
+        if (this.dom.paymentFields) this.dom.paymentFields.innerHTML = '';
+    }
+
+    populatePaymentMethods() {
+        console.log('Populating payment methods...', this.paymentMethods);
+        console.log('Select element:', this.dom.paymentMethodSelect);
+
+        if (!this.dom.paymentMethodSelect) {
+            console.error('Payment method select element not found!');
+            return;
+        }
+
+        this.dom.paymentMethodSelect.innerHTML = '';
+
+        // Add default cash method if not present
+        const hasCash = this.paymentMethods.some(m => m.id === 'cash');
+        if (!hasCash) {
+            this.paymentMethods.unshift({ id: 'cash', name: 'Efectivo (USD/VES)', requiresReference: false });
+        }
+
+        this.paymentMethods.forEach(method => {
+            const option = document.createElement('option');
+            option.value = method.id;
+            option.textContent = method.name;
+            this.dom.paymentMethodSelect.appendChild(option);
+        });
+
+        // Trigger change event to set initial fields
+        this.onPaymentMethodChange();
+    }
+
+    onPaymentMethodChange() {
+        const methodId = this.dom.paymentMethodSelect.value;
+        const method = this.paymentMethods.find(m => m.id === methodId);
+
+        this.dom.paymentFields.innerHTML = '';
+
+        if (methodId === 'cash') {
+            this.dom.paymentFields.innerHTML = `
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Recibido USD</label>
+                        <input type="number" id="payment-received-usd" class="w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" step="0.01" min="0">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Recibido VES</label>
+                        <input type="number" id="payment-received-ves" class="w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" step="0.01" min="0">
+                    </div>
+                </div>
+            `;
+
+            // Re-cache dynamic elements
+            this.dom.paymentReceivedUsd = document.getElementById('payment-received-usd');
+            this.dom.paymentReceivedVes = document.getElementById('payment-received-ves');
+
+            // Add listeners
+            this.dom.paymentReceivedUsd?.addEventListener('input', () => this.calculateChange());
+            this.dom.paymentReceivedVes?.addEventListener('input', () => this.calculateChange());
+
+        } else {
+            let fieldsHtml = `
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Monto</label>
+                    <input type="number" id="payment-amount" class="w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" step="0.01" min="0">
+                </div>
+            `;
+
+            if (method && method.requiresReference) {
+                fieldsHtml += `
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Referencia</label>
+                        <input type="text" id="payment-reference" class="w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                    </div>
+                `;
+            }
+
+            this.dom.paymentFields.innerHTML = fieldsHtml;
+
+            // Re-cache dynamic elements
+            this.dom.paymentAmount = document.getElementById('payment-amount');
+            this.dom.paymentReference = document.getElementById('payment-reference');
+
+            // Add listeners
+            this.dom.paymentAmount?.addEventListener('input', () => this.calculateChange());
+        }
+
+        this.calculateChange();
     }
 
     calculateChange() {
         const total = this.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
         const totalBs = total * this.exchangeRate;
+        const method = this.dom.paymentMethodSelect?.value;
+        let totalReceived = 0;
 
-        const receivedVes = parseFloat(this.dom.paymentReceivedVes.value) || 0;
-        const receivedUsd = parseFloat(this.dom.paymentReceivedUsd.value) || 0;
-        const receivedVesFromUsd = receivedUsd * this.exchangeRate;
-        const totalReceived = receivedVes + receivedVesFromUsd;
+        if (method === 'cash') {
+            const ves = parseFloat(this.dom.paymentReceivedVes?.value) || 0;
+            const usd = parseFloat(this.dom.paymentReceivedUsd?.value) || 0;
+            const usdToVes = usd * this.exchangeRate;
+            totalReceived = ves + usdToVes;
+        } else {
+            const amount = parseFloat(this.dom.paymentAmount?.value) || 0;
+            totalReceived = amount;
+        }
 
         const change = totalReceived - totalBs;
-        this.dom.paymentChange.textContent = `Bs ${Math.max(0, change).toFixed(2)}`;
+        this.dom.paymentChange.textContent = `Bs ${change.toFixed(2)}`;
+
+        // Enable/disable confirm button
+        if (this.dom.confirmPaymentBtn) {
+            // Allow small margin of error or exact payment
+            // For non-cash, we might want to allow 0 change if exact amount is entered
+            this.dom.confirmPaymentBtn.disabled = change < -0.01;
+        }
     }
 
     async confirmPayment() {
-        if (this.cart.length === 0) return;
+        if (!this.cart.length) return;
+
+        const methodId = this.dom.paymentMethodSelect.value;
+        const total = this.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        const totalBs = total * this.exchangeRate;
+
+        let paymentDetails = {};
+
+        if (methodId === 'cash') {
+            const ves = parseFloat(this.dom.paymentReceivedVes?.value) || 0;
+            const usd = parseFloat(this.dom.paymentReceivedUsd?.value) || 0;
+            const change = (ves + (usd * this.exchangeRate)) - totalBs;
+
+            paymentDetails = {
+                cash: { usd, ves },
+                change: change
+            };
+        } else {
+            const amount = parseFloat(this.dom.paymentAmount?.value) || 0;
+            const reference = this.dom.paymentReference?.value || '';
+            const method = this.paymentMethods.find(m => m.id === methodId);
+
+            if (method?.requiresReference && !reference) {
+                ui.showNotification('La referencia es requerida', 'warning');
+                return;
+            }
+
+            paymentDetails = {
+                amount: amount,
+                reference: reference
+            };
+        }
 
         this.dom.confirmPaymentBtn.disabled = true;
         this.dom.confirmPaymentBtn.textContent = 'Procesando...';
 
         try {
-            const total = this.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-            const receivedVes = parseFloat(this.dom.paymentReceivedVes.value) || 0;
-            const receivedUsd = parseFloat(this.dom.paymentReceivedUsd.value) || 0;
-            const totalBs = total * this.exchangeRate;
-            const receivedVesFromUsd = receivedUsd * this.exchangeRate;
-            const totalReceived = receivedVes + receivedVesFromUsd;
-            const change = Math.max(0, totalReceived - totalBs);
-
             const saleData = {
-                items: this.cart.map(item => ({
-                    productId: item.id,
-                    name: item.name,
-                    price: item.price,
-                    quantity: item.quantity
-                })),
-                total,
-                customerId: this.selectedCustomer ? this.selectedCustomer.id : null,
-                paymentMethod: 'cash',
-                paymentDetails: {
-                    cash: {
-                        usd: receivedUsd,
-                        ves: receivedVes
-                    },
-                    change: change
-                }
+                items: this.cart,
+                total: total,
+                customerId: this.selectedCustomer?.id || null,
+                paymentMethod: methodId,
+                paymentDetails: paymentDetails
             };
 
-            const result = await api.sales.create(saleData);
+            const response = await api.sales.create(saleData);
 
-            this.lastSale = {
-                ...saleData,
-                id: result.saleId,
-                customer: this.selectedCustomer,
-                timestamp: new Date(),
-                exchangeRate: this.exchangeRate
-            };
-
-            this.cart = [];
-            this.renderCart();
-            await this.loadProducts();
-
+            this.lastSale = { ...saleData, id: response.saleId, customer: this.selectedCustomer };
+            this.clearCart();
             this.hidePaymentModal();
             this.showReceipt();
-
+            ui.showNotification('Venta registrada exitosamente');
         } catch (error) {
-            ui.showNotification(error.message || 'Error al crear la venta', 'error');
+            console.error('Error processing payment:', error);
+            ui.showNotification('Error al procesar el pago', 'error');
         } finally {
             this.dom.confirmPaymentBtn.disabled = false;
             this.dom.confirmPaymentBtn.textContent = 'Confirmar Pago';

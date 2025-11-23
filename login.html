@@ -249,13 +249,15 @@
         }
 
         function getErrorMessage(error) {
+            console.error('Full error:', error);
             if (error.includes('user-not-found') || error.includes('wrong-password')) {
                 return 'Correo o contraseña incorrectos';
             }
             if (error.includes('too-many-requests')) {
                 return 'Demasiados intentos. Intente más tarde';
             }
-            return 'Error al iniciar sesión. Intente nuevamente';
+            // Return the actual error for debugging
+            return `Error: ${error}`;
         }
     </script>
 </body>

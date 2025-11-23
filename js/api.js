@@ -139,6 +139,24 @@ export const api = {
             handleAuthError(response);
             if (!response.ok) throw new Error('Failed to update business info');
             return response.json();
+        },
+        getPaymentMethods: async () => {
+            const res = await fetch(`${API_BASE_URL}/settings/payment-methods`, {
+                headers: await getAuthHeaders()
+            });
+            handleAuthError(res);
+            if (!res.ok) throw new Error('Error al obtener métodos de pago');
+            return res.json();
+        },
+        updatePaymentMethods: async (paymentMethods) => {
+            const res = await fetch(`${API_BASE_URL}/settings/payment-methods`, {
+                method: 'POST',
+                headers: await getAuthHeaders(),
+                body: JSON.stringify({ paymentMethods })
+            });
+            handleAuthError(res);
+            if (!res.ok) throw new Error('Error al actualizar métodos de pago');
+            return res.json();
         }
     },
     customers: {
