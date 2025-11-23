@@ -53,12 +53,12 @@ export class SalesHistory {
         }
 
         this.dom.salesTableBody.innerHTML = sales.map(sale => `
-            <tr class="hover:bg-gray-50 transition-colors cursor-pointer" onclick="window.viewSaleDetails('${sale.id}')">
+            <tr class="hover:bg-gray-50 transition-colors cursor-pointer" onclick="window.viewSaleDetails('${sale.id || ''}')">
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     ${formatDate(sale.timestamp.toDate ? sale.timestamp.toDate() : sale.timestamp)}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    ${sale.id.slice(0, 8)}...
+                    ${(sale.id || '-----').slice(0, 8)}...
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     ${sale.items.length} items
