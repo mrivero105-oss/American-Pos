@@ -34,6 +34,9 @@ export class Settings {
         this.dom.saveRateBtn?.addEventListener('click', () => this.saveRate());
         this.dom.saveBusinessBtn?.addEventListener('click', () => this.saveBusinessInfo());
         this.dom.addPaymentMethodBtn?.addEventListener('click', () => this.addPaymentMethod());
+
+        // Initialize payment methods array
+        this.paymentMethods = [];
     }
 
     async loadSettings() {
