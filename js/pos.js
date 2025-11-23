@@ -44,7 +44,15 @@ export class POS {
             receiptContent: document.getElementById('receipt-content'),
             closeReceipt: document.getElementById('close-receipt'),
             emailReceiptBtn: document.getElementById('email-receipt-btn'),
-            printReceiptBtn: document.getElementById('print-receipt-btn')
+            printReceiptBtn: document.getElementById('print-receipt-btn'),
+            paymentModal: document.getElementById('payment-modal'),
+            paymentTotalUsd: document.getElementById('payment-total-usd'),
+            paymentTotalVes: document.getElementById('payment-total-ves'),
+            paymentReceivedVes: document.getElementById('payment-received-ves'),
+            paymentReceivedUsd: document.getElementById('payment-received-usd'),
+            paymentChange: document.getElementById('payment-change'),
+            cancelPaymentBtn: document.getElementById('cancel-payment-btn'),
+            confirmPaymentBtn: document.getElementById('confirm-payment-btn')
         };
     }
 
@@ -72,6 +80,12 @@ export class POS {
         this.dom.closeReceipt?.addEventListener('click', () => this.hideReceipt());
         this.dom.emailReceiptBtn?.addEventListener('click', () => this.emailReceipt());
         this.dom.printReceiptBtn?.addEventListener('click', () => this.printReceipt());
+
+        // Payment modal events
+        this.dom.cancelPaymentBtn?.addEventListener('click', () => this.hidePaymentModal());
+        this.dom.confirmPaymentBtn?.addEventListener('click', () => this.confirmPayment());
+        this.dom.paymentReceivedVes?.addEventListener('input', () => this.calculateChange());
+        this.dom.paymentReceivedUsd?.addEventListener('input', () => this.calculateChange());
 
         // POS Scanner
         const btnScan = document.getElementById('pos-scan-btn');
@@ -450,48 +464,8 @@ export class POS {
         if (this.cart.length === 0) return;
 
         this.hideCustomerSelection();
-        this.dom.checkoutBtn.disabled = true;
-        this.dom.checkoutBtn.textContent = 'Procesando...';
-
-        try {
-            const total = this.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-            const saleData = {
-                items: this.cart.map(item => ({
-                    productId: item.id,
-                    name: item.name,
-                    price: item.price,
-                    quantity: item.quantity
-                })),
-                total,
-                customerId: customer ? customer.id : null
-            };
-
-            const result = await api.sales.create(saleData);
-
-            // Store sale data for receipt
-            this.lastSale = {
-                ...saleData,
-                id: result.saleId,
-                customer: customer,
-                timestamp: new Date(),
-                exchangeRate: this.exchangeRate
-            };
-
-            this.cart = [];
-            this.renderCart();
-            await this.loadProducts();
-
-            // Show receipt modal
-            this.showReceipt();
-
-        } catch (error) {
-            ui.showNotification(error.message || 'Error al crear la venta', 'error');
-        } finally {
-            if (this.dom.checkoutBtn) {
-                this.dom.checkoutBtn.disabled = false;
-                this.dom.checkoutBtn.textContent = 'Finalizar';
-            }
-        }
+        this.selectedCustomer = customer;
+        this.showPaymentModal();
     }
 
     showReceipt() {
@@ -592,5 +566,94 @@ export class POS {
 
     printReceipt() {
         window.print();
+    }
+
+    showPaymentModal() {
+        const total = this.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        const totalBs = total * this.exchangeRate;
+
+        this.dom.paymentTotalUsd.textContent = `$${total.toFixed(2)}`;
+        this.dom.paymentTotalVes.textContent = `Bs ${totalBs.toFixed(2)}`;
+        this.dom.paymentReceivedVes.value = '';
+        this.dom.paymentReceivedUsd.value = '';
+        this.dom.paymentChange.textContent = 'Bs 0.00';
+
+        this.dom.paymentModal?.classList.remove('hidden');
+    }
+
+    hidePaymentModal() {
+        this.dom.paymentModal?.classList.add('hidden');
+    }
+
+    calculateChange() {
+        const total = this.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        const totalBs = total * this.exchangeRate;
+
+        const receivedVes = parseFloat(this.dom.paymentReceivedVes.value) || 0;
+        const receivedUsd = parseFloat(this.dom.paymentReceivedUsd.value) || 0;
+        const receivedVesFromUsd = receivedUsd * this.exchangeRate;
+        const totalReceived = receivedVes + receivedVesFromUsd;
+
+        const change = totalReceived - totalBs;
+        this.dom.paymentChange.textContent = `Bs ${Math.max(0, change).toFixed(2)}`;
+    }
+
+    async confirmPayment() {
+        if (this.cart.length === 0) return;
+
+        this.dom.confirmPaymentBtn.disabled = true;
+        this.dom.confirmPaymentBtn.textContent = 'Procesando...';
+
+        try {
+            const total = this.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            const receivedVes = parseFloat(this.dom.paymentReceivedVes.value) || 0;
+            const receivedUsd = parseFloat(this.dom.paymentReceivedUsd.value) || 0;
+            const totalBs = total * this.exchangeRate;
+            const receivedVesFromUsd = receivedUsd * this.exchangeRate;
+            const totalReceived = receivedVes + receivedVesFromUsd;
+            const change = Math.max(0, totalReceived - totalBs);
+
+            const saleData = {
+                items: this.cart.map(item => ({
+                    productId: item.id,
+                    name: item.name,
+                    price: item.price,
+                    quantity: item.quantity
+                })),
+                total,
+                customerId: this.selectedCustomer ? this.selectedCustomer.id : null,
+                paymentMethod: 'cash',
+                paymentDetails: {
+                    cash: {
+                        usd: receivedUsd,
+                        ves: receivedVes
+                    },
+                    change: change
+                }
+            };
+
+            const result = await api.sales.create(saleData);
+
+            this.lastSale = {
+                ...saleData,
+                id: result.saleId,
+                customer: this.selectedCustomer,
+                timestamp: new Date(),
+                exchangeRate: this.exchangeRate
+            };
+
+            this.cart = [];
+            this.renderCart();
+            await this.loadProducts();
+
+            this.hidePaymentModal();
+            this.showReceipt();
+
+        } catch (error) {
+            ui.showNotification(error.message || 'Error al crear la venta', 'error');
+        } finally {
+            this.dom.confirmPaymentBtn.disabled = false;
+            this.dom.confirmPaymentBtn.textContent = 'Confirmar Pago';
+        }
     }
 }
