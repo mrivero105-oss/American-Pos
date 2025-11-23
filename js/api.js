@@ -121,6 +121,24 @@ export const api = {
             handleAuthError(response);
             if (!response.ok) throw new Error('Error updating rate');
             return response.json();
+        },
+        getBusinessInfo: async () => {
+            const headers = await getAuthHeaders();
+            const response = await fetch(`${API_BASE_URL}/settings/business`, { headers });
+            handleAuthError(response);
+            if (!response.ok) throw new Error('Failed to fetch business info');
+            return response.json();
+        },
+        updateBusinessInfo: async (info) => {
+            const headers = await getAuthHeaders();
+            const response = await fetch(`${API_BASE_URL}/settings/business`, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify(info)
+            });
+            handleAuthError(response);
+            if (!response.ok) throw new Error('Failed to update business info');
+            return response.json();
         }
     },
     customers: {
