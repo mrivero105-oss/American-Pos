@@ -10,7 +10,7 @@ const firebaseConfig = {
 
 // Initialize Firebase
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -37,6 +37,17 @@ export const authService = {
             window.location.href = 'login.html';
         } catch (error) {
             console.error('Logout error:', error);
+        }
+    },
+
+    // Reset Password
+    resetPassword: async (email) => {
+        try {
+            await sendPasswordResetEmail(auth, email);
+            return { success: true };
+        } catch (error) {
+            console.error('Reset password error:', error);
+            return { success: false, error: error.message };
         }
     },
 
