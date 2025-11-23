@@ -131,6 +131,7 @@ class App {
             if (viewName === 'dashboard') this.views.dashboard.loadData();
             if (viewName === 'sales') this.views.sales.loadSales();
             if (viewName === 'products') this.views.products.loadProducts();
+            if (viewName === 'settings') this.views.settings.loadSettings();
         }
 
         this.currentView = viewName;
