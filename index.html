@@ -740,9 +740,16 @@
                                     <script type="module">
                                         import { authService } from './js/auth.js';
 
+                                        let authInitialized = false;
+
                                         // Check authentication on page load
                                         authService.onAuthChange((user) => {
-                                            if (!user) {
+                                            if (!authInitialized) {
+                                                authInitialized = true;
+                                                if (!user) {
+                                                    window.location.href = 'login.html';
+                                                }
+                                            } else if (!user) {
                                                 window.location.href = 'login.html';
                                             }
                                         });
