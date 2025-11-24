@@ -1,4 +1,4 @@
 # american-pos-frontend
 
-<!-- Deployment trigger: Firebase API key configured -->
+<!-- Deployment trigger: Correct Firebase API key configured -->
 
