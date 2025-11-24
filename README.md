@@ -1,4 +1,5 @@
 # american-pos-frontend
 
-<!-- Deployment trigger: Correct Firebase API key configured -->
+<!-- Deployment: Updated Firebase API key (2024-11-24) -->
+
 
