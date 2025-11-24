@@ -34,6 +34,16 @@ jobs:
           echo "    messagingSenderId: \"248248095933\"," >> js/config.js
           echo "    appId: \"1:248248095933:web:b0f75f9e5dfbc4594e93d4\"" >> js/config.js
           echo "};" >> js/config.js
+          echo "Verifying config.js was created:"
+          ls -la js/config.js
+          cat js/config.js
+
+      - name: Prepare deployment directory
+        run: |
+          mkdir -p _deploy
+          cp -r * _deploy/ 2>/dev/null || true
+          cp -r .github _deploy/ 2>/dev/null || true
+          ls -la _deploy/js/config.js
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
@@ -41,7 +51,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: '.'
+          path: '_deploy'
 
       - name: Deploy to GitHub Pages
         id: deployment
