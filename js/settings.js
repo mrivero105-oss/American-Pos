@@ -53,9 +53,17 @@ export class Settings {
 
             if (this.dom.businessName) {
                 this.dom.businessName.value = businessData.name || '';
+            }
+            if (this.dom.businessAddress) {
                 this.dom.businessAddress.value = businessData.address || '';
+            }
+            if (this.dom.businessPhone) {
                 this.dom.businessPhone.value = businessData.phone || '';
+            }
+            if (this.dom.businessTaxId) {
                 this.dom.businessTaxId.value = businessData.taxId || '';
+            }
+            if (this.dom.businessLogo) {
                 this.dom.businessLogo.value = businessData.logoUrl || '';
             }
 
