@@ -761,7 +761,17 @@
                                             }
                                         });
                                     </script>
-
+                                    <!-- Unregister Service Worker (Fix for auto-refresh) -->
+                                    <script>
+                                        if ('serviceWorker' in navigator) {
+                                            navigator.serviceWorker.getRegistrations().then(function (registrations) {
+                                                for (let registration of registrations) {
+                                                    registration.unregister();
+                                                    console.log('Service Worker unregistered');
+                                                }
+                                            });
+                                        }
+                                    </script>
                                     <!-- Main Script -->
                                     <script type="module" src="js/app.js"></script>
 </body>
