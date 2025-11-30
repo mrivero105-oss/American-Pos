@@ -250,13 +250,22 @@ export class Dashboard {
 
         [this.charts.trend, this.charts.topProducts, this.charts.paymentMethods].forEach(chart => {
             if (chart) {
-                chart.options.scales.x.ticks.color = colors.textColor;
-                chart.options.scales.y.ticks.color = colors.textColor;
-                chart.options.scales.x.grid.color = 'transparent';
-                chart.options.scales.y.grid.color = colors.gridColor;
-                chart.options.plugins.tooltip.backgroundColor = colors.tooltipBg;
-                chart.options.plugins.tooltip.titleColor = colors.tooltipText;
-                chart.options.plugins.tooltip.bodyColor = colors.tooltipText;
+                if (chart.options.scales && chart.options.scales.x) {
+                    chart.options.scales.x.ticks.color = colors.textColor;
+                    chart.options.scales.x.grid.color = 'transparent';
+                }
+                if (chart.options.scales && chart.options.scales.y) {
+                    chart.options.scales.y.ticks.color = colors.textColor;
+                    chart.options.scales.y.grid.color = colors.gridColor;
+                }
+                if (chart.options.plugins && chart.options.plugins.tooltip) {
+                    chart.options.plugins.tooltip.backgroundColor = colors.tooltipBg;
+                    chart.options.plugins.tooltip.titleColor = colors.tooltipText;
+                    chart.options.plugins.tooltip.bodyColor = colors.tooltipText;
+                }
+                if (chart.options.plugins && chart.options.plugins.legend && chart.options.plugins.legend.labels) {
+                    chart.options.plugins.legend.labels.color = colors.textColor;
+                }
                 chart.update();
             }
         });

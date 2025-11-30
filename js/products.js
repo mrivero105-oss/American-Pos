@@ -646,6 +646,17 @@ export const Products = {
         alert(`${this.products.length} productos exportados exitosamente`);
     },
 
+    async loadProducts() {
+        try {
+            const products = await API.products.getAll();
+            this.products = products;
+            this.renderProductList();
+        } catch (error) {
+            console.error('Error loading products:', error);
+            // ui.showNotification('Error cargando productos', 'error');
+        }
+    },
+
     // Advanced Pricing Methods
     handlePackageTypeChange() {
         const packageType = this.dom.packageType.value;
