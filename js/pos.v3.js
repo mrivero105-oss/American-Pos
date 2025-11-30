@@ -1611,49 +1611,18 @@ processCheckout(customer) {
         this.holdSale();
         this.pendingHold = false;
         return;
-    }
-
-    this.showPaymentModal();
-}
-
-handleCustomerSearch(query) {
-    console.log('handleCustomerSearch called with:', query);
-    if (!this.customers) {
-        console.error('Customers array is undefined!');
-        return;
-    }
-    console.log('Total customers:', this.customers.length);
-
-    if (!query || query.length < 2) {
-        this.dom.customerSearchResults.classList.add('hidden');
-        this.customerSearchHighlightIndex = -1;
-        return;
-    }
-
-    const term = query.toLowerCase();
-    const matches = this.customers.filter(c =>
-        c.name.toLowerCase().includes(term) ||
-        (c.idDocument && c.idDocument.includes(term))
-    ).slice(0, 5); // Limit to 5 results
-
-    console.log('Matches found:', matches.length);
-
-    this.customerSearchHighlightIndex = -1; // Reset highlight
-
-    if (matches.length > 0) {
-        this.dom.customerSearchResults.innerHTML = matches.map((c, index) => `
-                    <div class="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer border-b border-slate-100 dark:border-slate-700 last:border-0 transition-colors"
-                data-index="${index}"
-                onclick="window.pos.selectCustomer('${c.id}')">
-                    <p class="text-sm font-bold text-slate-800 dark:text-white">${c.name}</p>
-                    <p class="text-xs text-slate-500 dark:text-slate-400">${c.idDocument || 'Sin Doc'}</p>
-                </div>
-                    `).join('');
+        <div class="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer border-b border-slate-100 dark:border-slate-700 last:border-0 transition-colors"
+            data-index="${index}"
+            onclick="window.pos.selectCustomer('${c.id}')">
+            <p class="text-sm font-bold text-slate-800 dark:text-white">${c.name}</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400">${c.idDocument || 'Sin Doc'}</p>
+        </div>
+        `).join('');
         this.dom.customerSearchResults.classList.remove('hidden');
     } else {
         this.dom.customerSearchResults.innerHTML = `
-                    <div class="p-2 text-sm text-slate-500 dark:text-slate-400 text-center">No encontrado</div>
-                        `;
+            < div class="p-2 text-sm text-slate-500 dark:text-slate-400 text-center" > No encontrado</div >
+                `;
         this.dom.customerSearchResults.classList.remove('hidden');
     }
 }
@@ -1716,8 +1685,8 @@ showPaymentModal() {
     const totalBs = total * this.exchangeRate;
 
     // Update Total Display
-    if (this.dom.paymentTotalUsd) this.dom.paymentTotalUsd.textContent = `$${total.toFixed(2)} `;
-    if (this.dom.paymentTotalVes) this.dom.paymentTotalVes.textContent = `Bs ${totalBs.toFixed(2)} `;
+    if (this.dom.paymentTotalUsd) this.dom.paymentTotalUsd.textContent = `$${ total.toFixed(2) } `;
+    if (this.dom.paymentTotalVes) this.dom.paymentTotalVes.textContent = `Bs ${ totalBs.toFixed(2) } `;
 
     // Select default method (Cash)
     this.handlePaymentMethodClick('cash');
@@ -1753,10 +1722,11 @@ populatePaymentMethods() {
 
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = `payment-method-btn w-full py-3 px-4 rounded-lg border text-sm font-medium transition-all duration-200 ${method.id === this.selectedPaymentMethodId
+        button.className = `payment - method - btn w - full py - 3 px - 4 rounded - lg border text - sm font - medium transition - all duration - 200 ${
+            method.id === this.selectedPaymentMethodId
             ? 'bg-slate-900 text-white border-slate-900 dark:bg-blue-600 dark:border-blue-600 dark:text-white shadow-md'
             : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-600'
-            }`;
+        } `;
         button.textContent = method.name;
         button.dataset.id = method.id;
         button.addEventListener('click', () => this.handlePaymentMethodClick(method.id));
@@ -1808,7 +1778,7 @@ onPaymentMethodChange() {
                     id: m.id,
                     name: m.name,
                     currency: m.currency || 'VES',
-                    placeholder: `Monto ${m.currency || 'VES'} `,
+                    placeholder: `Monto ${ m.currency || 'VES' } `,
                     requiresReference: m.requiresReference // Keep this if needed
                 });
             }
@@ -1821,7 +1791,7 @@ onPaymentMethodChange() {
                 id: method.id,
                 name: method.name,
                 currency: method.currency || 'VES',
-                placeholder: `Monto ${method.currency || 'VES'} `,
+                placeholder: `Monto ${ method.currency || 'VES' } `,
                 requiresReference: method.requiresReference
             });
         }
@@ -1833,7 +1803,7 @@ onPaymentMethodChange() {
         const showRef = input.requiresReference || input.id === 'pago_movil' || input.name.toLowerCase().includes('pago movil');
 
         html += `
-                    <div class="grid grid-cols-12 gap-2 items-end payment-row">
+            < div class="grid grid-cols-12 gap-2 items-end payment-row" >
                     <div class="col-span-12">
                         <label class="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">${input.name}</label>
                     </div>
@@ -1844,7 +1814,8 @@ onPaymentMethodChange() {
                             class="payment-input w-full rounded-md border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500" 
                             step="0.01" min="0" placeholder="${input.placeholder}">
                     </div>
-                    ${showRef ? `
+                    ${
+            showRef ? `
                     <div class="col-span-5">
                         <input type="text" 
                             data-ref-for="${input.id}"
@@ -1852,9 +1823,9 @@ onPaymentMethodChange() {
                             placeholder="Ref.">
                     </div>
                     ` : ''
-            }
-                </div>
-                    `;
+        }
+                </div >
+            `;
     });
     html += '</div>';
     this.dom.paymentFields.innerHTML = html;
@@ -1893,7 +1864,7 @@ calculateChange() {
 
     if (changeUsd >= -0.01) { // Tolerance for float errors
         this.dom.paymentChange.innerHTML = `
-                <div class="flex flex-col items-center justify-center">
+            < div class="flex flex-col items-center justify-center" >
                     <span class="text-sm text-slate-500 dark:text-slate-400">Su Vuelto</span>
                     <div class="text-xl font-bold text-green-600 dark:text-green-400">
                         $${Math.max(0, changeUsd).toFixed(2)}
@@ -1901,13 +1872,13 @@ calculateChange() {
                     <div class="text-sm font-medium text-green-600 dark:text-green-400">
                         Bs ${Math.max(0, changeBs).toFixed(2)}
                     </div>
-                </div>
+                </div >
             `;
     } else {
         const missing = Math.abs(changeUsd);
         const missingBs = missing * this.exchangeRate;
         this.dom.paymentChange.innerHTML = `
-                <div class="flex flex-col items-center justify-center">
+            < div class="flex flex-col items-center justify-center" >
                     <span class="text-sm text-red-500 dark:text-red-400 font-medium">Faltan</span>
                     <div class="text-xl font-bold text-red-600 dark:text-red-400">
                         $${missing.toFixed(2)}
@@ -1915,7 +1886,7 @@ calculateChange() {
                     <div class="text-sm font-medium text-red-600 dark:text-red-400">
                         Bs ${missingBs.toFixed(2)}
                     </div>
-                </div>
+                </div >
             `;
     }
 }
@@ -1949,7 +1920,7 @@ calculateChange() {
         if (val > 0) {
             const id = input.dataset.id;
             const currency = input.dataset.currency;
-            const refInput = this.dom.paymentFields.querySelector(`[data-ref-for="${id}"]`);
+            const refInput = this.dom.paymentFields.querySelector(`[data - ref -for= "${id}"]`);
             const reference = refInput ? refInput.value : '';
 
             paymentDetails.push({
@@ -2028,7 +1999,7 @@ generateReceiptHtml(saleData) {
     };
 
     return `
-            <div style="${styles.container}">
+            < div style = "${styles.container}" >
                 <div style="${styles.header}">
                     <h1 style="${styles.headerTitle}">${this.businessInfo?.name || 'American POS'}</h1>
                     <p style="${styles.headerSub}">${dateStr}</p>
@@ -2086,8 +2057,8 @@ generateReceiptHtml(saleData) {
                     <p style="margin: 0; font-weight: 600;">¡Gracias por su compra!</p>
                     <p style="margin: 5px 0 0; opacity: 0.7;">Generado por American POS</p>
                 </div>
-            </div>
-        `;
+            </div >
+            `;
 }
 
 hideReceipt() {
@@ -2120,7 +2091,7 @@ sendEmailInBackground(email) {
     // Fire and forget (but handle errors)
     api.sales.emailReceipt(this.lastSale.id, email, html)
         .then(() => {
-            ui.showNotification(`Recibo enviado a ${email}`, 'success');
+            ui.showNotification(`Recibo enviado a ${ email } `, 'success');
         })
         .catch(error => {
             console.error('Error sending email:', error);
