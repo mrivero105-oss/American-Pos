@@ -103,19 +103,6 @@ export class POS {
             cartSidebar: document.getElementById('cart-sidebar'),
             closeCartBtn: document.getElementById('close-cart-btn'),
 
-            // Customer Modal
-            customerSelectionModal: document.getElementById('customer-selection-modal'),
-            closeReceiptBtn: document.getElementById('close-receipt'),
-            emailReceiptBtn: document.getElementById('email-receipt-btn'),
-            printReceiptBtn: document.getElementById('print-receipt-btn'),
-
-            // Payment Modal Elements
-            paymentModal: document.getElementById('payment-modal'),
-            cancelPaymentBtn: document.getElementById('cancel-payment-btn'),
-            confirmPaymentBtn: document.getElementById('confirm-payment-btn'),
-            paymentTotalUsd: document.getElementById('payment-total-usd'),
-            paymentTotalVes: document.getElementById('payment-total-ves'),
-            paymentReceivedUsd: document.getElementById('payment-received-usd'),
             paymentReceivedVes: document.getElementById('payment-received-ves'),
             paymentAmount: document.getElementById('payment-amount'),
             paymentMethodOptions: document.getElementById('payment-method-options'),
@@ -138,19 +125,6 @@ export class POS {
             priceCheckStock: document.getElementById('price-check-stock'),
 
             // Custom Item
-            customItemModal: document.getElementById('custom-item-modal'),
-            customItemForm: document.getElementById('custom-item-form'),
-            customItemName: document.getElementById('custom-item-name'),
-            customItemPriceUsd: document.getElementById('custom-item-price-usd'),
-            cancelCustomItemBtn: document.getElementById('cancel-custom-item-btn'),
-
-            // Weight Modal
-            weightModal: document.getElementById('weight-modal'),
-            weightModalTitle: document.getElementById('weight-modal-title'),
-            weightInput: document.getElementById('weight-input'),
-            weightPriceUsd: document.getElementById('weight-price-usd'),
-            weightPriceBs: document.getElementById('weight-price-bs'),
-            confirmWeightBtn: document.getElementById('confirm-weight-btn'),
             cancelWeightBtn: document.getElementById('cancel-weight-btn'),
             cancelWeightBtnX: document.getElementById('close-weight-modal'),
         };
