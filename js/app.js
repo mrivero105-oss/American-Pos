@@ -6,7 +6,7 @@ import { Customers } from './customers.js?v=198';
 import { Products } from './products.js?v=198';
 import { authService } from './auth.js?v=198';
 
-const APP_VERSION = 'v198';
+const APP_VERSION = 'v199';
 
 class App {
     constructor() {
