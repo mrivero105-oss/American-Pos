@@ -2263,37 +2263,22 @@ export class POS {
                 </button>
             </div>
         `;
+        renderCustomerSearchResults(results) {
+            if (!this.dom.customerSearchResults) {
+                console.error('POS: customerSearchResults DOM element not found!');
+                return;
+            }
 
-        this.dom.priceCheckResult.classList.remove('hidden');
-    }
-    // Customer Search Logic
-    searchCustomers(query) {
-        if (!query || query.length < 2) {
-            if (this.dom.customerSearchResults) this.dom.customerSearchResults.classList.add('hidden');
-            return;
-        }
+            console.log('POS: Rendering search results:', results);
 
-        const lowerQuery = query.toLowerCase();
-        const results = this.customers.filter(c =>
-            c.name.toLowerCase().includes(lowerQuery) ||
-            (c.docNumber && c.docNumber.includes(lowerQuery)) ||
-            (c.email && c.email.toLowerCase().includes(lowerQuery))
-        ).slice(0, 10); // Limit to 10 results
-
-        this.renderCustomerSearchResults(results);
-    }
-
-    renderCustomerSearchResults(results) {
-        if (!this.dom.customerSearchResults) return;
-
-        if (results.length === 0) {
-            this.dom.customerSearchResults.innerHTML = `
+            if (results.length === 0) {
+                this.dom.customerSearchResults.innerHTML = `
                 <div class="p-3 text-sm text-slate-500 dark:text-slate-400 text-center">
                     No se encontraron clientes
                 </div>
             `;
-        } else {
-            this.dom.customerSearchResults.innerHTML = results.map(c => `
+            } else {
+                this.dom.customerSearchResults.innerHTML = results.map(c => `
                 <div class="p-3 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer border-b border-slate-100 dark:border-slate-700 last:border-0 transition-colors"
                     onclick="pos.selectCustomer('${c.id}')">
                     <div class="font-bold text-slate-800 dark:text-white text-sm">${c.name}</div>
@@ -2304,74 +2289,75 @@ export class POS {
                     </div>
                 </div>
             `).join('');
+            }
+
+            this.dom.customerSearchResults.classList.remove('hidden');
+            console.log('POS: customerSearchResults classList:', this.dom.customerSearchResults.classList.toString());
         }
 
-        this.dom.customerSearchResults.classList.remove('hidden');
+        selectCustomer(customerId) {
+            const customer = this.customers.find(c => c.id == customerId); // Loose equality for string/number mismatch
+            if (!customer) return;
+
+            this.selectedCustomer = customer;
+
+            // Update UI
+            if (this.dom.selectedCustomerName) this.dom.selectedCustomerName.textContent = customer.name;
+            if (this.dom.selectedCustomerDoc) this.dom.selectedCustomerDoc.textContent = `${customer.docType || ''}-${customer.docNumber || ''}`;
+
+            if (this.dom.customerSearchContainer) {
+                const inputContainer = this.dom.customerSearchContainer.querySelector('.relative');
+                if (inputContainer) inputContainer.classList.add('hidden');
+            }
+
+            if (this.dom.selectedCustomerDisplay) this.dom.selectedCustomerDisplay.classList.remove('hidden');
+            if (this.dom.customerSearchResults) this.dom.customerSearchResults.classList.add('hidden');
+            if (this.dom.customerSearchInput) this.dom.customerSearchInput.value = '';
+
+            ui.showNotification(`Cliente seleccionado: ${customer.name}`);
+        }
+
+        deselectCustomer() {
+            this.selectedCustomer = null;
+
+            if (this.dom.customerSearchContainer) {
+                const inputContainer = this.dom.customerSearchContainer.querySelector('.relative');
+                if (inputContainer) inputContainer.classList.remove('hidden');
+            }
+
+            if (this.dom.selectedCustomerDisplay) this.dom.selectedCustomerDisplay.classList.add('hidden');
+            if (this.dom.customerSearchInput) {
+                this.dom.customerSearchInput.value = '';
+                this.dom.customerSearchInput.focus();
+            }
+        }
     }
-
-    selectCustomer(customerId) {
-        const customer = this.customers.find(c => c.id == customerId); // Loose equality for string/number mismatch
-        if (!customer) return;
-
-        this.selectedCustomer = customer;
-
-        // Update UI
-        if (this.dom.selectedCustomerName) this.dom.selectedCustomerName.textContent = customer.name;
-        if (this.dom.selectedCustomerDoc) this.dom.selectedCustomerDoc.textContent = `${customer.docType || ''}-${customer.docNumber || ''}`;
-
-        if (this.dom.customerSearchContainer) {
-            const inputContainer = this.dom.customerSearchContainer.querySelector('.relative');
-            if (inputContainer) inputContainer.classList.add('hidden');
-        }
-
-        if (this.dom.selectedCustomerDisplay) this.dom.selectedCustomerDisplay.classList.remove('hidden');
-        if (this.dom.customerSearchResults) this.dom.customerSearchResults.classList.add('hidden');
-        if (this.dom.customerSearchInput) this.dom.customerSearchInput.value = '';
-
-        ui.showNotification(`Cliente seleccionado: ${customer.name}`);
-    }
-
-    deselectCustomer() {
-        this.selectedCustomer = null;
-
-        if (this.dom.customerSearchContainer) {
-            const inputContainer = this.dom.customerSearchContainer.querySelector('.relative');
-            if (inputContainer) inputContainer.classList.remove('hidden');
-        }
-
-        if (this.dom.selectedCustomerDisplay) this.dom.selectedCustomerDisplay.classList.add('hidden');
-        if (this.dom.customerSearchInput) {
-            this.dom.customerSearchInput.value = '';
-            this.dom.customerSearchInput.focus();
-        }
-    }
-}
 
 // Global Functions for HTML access
 window.toggleMobileMenu = function () {
-    const menu = document.getElementById('mobile-menu');
-    if (menu) {
-        menu.classList.toggle('hidden');
-    }
-};
+        const menu = document.getElementById('mobile-menu');
+        if (menu) {
+            menu.classList.toggle('hidden');
+        }
+    };
 
 window.toggleMobileCart = function () {
-    const cart = document.getElementById('mobile-cart-drawer');
-    const overlay = document.getElementById('mobile-overlay');
-    if (cart && overlay) {
-        cart.classList.toggle('translate-x-full');
-        overlay.classList.toggle('hidden');
-    }
-};
+        const cart = document.getElementById('mobile-cart-drawer');
+        const overlay = document.getElementById('mobile-overlay');
+        if (cart && overlay) {
+            cart.classList.toggle('translate-x-full');
+            overlay.classList.toggle('hidden');
+        }
+    };
 
 window.closeMobileCart = function () {
-    const cart = document.getElementById('mobile-cart-drawer');
-    const overlay = document.getElementById('mobile-overlay');
-    if (cart && overlay) {
-        cart.classList.add('translate-x-full');
-        overlay.classList.add('hidden');
-    }
-};
+        const cart = document.getElementById('mobile-cart-drawer');
+        const overlay = document.getElementById('mobile-overlay');
+        if (cart && overlay) {
+            cart.classList.add('translate-x-full');
+            overlay.classList.add('hidden');
+        }
+    };
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
