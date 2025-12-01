@@ -105,24 +105,6 @@ export class POS {
 
             // Customer Modal
             customerSelectionModal: document.getElementById('customer-selection-modal'),
-            customerListCheckout: document.getElementById('customer-list-checkout'),
-            searchCustomerCheckout: document.getElementById('search-customer-checkout'),
-            skipCustomerBtn: document.getElementById('skip-customer-btn'),
-            closeCustomerSelection: document.getElementById('close-customer-selection'),
-
-            // New Customer Search
-            customerSearchContainer: document.getElementById('customer-search-container'),
-            customerSearchInput: document.getElementById('customer-search-input'),
-            customerSearchResults: document.getElementById('customer-search-results'),
-            selectedCustomerDisplay: document.getElementById('selected-customer-display'),
-            selectedCustomerName: document.getElementById('selected-customer-name'),
-            selectedCustomerDoc: document.getElementById('selected-customer-doc'),
-            deselectCustomerBtn: document.getElementById('deselect-customer-btn'),
-
-            // Receipt Modal Elements
-            receiptModalContent: document.getElementById('receipt-modal-content'),
-            paymentFormContent: document.getElementById('payment-form-content'),
-            receiptContent: document.getElementById('receipt-content'),
             closeReceiptBtn: document.getElementById('close-receipt'),
             emailReceiptBtn: document.getElementById('email-receipt-btn'),
             printReceiptBtn: document.getElementById('print-receipt-btn'),
@@ -217,6 +199,46 @@ export class POS {
                     const query = e.target.value;
                     this.searchPriceCheck(query);
                 });
+            }
+
+            // Customer Search Input
+            if (this.dom.customerSearchInput) {
+                this.dom.customerSearchInput.addEventListener('input', (e) => {
+                    const query = e.target.value;
+                    this.searchCustomers(query);
+                });
+
+                // Hide results when clicking outside
+                document.addEventListener('click', (e) => {
+                    if (this.dom.customerSearchContainer && !this.dom.customerSearchContainer.contains(e.target)) {
+                        if (this.dom.customerSearchResults) this.dom.customerSearchResults.classList.add('hidden');
+                    }
+                });
+            }
+
+            // Deselect Customer
+            if (this.dom.deselectCustomerBtn) {
+                this.dom.deselectCustomerBtn.addEventListener('click', () => this.deselectCustomer());
+            }
+
+            // Customer Search Input
+            if (this.dom.customerSearchInput) {
+                this.dom.customerSearchInput.addEventListener('input', (e) => {
+                    const query = e.target.value;
+                    this.searchCustomers(query);
+                });
+
+                // Hide results when clicking outside
+                document.addEventListener('click', (e) => {
+                    if (this.dom.customerSearchContainer && !this.dom.customerSearchContainer.contains(e.target)) {
+                        if (this.dom.customerSearchResults) this.dom.customerSearchResults.classList.add('hidden');
+                    }
+                });
+            }
+
+            // Deselect Customer
+            if (this.dom.deselectCustomerBtn) {
+                this.dom.deselectCustomerBtn.addEventListener('click', () => this.deselectCustomer());
             }
 
             // Scanner
@@ -2243,6 +2265,85 @@ export class POS {
         `;
 
         this.dom.priceCheckResult.classList.remove('hidden');
+    }
+    // Customer Search Logic
+    searchCustomers(query) {
+        if (!query || query.length < 2) {
+            if (this.dom.customerSearchResults) this.dom.customerSearchResults.classList.add('hidden');
+            return;
+        }
+
+        const lowerQuery = query.toLowerCase();
+        const results = this.customers.filter(c =>
+            c.name.toLowerCase().includes(lowerQuery) ||
+            (c.docNumber && c.docNumber.includes(lowerQuery)) ||
+            (c.email && c.email.toLowerCase().includes(lowerQuery))
+        ).slice(0, 10); // Limit to 10 results
+
+        this.renderCustomerSearchResults(results);
+    }
+
+    renderCustomerSearchResults(results) {
+        if (!this.dom.customerSearchResults) return;
+
+        if (results.length === 0) {
+            this.dom.customerSearchResults.innerHTML = `
+                <div class="p-3 text-sm text-slate-500 dark:text-slate-400 text-center">
+                    No se encontraron clientes
+                </div>
+            `;
+        } else {
+            this.dom.customerSearchResults.innerHTML = results.map(c => `
+                <div class="p-3 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer border-b border-slate-100 dark:border-slate-700 last:border-0 transition-colors"
+                    onclick="pos.selectCustomer('${c.id}')">
+                    <div class="font-bold text-slate-800 dark:text-white text-sm">${c.name}</div>
+                    <div class="text-xs text-slate-500 dark:text-slate-400 flex gap-2">
+                        <span>${c.docType || ''}-${c.docNumber || 'N/A'}</span>
+                        <span>•</span>
+                        <span>${c.email || 'Sin email'}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        this.dom.customerSearchResults.classList.remove('hidden');
+    }
+
+    selectCustomer(customerId) {
+        const customer = this.customers.find(c => c.id == customerId); // Loose equality for string/number mismatch
+        if (!customer) return;
+
+        this.selectedCustomer = customer;
+
+        // Update UI
+        if (this.dom.selectedCustomerName) this.dom.selectedCustomerName.textContent = customer.name;
+        if (this.dom.selectedCustomerDoc) this.dom.selectedCustomerDoc.textContent = `${customer.docType || ''}-${customer.docNumber || ''}`;
+
+        if (this.dom.customerSearchContainer) {
+            const inputContainer = this.dom.customerSearchContainer.querySelector('.relative');
+            if (inputContainer) inputContainer.classList.add('hidden');
+        }
+
+        if (this.dom.selectedCustomerDisplay) this.dom.selectedCustomerDisplay.classList.remove('hidden');
+        if (this.dom.customerSearchResults) this.dom.customerSearchResults.classList.add('hidden');
+        if (this.dom.customerSearchInput) this.dom.customerSearchInput.value = '';
+
+        ui.showNotification(`Cliente seleccionado: ${customer.name}`);
+    }
+
+    deselectCustomer() {
+        this.selectedCustomer = null;
+
+        if (this.dom.customerSearchContainer) {
+            const inputContainer = this.dom.customerSearchContainer.querySelector('.relative');
+            if (inputContainer) inputContainer.classList.remove('hidden');
+        }
+
+        if (this.dom.selectedCustomerDisplay) this.dom.selectedCustomerDisplay.classList.add('hidden');
+        if (this.dom.customerSearchInput) {
+            this.dom.customerSearchInput.value = '';
+            this.dom.customerSearchInput.focus();
+        }
     }
 }
 
