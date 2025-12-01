@@ -36,6 +36,80 @@
         }
     </script>
 
+    <style>
+        /* Critical Fallback CSS */
+        .fixed {
+            position: fixed !important;
+        }
+
+        .inset-0 {
+            top: 0;
+            right: 0;
+            bottom: 0;
+            left: 0;
+        }
+
+        .z-\[70\] {
+            z-index: 70;
+        }
+
+        .flex {
+            display: flex !important;
+        }
+
+        .items-center {
+            align-items: center;
+        }
+
+        .justify-center {
+            justify-content: center;
+        }
+
+        .bg-black\/60 {
+            background-color: rgba(0, 0, 0, 0.6);
+        }
+
+        /* Hidden must be last to override flex */
+        .hidden {
+            display: none !important;
+        }
+
+        /* ROBUST MODAL STYLES (Bypassing Tailwind) */
+        #price-check-modal {
+            position: fixed;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            left: 0;
+            z-index: 9999;
+            background-color: transparent;
+            /* Transparent background */
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+            /* Allow clicks to pass through outside */
+        }
+
+        #price-check-modal>div {
+            background-color: white;
+            width: 90%;
+            max-width: 500px;
+            border-radius: 1rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            overflow: hidden;
+            position: relative;
+            pointer-events: auto;
+            /* Enable clicks on the modal itself */
+        }
+
+        /* Dark mode support for modal */
+        .dark #price-check-modal>div {
+            background-color: #1e293b;
+            /* slate-800 */
+            color: white;
+            border: 1px solid #334155;
+        }
+    </style>
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -46,10 +120,10 @@
     <script type="module" src="js/app.js?v=v193"></script>
 
     <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-
-    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" defer></script>
+    <!-- QR Code Scanner -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <!-- SheetJS for Excel parsing -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js" defer></script>
     <style>
@@ -522,6 +596,15 @@
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                            </svg>
+                        </button>
+                        <button id="price-check-btn" onclick="window.manualOpenPriceCheck()"
+                            class="px-3 py-2 bg-emerald-600 text-white rounded-full hover:bg-emerald-700 transition-colors shadow-sm flex items-center justify-center ml-1"
+                            title="Consultar Precio (F3)">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z">
+                                </path>
                             </svg>
                         </button>
                         <button id="theme-toggle"
@@ -1546,7 +1629,7 @@
             </div>
         </div>
         <!-- Main App Logic -->
-        <script type="module" src="js/app.js"></script>
+        <script type="module" src="js/app.js?v=198"></script>
 
         <!-- CUSTOMER SELECTION MODAL -->
         <div id="customer-selection-modal"
@@ -1678,7 +1761,16 @@
                         de que deseas eliminar
                         todos los productos del
                         carrito? Esta acción no se puede deshacer.</p>
-                    </button>
+                    <div class="flex gap-3 justify-center">
+                        <button id="cancel-confirm-btn"
+                            class="px-4 py-2 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors font-medium">
+                            Cancelar
+                        </button>
+                        <button id="confirm-action-btn"
+                            class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors shadow-lg font-medium">
+                            Confirmar
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1782,12 +1874,178 @@
                         // alert('DEBUG: ui.js loaded');
                         await import('./js/api.js');
                         // alert('DEBUG: api.js loaded');
+                        await import('./js/app.js');
                         // POS is loaded via app.js
                     } catch (e) {
                         alert('CRITICAL IMPORT ERROR:\n' + e.message + '\n' + e.stack);
                     }
                 })();
             </script>
+        </div>
+
+        <!-- STANDALONE DEBUG SCRIPT (Moved outside module) -->
+        <script>
+            let priceCheckTimer = null;
+
+            window.closePriceCheck = function () {
+                const modal = document.getElementById('price-check-modal');
+                if (modal) {
+                    modal.classList.add('hidden');
+                    modal.style.display = 'none';
+                }
+                if (priceCheckTimer) {
+                    clearTimeout(priceCheckTimer);
+                    priceCheckTimer = null;
+                }
+            };
+
+            window.manualOpenPriceCheck = function () {
+                console.log('Manual Open Called');
+                const modal = document.getElementById('price-check-modal');
+
+                // Clear existing timer if any
+                if (priceCheckTimer) clearTimeout(priceCheckTimer);
+
+                if (modal) {
+                    modal.classList.remove('hidden');
+                    // Force display style in case Tailwind failed
+                    modal.style.display = 'flex';
+
+                    const input = document.getElementById('price-check-input');
+                    if (input) {
+                        input.value = '';
+                        input.focus();
+                    }
+                    // Try to reset UI if POS exists, otherwise just show
+                    if (window.pos && window.pos.resetPriceCheckUI) {
+                        window.pos.resetPriceCheckUI();
+                    }
+
+                    // Auto close after 5 seconds
+                    priceCheckTimer = setTimeout(() => {
+                        window.closePriceCheck();
+                    }, 5000);
+
+                } else {
+                    alert('CRITICAL: Modal element not found in DOM!');
+                }
+            };
+
+            // Global Escape listener
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    window.closePriceCheck();
+                }
+            });
+
+            // Reset timer on user interaction
+            document.addEventListener('DOMContentLoaded', () => {
+                const input = document.getElementById('price-check-input');
+                if (input) {
+                    input.addEventListener('input', () => {
+                        if (priceCheckTimer) clearTimeout(priceCheckTimer);
+                        priceCheckTimer = setTimeout(() => {
+                            window.closePriceCheck();
+                        }, 5000);
+                    });
+                }
+            });
+        </script>
+        <!-- PRICE CHECK MODAL (Moved to end of body) -->
+        <div id="price-check-modal"
+            class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-[9999] flex items-center justify-center p-4">
+            <div
+                class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden transform transition-all scale-100">
+                <div
+                    class="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900">
+                    <h3 class="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                        <svg class="w-6 h-6 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z">
+                            </path>
+                        </svg>
+                        Consultar Precio
+                    </h3>
+                    <button id="close-price-check-btn"
+                        onclick="document.getElementById('price-check-modal').classList.add('hidden'); document.getElementById('price-check-modal').style.display='none';"
+                        class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-3xl leading-none">&times;</button>
+                </div>
+                <div class="p-6">
+                    <!-- Search Input -->
+                    <div class="mb-6 relative">
+                        <input type="text" id="price-check-input"
+                            class="w-full pl-10 pr-4 py-4 text-lg border-2 border-slate-200 dark:border-slate-600 rounded-xl focus:outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/20 transition-all bg-white dark:bg-slate-700 dark:text-white font-medium"
+                            placeholder="Escanear código o buscar producto...">
+                        <svg class="w-6 h-6 text-slate-400 absolute left-3 top-4" fill="none" stroke="currentColor"
+                            viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                    </div>
+
+                    <!-- Results List (Smart Search) -->
+                    <div id="price-check-list" class="hidden max-h-60 overflow-y-auto space-y-2 mb-4">
+                        <!-- JS Injected Items -->
+                    </div>
+
+                    <!-- Result Display -->
+                    <div id="price-check-result" class="hidden text-center animate-fade-in">
+                        <div class="mb-4 flex justify-center">
+                            <div
+                                class="w-48 h-48 bg-white rounded-xl shadow-lg p-2 flex items-center justify-center overflow-hidden border border-slate-100">
+                                <img id="price-check-img" src="" alt="Producto"
+                                    class="max-w-full max-h-full object-contain">
+                            </div>
+                        </div>
+
+                        <h2 id="price-check-name"
+                            class="text-2xl font-bold text-slate-800 dark:text-white mb-2 leading-tight">
+                        </h2>
+                        <p id="price-check-barcode"
+                            class="text-sm text-slate-500 dark:text-slate-400 mb-6 font-mono bg-slate-100 dark:bg-slate-700 inline-block px-3 py-1 rounded-full">
+                        </p>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div
+                                class="bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-xl border border-emerald-100 dark:border-emerald-800/50">
+                                <p
+                                    class="text-sm font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1">
+                                    Precio USD</p>
+                                <p id="price-check-usd"
+                                    class="text-3xl font-black text-emerald-700 dark:text-emerald-300">$0.00
+                                </p>
+                            </div>
+                            <div
+                                class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-800/50">
+                                <p
+                                    class="text-sm font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-1">
+                                    Precio BS</p>
+                                <p id="price-check-bs" class="text-3xl font-black text-blue-700 dark:text-blue-300">
+                                    Bs 0.00</p>
+                            </div>
+                        </div>
+
+                        <div id="price-check-stock-container" class="mt-4">
+                            <span id="price-check-stock"
+                                class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                                Stock: 10
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Initial State -->
+                    <div id="price-check-placeholder" class="text-center py-10 text-slate-400 dark:text-slate-500">
+                        <svg class="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor"
+                            viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z">
+                            </path>
+                        </svg>
+                        <p class="text-lg">Escanea un código de barras<br>para ver el precio</p>
+                    </div>
+                </div>
+            </div>
+        </div>
 </body>
 
 </html>

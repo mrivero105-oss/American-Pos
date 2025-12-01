@@ -1,12 +1,12 @@
-import { POS } from './pos.v3.js?v=193';
-import { Dashboard } from './dashboard.js?v=193';
-import { SalesHistory } from './sales.js?v=193';
-import { Settings } from './settings.js?v=193';
-import { Customers } from './customers.js?v=193';
-import { Products } from './products.js?v=193';
-import { authService } from './auth.js?v=193';
+import { POS } from './pos.v4.js?v=198';
+import { Dashboard } from './dashboard.js?v=198';
+import { SalesHistory } from './sales.js?v=198';
+import { Settings } from './settings.js?v=198';
+import { Customers } from './customers.js?v=198';
+import { Products } from './products.js?v=198';
+import { authService } from './auth.js?v=198';
 
-const APP_VERSION = 'v193';
+const APP_VERSION = 'v198';
 
 class App {
     constructor() {

@@ -1,4 +1,4 @@
-const API_BASE_URL = ''; // Use relative path for local deployment
+import { API_BASE_URL } from './config.js';
 
 // Helper function to get auth headers
 async function getAuthHeaders() {

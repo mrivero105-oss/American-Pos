@@ -71,6 +71,11 @@ export const Products = {
     async loadProducts() {
         try {
             this.products = await API.products.getAll();
+            console.log('Products loaded in products.js:', this.products);
+            if (!this.products) {
+                console.error('Products is undefined!');
+                this.products = [];
+            }
             this.renderProductList(this.products);
         } catch (error) {
             console.error('Error loading products:', error);
@@ -92,7 +97,7 @@ export const Products = {
             <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
                 <td class="px-6 py-4 whitespace-nowrap">
                     <div class="h-10 w-10 rounded-lg overflow-hidden bg-slate-100 border border-slate-200">
-                        <img src="${product.imageUri || 'assets/placeholder.png'}" alt="${product.name}" class="h-full w-full object-cover" onerror="this.src='https://via.placeholder.com/40'">
+                        <img src="${product.imageUri || 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDQwIDQwIj4KICA8cmVjdCB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIGZpbGw9IiNlMmU4ZjAiLz4KICA8cGF0aCBkPSJNMjAgMThjLTIuMjEgMC00IDEuNzktNCA0czEuNzkgNCA0IDQgNCAxLjc5IDQgNC0xLjc5IDQtNCA0em0wLTJjMy4zMSAwIDYtMi42OSA2LTZzLTIuNjktNi02LTYtNiAyLjY5LTYgNiAyLjY5IDYgNiA2eiIgZmlsbD0iIzk0YTNYOCIvPgo8L3N2Zz4='}" alt="${product.name}" class="h-full w-full object-cover" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDQwIDQwIj4KICA8cmVjdCB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIGZpbGw9IiNlMmU4ZjAiLz4KICA8cGF0aCBkPSJNMjAgMThjLTIuMjEgMC00IDEuNzktNCA0czEuNzkgNCA0IDQgNCAxLjc5IDQgNC0xLjc5IDQtNCA0em0wLTJjMy4zMSAwIDYtMi42OSA2LTZzLTIuNjktNi02LTYtNiAyLjY5LTYgNiAyLjY5IDYgNiA2eiIgZmlsbD0iIzk0YTNYOCIvPgo8L3N2Zz4='">
                     </div>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap">
@@ -649,11 +654,14 @@ export const Products = {
     async loadProducts() {
         try {
             const products = await API.products.getAll();
-            this.products = products;
-            this.renderProductList();
+            this.products = products || [];
+            console.log('Products loaded:', this.products);
+            this.renderProductList(this.products);
         } catch (error) {
             console.error('Error loading products:', error);
-            // ui.showNotification('Error cargando productos', 'error');
+            if (this.dom.productsList) {
+                this.dom.productsList.innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center text-red-500">Error al cargar productos</td></tr>';
+            }
         }
     },
 
