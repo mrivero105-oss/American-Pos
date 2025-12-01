@@ -176,6 +176,7 @@ export class Customers {
                 ui.showNotification('Cliente agregado');
             }
 
+            localStorage.removeItem('cached_customers'); // Invalidate cache for POS
             await this.loadCustomers();
             this.closeModal();
         } catch (error) {
