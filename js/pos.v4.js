@@ -27,6 +27,8 @@ export class POS {
     async init() {
         console.log('POS: init() started');
         window.pos = this;
+        // Global helper for the HTML button
+        window.manualOpenPriceCheck = () => this.openPriceCheck();
         try {
             this.cacheDOM();
             console.log('POS: cacheDOM finished');
@@ -108,6 +110,17 @@ export class POS {
             paymentMethodOptions: document.getElementById('payment-method-options'),
             paymentFields: document.getElementById('payment-fields'),
             paymentChange: document.getElementById('payment-change'),
+            paymentModal: document.getElementById('payment-modal'),
+            paymentFormContent: document.getElementById('payment-form-content'),
+            receiptModalContent: document.getElementById('receipt-modal-content'),
+            receiptContent: document.getElementById('receipt-content'),
+            paymentTotalUsd: document.getElementById('payment-total-usd'),
+            paymentTotalVes: document.getElementById('payment-total-ves'),
+            cancelPaymentBtn: document.getElementById('cancel-payment-btn'),
+            confirmPaymentBtn: document.getElementById('confirm-payment-btn'),
+            closeReceiptBtn: document.getElementById('close-receipt'),
+            emailReceiptBtn: document.getElementById('email-receipt-btn'),
+            printReceiptBtn: document.getElementById('print-receipt-btn'),
 
             // Price Check
             priceCheckBtn: document.getElementById('price-check-btn'),
@@ -127,7 +140,26 @@ export class POS {
             // Custom Item
             cancelWeightBtn: document.getElementById('cancel-weight-btn'),
             cancelWeightBtnX: document.getElementById('close-weight-modal'),
+
+            // Customer Search Elements
+            customerSearchInput: document.getElementById('pos-customer-search'),
+            customerSearchResults: document.getElementById('pos-customer-results'),
+            customerSearchContainer: document.getElementById('customer-search-container'),
+            selectedCustomerDisplay: document.getElementById('pos-selected-customer'),
+            selectedCustomerName: document.getElementById('selected-customer-name'),
+            selectedCustomerDoc: document.getElementById('selected-customer-doc'),
+            deselectCustomerBtn: document.getElementById('deselect-customer-btn'),
+
+            // Confirmation Modal
+            confirmationModal: document.getElementById('confirmation-modal'),
+            confirmModalTitle: document.getElementById('confirm-modal-title'),
+            confirmModalMessage: document.getElementById('confirm-modal-message'),
+            confirmActionBtn: document.getElementById('confirm-action-btn'),
+            cancelConfirmBtn: document.getElementById('cancel-confirm-btn'),
+            confirmModalIconContainer: document.getElementById('confirm-modal-icon-container'),
         };
+
+        this.lastScanTime = 0;
 
         // Fallback/Retry for critical elements if not found immediately
         if (!this.dom.priceCheckBtn) {
@@ -177,8 +209,10 @@ export class POS {
 
             // Customer Search Input
             if (this.dom.customerSearchInput) {
+                console.log('POS: Binding customer search input event');
                 this.dom.customerSearchInput.addEventListener('input', (e) => {
                     const query = e.target.value;
+                    console.log('POS: Customer search input event fired. Query:', query);
                     this.searchCustomers(query);
                 });
 
@@ -188,26 +222,8 @@ export class POS {
                         if (this.dom.customerSearchResults) this.dom.customerSearchResults.classList.add('hidden');
                     }
                 });
-            }
-
-            // Deselect Customer
-            if (this.dom.deselectCustomerBtn) {
-                this.dom.deselectCustomerBtn.addEventListener('click', () => this.deselectCustomer());
-            }
-
-            // Customer Search Input
-            if (this.dom.customerSearchInput) {
-                this.dom.customerSearchInput.addEventListener('input', (e) => {
-                    const query = e.target.value;
-                    this.searchCustomers(query);
-                });
-
-                // Hide results when clicking outside
-                document.addEventListener('click', (e) => {
-                    if (this.dom.customerSearchContainer && !this.dom.customerSearchContainer.contains(e.target)) {
-                        if (this.dom.customerSearchResults) this.dom.customerSearchResults.classList.add('hidden');
-                    }
-                });
+            } else {
+                console.error('POS: customerSearchInput not found during bindEvents');
             }
 
             // Deselect Customer
@@ -247,10 +263,15 @@ export class POS {
                     if (this.dom.cartSidebar) this.dom.cartSidebar.classList.add('translate-x-full');
                     // Close Sidebar
                     if (this.dom.sidebar) this.dom.sidebar.classList.add('-translate-x-full');
+                    // Close Held Sales
+                    this.closeHeldSalesDrawer();
 
                     this.dom.mobileOverlay.classList.add('hidden');
                 });
             }
+
+
+
 
             // Cart Actions
             if (this.dom.clearCartBtn) this.dom.clearCartBtn.addEventListener('click', () => this.clearCart());
@@ -258,6 +279,31 @@ export class POS {
             if (this.dom.viewHeldSalesBtn) this.dom.viewHeldSalesBtn.addEventListener('click', () => this.showHeldSales());
             if (this.dom.checkoutBtn) this.dom.checkoutBtn.addEventListener('click', () => this.showPaymentModal());
             if (this.dom.closeHeldDrawerBtn) this.dom.closeHeldDrawerBtn.addEventListener('click', () => this.closeHeldSalesDrawer());
+
+            // Swipe to Close (Mobile)
+            if (this.dom.cartSidebar) this.enableSwipeToClose(this.dom.cartSidebar, () => {
+                this.dom.cartSidebar.classList.add('translate-x-full');
+                if (this.dom.mobileOverlay) this.dom.mobileOverlay.classList.add('hidden');
+            });
+
+            if (this.dom.heldSalesDrawer) this.enableSwipeToClose(this.dom.heldSalesDrawer, () => {
+                this.closeHeldSalesDrawer();
+            });
+
+            // Swipe to Open Cart (Global)
+            this.enableSwipeToOpen(document.body, () => {
+                // Check if any drawer is already open
+                const isCartOpen = this.dom.cartSidebar && !this.dom.cartSidebar.classList.contains('translate-x-full');
+                const isHeldOpen = this.dom.heldSalesDrawer && !this.dom.heldSalesDrawer.classList.contains('translate-x-full');
+                const isMenuOpen = this.dom.sidebar && !this.dom.sidebar.classList.contains('-translate-x-full');
+
+                if (!isCartOpen && !isHeldOpen && !isMenuOpen) {
+                    if (this.dom.cartSidebar) {
+                        this.dom.cartSidebar.classList.remove('translate-x-full');
+                        if (this.dom.mobileOverlay) this.dom.mobileOverlay.classList.remove('hidden');
+                    }
+                }
+            });
 
             // Cart Item Delegation (Remove, Increase, Decrease, Input)
             const handleCartAction = (e) => {
@@ -310,14 +356,17 @@ export class POS {
             // Held Sales List Delegation
             if (this.dom.heldSalesList) {
                 this.dom.heldSalesList.addEventListener('click', (e) => {
+                    console.log('POS: Held sales list clicked', e.target);
                     const restoreBtn = e.target.closest('.restore-held-btn');
                     if (restoreBtn) {
+                        console.log('POS: Restore button clicked', restoreBtn.dataset.id);
                         this.restoreSale(restoreBtn.dataset.id);
                         return;
                     }
 
                     const deleteBtn = e.target.closest('.delete-held-btn');
                     if (deleteBtn) {
+                        console.log('POS: Delete button clicked', deleteBtn.dataset.id);
                         this.deleteHeldSale(deleteBtn.dataset.id);
                         return;
                     }
@@ -349,6 +398,9 @@ export class POS {
                     }
                 });
             }
+
+            // Price Check List Delegation - Removed in favor of inline onclick for reliability
+            // document.addEventListener('click', (e) => { ... });
 
             // Global Keyboard Shortcuts
             document.addEventListener('keydown', (e) => {
@@ -474,12 +526,20 @@ export class POS {
     }
 
     async startScanner() {
+        if (typeof Html5Qrcode === 'undefined') {
+            ui.showNotification('Error: Librería de escáner no cargada', 'error');
+            return;
+        }
+
         const modal = document.getElementById('pos-scanner-modal');
         if (modal) modal.classList.remove('hidden');
 
+        // Give a small delay for the modal to render
+        await new Promise(resolve => setTimeout(resolve, 100));
+
         if (!this.html5QrCode) {
             // @ts-ignore
-            this.html5QrCode = new Html5Qrcode("reader");
+            this.html5QrCode = new Html5Qrcode("pos-reader");
         }
 
         try {
@@ -500,7 +560,7 @@ export class POS {
             );
         } catch (err) {
             console.error("Error starting scanner", err);
-            ui.showNotification("Error al iniciar cámara", "error");
+            ui.showNotification("Error al iniciar cámara. Verifique permisos.", "error");
             this.stopScanner();
         }
     }
@@ -519,6 +579,12 @@ export class POS {
     }
 
     handleScan(barcode) {
+        const now = Date.now();
+        if (now - this.lastScanTime < 3000) {
+            return; // Ignore repetitive scans (3 seconds delay)
+        }
+        this.lastScanTime = now;
+
         const product = this.products.find(p => p.barcode === barcode);
 
         if (product) {
@@ -662,15 +728,15 @@ export class POS {
                         <img src="${imageUri}" alt="${product.name}" loading="lazy" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
                         ${availabilityBadge}
                     </div>
-                    <div class="p-3 md:p-4">
+                    <div class="p-2 md:p-3">
                         <div class="mb-2 flex justify-between items-start">
                             <span class="text-xs text-slate-500 dark:text-slate-400 font-mono">#${product.id}</span>
                             ${dispBadge}
                         </div>
-                        <h3 class="font-bold text-slate-800 dark:text-slate-100 mb-1 text-sm md:text-base line-clamp-4 leading-tight h-20">${product.name}</h3>
+                        <h3 class="font-bold text-slate-800 dark:text-slate-100 mb-1 text-xs md:text-sm line-clamp-3 leading-tight h-14">${product.name}</h3>
                         <div class="flex justify-between items-center mt-auto pt-2 border-t border-slate-100 dark:border-slate-700/50">
-                            <span class="text-lg md:text-xl font-extrabold text-slate-900 dark:text-white">$${parseFloat(product.price).toFixed(2)}</span>
-                            <button class="add-to-cart-btn w-8 h-8 md:w-10 md:h-10 bg-slate-900 dark:bg-blue-600 text-white rounded-full hover:bg-blue-600 dark:hover:bg-blue-500 hover:scale-110 transition-all flex items-center justify-center shadow-lg shadow-slate-900/20"
+                            <span class="text-base md:text-lg font-extrabold text-slate-900 dark:text-white">$${parseFloat(product.price).toFixed(2)}</span>
+                            <button class="add-to-cart-btn w-7 h-7 md:w-8 md:h-8 bg-slate-900 dark:bg-blue-600 text-white rounded-full hover:bg-blue-600 dark:hover:bg-blue-500 hover:scale-110 transition-all flex items-center justify-center shadow-lg shadow-slate-900/20"
                                 ${!isAvailable ? 'disabled' : ''}>
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
@@ -900,6 +966,7 @@ export class POS {
         }
 
         // Update Mobile Cart Button Badge visibility
+        // Update Mobile Cart Button Badge visibility
         if (this.dom.mobileCartCount) {
             if (itemCount > 0) {
                 this.dom.mobileCartCount.classList.remove('hidden');
@@ -914,36 +981,49 @@ export class POS {
         const step = isWeighted ? '0.001' : '1';
         const quantityDisplay = isWeighted ? parseFloat(item.quantity).toFixed(3) : item.quantity;
         const weightTag = isWeighted ? '<span class="text-xs bg-blue-100 text-blue-800 px-1 rounded ml-1">Peso</span>' : '';
+        const imageUri = item.imageUri || 'https://via.placeholder.com/150?text=No+Image';
+        const priceBs = (item.price * this.exchangeRate).toFixed(2);
 
         return `
-            <div class="cart-item flex justify-between items-center p-3 mb-2 bg-slate-50 dark:bg-slate-700/50 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-500 transition-colors" data-id="${item.id}">
-                <div class="flex-1">
-                    <div class="flex items-center">
-                        <h4 class="font-medium text-slate-900 dark:text-white">${item.name}</h4>
-                        ${weightTag}
-                    </div>
-                    <div class="text-sm text-slate-500 dark:text-slate-400">
-                        $${parseFloat(item.price).toFixed(2)} x 
-                        <input type="number" class="qty-input w-16 px-1 py-0.5 text-center border rounded mx-1 bg-white dark:bg-slate-600 dark:text-white" 
-                            value="${quantityDisplay}" step="${step}" min="${step}">
+        <div class="cart-item flex flex-col p-3 mb-2 bg-slate-50 dark:bg-slate-700/50 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-500 transition-colors" data-id="${item.id}">
+            <!-- Name Row -->
+            <div class="w-full mb-2 border-b border-slate-200 dark:border-slate-600 pb-2">
+                 <h4 class="font-medium text-slate-900 dark:text-white text-base break-words">${item.name} ${weightTag}</h4>
+            </div>
+            
+            <!-- Content Row -->
+            <div class="flex justify-between items-center w-full">
+                <div class="flex items-center gap-3 flex-1">
+                    <img src="${imageUri}" alt="${item.name}" class="w-16 h-16 object-cover rounded-md border border-slate-200 dark:border-slate-600">
+                    <div class="flex-1">
+                        <div class="text-base text-slate-500 dark:text-slate-400 flex flex-col gap-1">
+                            <span class="flex items-center">
+                                <span class="font-bold text-slate-700 dark:text-slate-200 text-lg">$${parseFloat(item.price).toFixed(2)}</span>
+                                <span class="mx-2">x</span>
+                                <input type="number" class="qty-input w-16 px-1 py-1 text-center border rounded bg-white dark:bg-slate-600 dark:text-white text-lg font-medium" 
+                                    value="${quantityDisplay}" step="${step}" min="${step}">
+                            </span>
+                            <span class="text-blue-600 dark:text-blue-400 font-bold text-lg">Bs ${priceBs} c/u</span>
+                        </div>
                     </div>
                 </div>
-                <div class="text-right">
-                    <p class="font-bold text-slate-900 dark:text-white">$${(item.price * item.quantity).toFixed(2)}</p>
-                    <div class="flex items-center justify-end gap-1 mt-1">
-                        <button class="decrease-qty p-1 text-slate-400 hover:text-red-500 transition-colors">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
+                <div class="text-right pl-2">
+                    <p class="font-bold text-slate-900 dark:text-white text-xl">$${(item.price * item.quantity).toFixed(2)}</p>
+                    <div class="flex items-center justify-end gap-1 mt-2">
+                        <button class="decrease-qty p-1.5 text-slate-400 hover:text-red-500 transition-colors">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
                         </button>
-                        <button class="increase-qty p-1 text-slate-400 hover:text-green-500 transition-colors">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                        <button class="increase-qty p-1.5 text-slate-400 hover:text-green-500 transition-colors">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                         </button>
-                        <button class="remove-item p-1 text-slate-400 hover:text-red-500 transition-colors ml-1">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        <button class="remove-item p-1.5 text-slate-400 hover:text-red-500 transition-colors ml-1">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                         </button>
                     </div>
                 </div>
             </div>
-        `;
+        </div>
+    `;
     }
 
     handleCartClick(e) {
@@ -1047,6 +1127,9 @@ export class POS {
             return;
         }
 
+        if (this.processingHold) return;
+        this.processingHold = true;
+
         console.log('DEBUG: holdSale called');
 
         const heldSales = JSON.parse(localStorage.getItem('held_sales') || '[]');
@@ -1094,7 +1177,6 @@ export class POS {
                 this.closeHeldSalesDrawer();
             }
 
-            // If no customer selected, default to 'Cliente Casual'
             if (!this.selectedCustomer) {
                 const customer = { id: 'ref-' + Date.now(), name: 'Cliente Casual', email: '', phone: '' };
                 saveSale(customer);
@@ -1102,6 +1184,8 @@ export class POS {
                 saveSale(this.selectedCustomer);
             }
         }
+
+        setTimeout(() => { this.processingHold = false; }, 1000);
     }
 
     showHeldSales() {
@@ -1158,8 +1242,11 @@ export class POS {
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                             Recuperar
                         </button>
-                        <button class="delete-held-btn bg-red-100 hover:bg-red-200 text-red-600 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40 p-2 rounded-lg transition-colors" data-id="${sale.id}" title="Eliminar">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        <button class="delete-held-btn bg-red-100 hover:bg-red-200 text-red-600 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40 p-2 rounded-lg transition-all group/delete" data-id="${sale.id}" title="Eliminar">
+                            <svg class="w-5 h-5 overflow-visible" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path class="origin-bottom transition-transform duration-300 group-hover/delete:-rotate-12 group-hover/delete:-translate-y-1" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6"></path>
+                                <path class="origin-center transition-transform duration-300 group-hover/delete:-translate-y-2 group-hover/delete:rotate-12" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                            </svg>
                         </button>
                     </div>
                 </div>
@@ -1203,6 +1290,7 @@ export class POS {
     }
 
     deleteHeldSale(id) {
+        console.log('POS: deleteHeldSale called for id', id);
         this.showConfirmationModal(
             '¿Eliminar venta en espera?',
             '¿Está seguro de eliminar esta venta en espera? Esta acción no se puede deshacer.',
@@ -1360,7 +1448,7 @@ export class POS {
 
         // Update Sidebar UI
         if (this.dom.selectedCustomerName) this.dom.selectedCustomerName.textContent = customer.name;
-        if (this.dom.selectedCustomerDoc) this.dom.selectedCustomerDoc.textContent = customer.idDocument || customer.phone || 'Sin ID';
+        if (this.dom.selectedCustomerDoc) this.dom.selectedCustomerDoc.textContent = customer.idDocument || 'Sin Documento';
 
         if (this.dom.customerSearchContainer) this.dom.customerSearchContainer.classList.add('hidden');
         if (this.dom.posSelectedCustomer) this.dom.posSelectedCustomer.classList.remove('hidden');
@@ -1382,7 +1470,10 @@ export class POS {
     }
 
     async refreshData() {
-        // Only refresh if cache is missing (meaning it was invalidated by management views)
+        // Always reload settings to get latest payment methods/rates
+        await this.loadSettings();
+
+        // Only refresh products/customers if cache is missing (meaning it was invalidated by management views)
         if (!localStorage.getItem('cached_products') || !localStorage.getItem('cached_customers')) {
             console.log('POS: Cache invalidated, refreshing data...');
             await Promise.all([
@@ -1512,6 +1603,19 @@ export class POS {
         if (this.dom.confirmationModal) {
             if (this.dom.confirmModalTitle) this.dom.confirmModalTitle.textContent = title;
             if (this.dom.confirmModalMessage) this.dom.confirmModalMessage.textContent = message;
+
+            // Force update icon to animated trash can (Robust selector for cache issues)
+            const iconContainer = this.dom.confirmModalIconContainer ||
+                (this.dom.confirmationModal ? this.dom.confirmationModal.querySelector('.rounded-full') : null);
+
+            if (iconContainer) {
+                iconContainer.innerHTML = `
+                    <svg class="w-10 h-10 text-red-600 dark:text-red-400 animate-tip-over overflow-visible" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                    </svg>
+                `;
+            }
 
             const confirmBtn = this.dom.confirmActionBtn;
             const cancelBtn = this.dom.cancelConfirmBtn;
@@ -1676,8 +1780,10 @@ export class POS {
         this.handlePaymentMethodClick('cash');
 
         // Auto-fill amount for Cash USD
-        if (this.dom.paymentReceivedUsd) {
-            this.dom.paymentReceivedUsd.value = total.toFixed(2);
+        // Auto-fill amount for Cash USD
+        const cashUsdInput = this.dom.paymentFields.querySelector('input[data-id="cash_usd"]');
+        if (cashUsdInput) {
+            cashUsdInput.value = total.toFixed(2);
             this.calculateChange();
         }
 
@@ -1716,8 +1822,18 @@ export class POS {
             this.dom.paymentMethodOptions.appendChild(button);
         });
 
-        // Add Combined Option explicitly if not present (it's usually handled by UI, but good to ensure)
-        // logic handled in render
+        // Add Combined Option explicitly
+        const combinedButton = document.createElement('button');
+        combinedButton.type = 'button';
+        combinedButton.className = `payment-method-btn w-full py-3 px-4 rounded-lg border text-sm font-medium transition-all duration-200 ${this.selectedPaymentMethodId === 'combined'
+            ? 'bg-slate-900 text-white border-slate-900 dark:bg-blue-600 dark:border-blue-600 dark:text-white shadow-md'
+            : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-600'
+            } `;
+        combinedButton.textContent = 'Combinado (Múltiples)';
+        combinedButton.dataset.id = 'combined';
+        combinedButton.addEventListener('click', () => this.handlePaymentMethodClick('combined'));
+        this.dom.paymentMethodOptions.appendChild(combinedButton);
+
         this.onPaymentMethodChange();
     }
 
@@ -1956,23 +2072,22 @@ export class POS {
     }
 
     generateReceiptHtml(saleData) {
-        // Inline styles for email compatibility
+        // Premium Receipt Design
         const styles = {
-            container: "font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 400px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.1); border: 1px solid #f1f5f9;",
-            header: "background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: #ffffff; padding: 30px 20px; text-align: center;",
-            headerTitle: "margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.5px;",
-            headerSub: "margin: 8px 0 0; font-size: 13px; color: #94a3b8; font-weight: 500;",
-            body: "padding: 25px;",
-            section: "margin-bottom: 25px; border-bottom: 1px dashed #e2e8f0; padding-bottom: 20px;",
-            label: "font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;",
-            text: "font-size: 14px; color: #334155; margin: 4px 0; font-weight: 500;",
-            itemRow: "display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 14px; color: #334155;",
-            totalRow: "display: flex; justify-content: space-between; font-size: 20px; font-weight: 800; color: #0f172a; margin-top: 15px; align-items: center;",
-            footer: "background-color: #f8fafc; padding: 20px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid #f1f5f9;",
-            badge: "display: inline-block; padding: 4px 8px; border-radius: 4px; background-color: #f1f5f9; color: #475569; font-size: 12px; font-weight: 600;"
+            container: "font-family: 'Courier New', Courier, monospace; max-width: 380px; margin: 0 auto; background-color: #fff; color: #000000; padding: 20px; border: 1px solid #eee;",
+            header: "text-align: center; margin-bottom: 20px; border-bottom: 2px dashed #000; padding-bottom: 15px;",
+            title: "font-size: 24px; font-weight: bold; margin: 0 0 5px 0; text-transform: uppercase; color: #000000;",
+            subtitle: "font-size: 12px; color: #555; margin: 2px 0;",
+            info: "font-size: 12px; margin-bottom: 15px; color: #000000;",
+            row: "display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 12px; color: #000000;",
+            itemRow: "display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 12px; color: #000000;",
+            divider: "border-top: 1px dashed #000; margin: 10px 0;",
+            totalRow: "display: flex; justify-content: space-between; font-size: 16px; font-weight: bold; margin-top: 5px; color: #000000;",
+            footer: "text-align: center; margin-top: 20px; font-size: 10px; color: #555; border-top: 1px dashed #000; padding-top: 10px;"
         };
 
         const dateStr = saleData.date ? new Date(saleData.date).toLocaleString('es-VE') : new Date().toLocaleString('es-VE');
+        const saleIdShort = saleData.id ? saleData.id.slice(0, 8).toUpperCase() : 'N/A';
 
         // Helper to get method name
         const getMethodName = (id) => {
@@ -1983,61 +2098,59 @@ export class POS {
         return `
             <div style="${styles.container}">
                 <div style="${styles.header}">
-                    <h1 style="${styles.headerTitle}">${this.businessInfo?.name || 'American POS'}</h1>
-                    <p style="${styles.headerSub}">${dateStr}</p>
+                    <h1 style="${styles.title}">${this.businessInfo?.name || 'AMERICAN POS'}</h1>
+                    ${this.businessInfo?.address ? `<p style="${styles.subtitle}">${this.businessInfo.address}</p>` : ''}
+                    ${this.businessInfo?.phone ? `<p style="${styles.subtitle}">Tel: ${this.businessInfo.phone}</p>` : ''}
+                    ${this.businessInfo?.taxId ? `<p style="${styles.subtitle}">RIF: ${this.businessInfo.taxId}</p>` : ''}
                 </div>
-                
-                <div style="${styles.body}">
-                    <div style="${styles.section}">
-                        ${this.businessInfo?.address ? `<p style="${styles.text}">${this.businessInfo.address}</p>` : ''}
-                        ${this.businessInfo?.phone ? `<p style="${styles.text}">Tel: ${this.businessInfo.phone}</p>` : ''}
-                        ${this.businessInfo?.rif ? `<p style="${styles.text}">RIF: ${this.businessInfo.rif}</p>` : ''}
-                    </div>
 
+                <div style="${styles.info}">
+                    <div style="${styles.row}"><span>Fecha:</span> <span>${dateStr}</span></div>
+                    <div style="${styles.row}"><span>Orden #:</span> <span>${saleIdShort}</span></div>
                     ${saleData.customer ? `
-                    <div style="${styles.section}">
-                        <p style="${styles.label}">Cliente</p>
-                        <p style="${styles.text}" style="font-size: 16px; font-weight: 700; color: #0f172a;">${saleData.customer.name}</p>
-                        ${saleData.customer.idDocument ? `<p style="${styles.text}">CI/RIF: ${saleData.customer.idDocument}</p>` : ''}
-                        ${saleData.customer.phone ? `<p style="${styles.text}">Tel: ${saleData.customer.phone}</p>` : ''}
-                    </div>
+                        <div style="${styles.divider}"></div>
+                        <div style="${styles.row}"><span>Cliente:</span> <span>${saleData.customer.name}</span></div>
+                        ${saleData.customer.idDocument ? `<div style="${styles.row}"><span>CI/RIF:</span> <span>${saleData.customer.idDocument}</span></div>` : ''}
                     ` : ''}
+                </div>
 
-                    <div style="${styles.section}">
-                        <p style="${styles.label}">Detalle de Compra</p>
-                        ${saleData.items.map(item => `
-                            <div style="${styles.itemRow}">
-                                <span style="font-weight: 500;">${item.quantity} x ${item.name}</span>
-                                <span style="font-weight: 600;">Bs ${(item.price * item.quantity * this.exchangeRate).toFixed(2)}</span>
-                            </div>
-                        `).join('')}
+                <div style="${styles.divider}"></div>
+                <div style="margin-bottom: 10px;">
+                    <div style="${styles.row}; font-weight: bold; margin-bottom: 8px;">
+                        <span>CANT / DESCRIPCION</span>
+                        <span>TOTAL</span>
                     </div>
-
-                    <div style="margin-bottom: 20px;">
-                        <div style="${styles.totalRow}">
-                            <span>Total</span>
-                            <span>Bs ${(saleData.total * this.exchangeRate).toFixed(2)}</span>
+                    ${saleData.items.map(item => `
+                        <div style="${styles.itemRow}">
+                            <span style="flex: 1;">${item.quantity} x ${item.name}</span>
+                            <span>Bs ${(item.price * item.quantity * this.exchangeRate).toFixed(2)}</span>
                         </div>
-                        <div style="${styles.itemRow}; color: #64748b; font-size: 13px; margin-top: 5px;">
-                            <span>Ref USD</span>
-                            <span>$${saleData.total.toFixed(2)}</span>
-                        </div>
-                    </div>
+                    `).join('')}
+                </div>
 
-                    <div style="${styles.section}; border-bottom: none; padding-bottom: 0;">
-                        <p style="${styles.label}">Método de Pago</p>
-                        ${saleData.paymentDetails.map(detail => `
-                            <div style="${styles.itemRow}">
-                                <span style="${styles.badge}">${getMethodName(detail.method)}</span>
-                                <span style="font-weight: 600;">$${detail.amount.toFixed(2)}</span>
-                            </div>
-                        `).join('')}
-                    </div>
+                <div style="${styles.divider}"></div>
+                
+                <div style="${styles.totalRow}">
+                    <span>TOTAL PAGADO</span>
+                    <span>Bs ${(saleData.total * this.exchangeRate).toFixed(2)}</span>
+                </div>
+
+                <div style="${styles.divider}"></div>
+                
+                <div style="margin-bottom: 10px;">
+                    <p style="font-weight: bold; font-size: 11px; margin-bottom: 5px;">MÉTODOS DE PAGO:</p>
+                    ${saleData.paymentDetails.map(detail => `
+                        <div style="${styles.row}">
+                            <span>${getMethodName(detail.method)}</span>
+                            <span>Bs ${(detail.amount * (detail.currency === 'USD' ? this.exchangeRate : 1)).toFixed(2)}</span>
+                        </div>
+                    `).join('')}
                 </div>
 
                 <div style="${styles.footer}">
-                    <p style="margin: 0; font-weight: 600;">¡Gracias por su compra!</p>
-                    <p style="margin: 5px 0 0; opacity: 0.7;">Generado por American POS</p>
+                    <p>¡GRACIAS POR SU COMPRA!</p>
+                    <p>Por favor conserve este recibo</p>
+                    <p style="margin-top: 5px;">Powered by American POS</p>
                 </div>
             </div>
         `;
@@ -2124,7 +2237,50 @@ export class POS {
     }
 
     printReceipt() {
-        window.print();
+        // Create a hidden iframe for printing
+        const iframe = document.createElement('iframe');
+        iframe.style.position = 'absolute';
+        iframe.style.width = '0px';
+        iframe.style.height = '0px';
+        iframe.style.left = '-9999px';
+        iframe.style.top = '-9999px';
+        document.body.appendChild(iframe);
+
+        const doc = iframe.contentWindow.document;
+        // Get the receipt HTML
+        const receiptHtml = this.dom.receiptContent.innerHTML;
+
+        doc.open();
+        doc.write(`
+            <html>
+                <head>
+                    <title>Recibo de Venta</title>
+                    <style>
+                        body { margin: 0; padding: 0; background-color: white; }
+                        @media print {
+                            @page { margin: 0; size: auto; }
+                            body { -webkit-print-color-adjust: exact; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    ${receiptHtml}
+                    <script>
+                        window.onload = function() {
+                            window.print();
+                            // Optional: Close/remove iframe after printing is initiated
+                            // We use a timeout in the parent to remove the iframe
+                        }
+                    </script>
+                </body>
+            </html>
+        `);
+        doc.close();
+
+        // Remove the iframe after a delay to ensure print dialog has opened
+        setTimeout(() => {
+            document.body.removeChild(iframe);
+        }, 2000);
     }
 
     // Price Check Logic
@@ -2184,26 +2340,41 @@ export class POS {
         }
 
         this.dom.priceCheckList.innerHTML = products.map((p, index) => `
-            <div class="p-3 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer border-b border-slate-100 dark:border-slate-700 last:border-0 flex justify-between items-center"
-                 onclick="window.pos.selectPriceCheckProduct('${p.id}')">
-                <div>
-                    <div class="font-bold text-slate-800 dark:text-white text-sm">${p.name}</div>
-                    <div class="text-xs text-slate-500 dark:text-slate-400">${p.barcode || 'Sin código'}</div>
-                </div>
-                <div class="font-bold text-slate-900 dark:text-white">$${parseFloat(p.price).toFixed(2)}</div>
+        <div class="price-check-item p-3 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer border-b border-slate-100 dark:border-slate-700 last:border-0 flex justify-between items-center"
+             data-id="${p.id}"
+             onclick="if(window.pos) window.pos.selectPriceCheckProduct('${p.id}')">
+            <div>
+                <div class="font-bold text-slate-800 dark:text-white text-sm">${p.name}</div>
+                <div class="text-xs text-slate-500 dark:text-slate-400">${p.barcode || 'Sin código'}</div>
             </div>
-        `).join('');
+            <div class="font-bold text-slate-900 dark:text-white">$${parseFloat(p.price).toFixed(2)}</div>
+        </div>
+    `).join('');
 
         this.dom.priceCheckList.classList.remove('hidden');
         this.priceCheckSelectedIndex = -1;
+
+        // Keep event listeners as backup/primary
+        this.dom.priceCheckList.querySelectorAll('.price-check-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent bubbling issues
+                const id = item.dataset.id;
+                console.log('Event listener click:', id);
+                this.selectPriceCheckProduct(id);
+            });
+        });
     }
 
     selectPriceCheckProduct(id) {
+        console.log('selectPriceCheckProduct called with ID:', id);
         const product = this.products.find(p => String(p.id) === String(id));
         if (product) {
+            console.log('Product found:', product.name);
             this.displayPriceCheckResult(product);
             if (this.dom.priceCheckList) this.dom.priceCheckList.classList.add('hidden');
             if (this.dom.priceCheckInput) this.dom.priceCheckInput.value = ''; // Clear input
+        } else {
+            console.error('Product not found in local cache for ID:', id);
         }
     }
 
@@ -2237,103 +2408,181 @@ export class POS {
                 </button>
             </div>
         `;
-        renderCustomerSearchResults(results) {
-            if (!this.dom.customerSearchResults) {
-                console.error('POS: customerSearchResults DOM element not found!');
-                return;
-            }
 
-            console.log('POS: Rendering search results:', results);
+        // Toggle visibility
+        this.dom.priceCheckResult.classList.remove('hidden');
+        if (this.dom.priceCheckPlaceholder) {
+            this.dom.priceCheckPlaceholder.classList.add('hidden');
+        }
+    }
 
-            if (results.length === 0) {
-                this.dom.customerSearchResults.innerHTML = `
+    renderCustomerSearchResults(results) {
+        if (!this.dom.customerSearchResults) {
+            console.error('POS: customerSearchResults DOM element not found!');
+            return;
+        }
+
+        console.log('POS: Rendering search results:', results);
+
+        if (results.length === 0) {
+            this.dom.customerSearchResults.innerHTML = `
                 <div class="p-3 text-sm text-slate-500 dark:text-slate-400 text-center">
                     No se encontraron clientes
                 </div>
             `;
-            } else {
-                this.dom.customerSearchResults.innerHTML = results.map(c => `
+        } else {
+            this.dom.customerSearchResults.innerHTML = results.map(c => `
                 <div class="p-3 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer border-b border-slate-100 dark:border-slate-700 last:border-0 transition-colors"
                     onclick="pos.selectCustomer('${c.id}')">
                     <div class="font-bold text-slate-800 dark:text-white text-sm">${c.name}</div>
                     <div class="text-xs text-slate-500 dark:text-slate-400 flex gap-2">
-                        <span>${c.docType || ''}-${c.docNumber || 'N/A'}</span>
+                        <span>${c.idDocument || 'Sin Documento'}</span>
                         <span>•</span>
                         <span>${c.email || 'Sin email'}</span>
                     </div>
                 </div>
             `).join('');
-            }
-
-            this.dom.customerSearchResults.classList.remove('hidden');
-            console.log('POS: customerSearchResults classList:', this.dom.customerSearchResults.classList.toString());
         }
 
-        selectCustomer(customerId) {
-            const customer = this.customers.find(c => c.id == customerId); // Loose equality for string/number mismatch
-            if (!customer) return;
+        this.dom.customerSearchResults.classList.remove('hidden');
+        console.log('POS: customerSearchResults classList:', this.dom.customerSearchResults.classList.toString());
+    }
 
-            this.selectedCustomer = customer;
+    selectCustomer(customerId) {
+        const customer = this.customers.find(c => c.id == customerId); // Loose equality for string/number mismatch
+        if (!customer) return;
 
-            // Update UI
-            if (this.dom.selectedCustomerName) this.dom.selectedCustomerName.textContent = customer.name;
-            if (this.dom.selectedCustomerDoc) this.dom.selectedCustomerDoc.textContent = `${customer.docType || ''}-${customer.docNumber || ''}`;
+        this.selectedCustomer = customer;
 
-            if (this.dom.customerSearchContainer) {
-                const inputContainer = this.dom.customerSearchContainer.querySelector('.relative');
-                if (inputContainer) inputContainer.classList.add('hidden');
-            }
+        // Update UI
+        if (this.dom.selectedCustomerName) this.dom.selectedCustomerName.textContent = customer.name;
+        if (this.dom.selectedCustomerDoc) this.dom.selectedCustomerDoc.textContent = `${customer.docType || ''}-${customer.docNumber || ''}`;
 
-            if (this.dom.selectedCustomerDisplay) this.dom.selectedCustomerDisplay.classList.remove('hidden');
-            if (this.dom.customerSearchResults) this.dom.customerSearchResults.classList.add('hidden');
-            if (this.dom.customerSearchInput) this.dom.customerSearchInput.value = '';
-
-            ui.showNotification(`Cliente seleccionado: ${customer.name}`);
+        if (this.dom.customerSearchContainer) {
+            const inputContainer = this.dom.customerSearchContainer.querySelector('.relative');
+            if (inputContainer) inputContainer.classList.add('hidden');
         }
 
-        deselectCustomer() {
-            this.selectedCustomer = null;
+        if (this.dom.selectedCustomerDisplay) this.dom.selectedCustomerDisplay.classList.remove('hidden');
+        if (this.dom.customerSearchResults) this.dom.customerSearchResults.classList.add('hidden');
+        if (this.dom.customerSearchInput) this.dom.customerSearchInput.value = '';
 
-            if (this.dom.customerSearchContainer) {
-                const inputContainer = this.dom.customerSearchContainer.querySelector('.relative');
-                if (inputContainer) inputContainer.classList.remove('hidden');
-            }
+        ui.showNotification(`Cliente seleccionado: ${customer.name}`);
+    }
 
-            if (this.dom.selectedCustomerDisplay) this.dom.selectedCustomerDisplay.classList.add('hidden');
-            if (this.dom.customerSearchInput) {
-                this.dom.customerSearchInput.value = '';
-                this.dom.customerSearchInput.focus();
-            }
+    deselectCustomer() {
+        this.selectedCustomer = null;
+
+        if (this.dom.customerSearchContainer) {
+            const inputContainer = this.dom.customerSearchContainer.querySelector('.relative');
+            if (inputContainer) inputContainer.classList.remove('hidden');
+        }
+
+        if (this.dom.selectedCustomerDisplay) this.dom.selectedCustomerDisplay.classList.add('hidden');
+        if (this.dom.customerSearchInput) {
+            this.dom.customerSearchInput.value = '';
+            this.dom.customerSearchInput.focus();
         }
     }
+    enableSwipeToClose(element, onClose) {
+        let startX = 0;
+        let currentX = 0;
+        let isDragging = false;
+
+        element.addEventListener('touchstart', (e) => {
+            startX = e.touches[0].clientX;
+            isDragging = true;
+            element.style.transition = 'none'; // Disable transition for direct follow
+        }, { passive: true });
+
+        element.addEventListener('touchmove', (e) => {
+            if (!isDragging) return;
+            currentX = e.touches[0].clientX;
+            const deltaX = currentX - startX;
+
+            // Only allow dragging to the right (positive delta)
+            if (deltaX > 0) {
+                element.style.transform = `translateX(${deltaX}px)`;
+            }
+        }, { passive: true });
+
+        element.addEventListener('touchend', (e) => {
+            if (!isDragging) return;
+            isDragging = false;
+            element.style.transition = ''; // Re-enable transition
+
+            const deltaX = currentX - startX;
+            const threshold = 100; // px to trigger close
+
+            if (deltaX > threshold) {
+                // Trigger close
+                element.style.transform = ''; // Clear inline style so class takes over
+                onClose();
+            } else {
+                // Reset
+                element.style.transform = '';
+            }
+        });
+    }
+
+    enableSwipeToOpen(element, onOpen) {
+        let startX = 0;
+        let startY = 0;
+
+        element.addEventListener('touchstart', (e) => {
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+        }, { passive: true });
+
+        element.addEventListener('touchend', (e) => {
+            const endX = e.changedTouches[0].clientX;
+            const endY = e.changedTouches[0].clientY;
+            const deltaX = endX - startX;
+            const deltaY = endY - startY;
+
+            // Check if horizontal swipe is dominant
+            if (Math.abs(deltaX) > Math.abs(deltaY)) {
+                // Swipe Left (negative deltaX)
+                if (deltaX < -100) {
+                    onOpen();
+                }
+            }
+        });
+    }
+}
 
 // Global Functions for HTML access
 window.toggleMobileMenu = function () {
-        const menu = document.getElementById('mobile-menu');
-        if (menu) {
-            menu.classList.toggle('hidden');
-        }
-    };
+    const menu = document.getElementById('mobile-menu');
+    if (menu) {
+        menu.classList.toggle('hidden');
+    }
+};
 
 window.toggleMobileCart = function () {
-        const cart = document.getElementById('mobile-cart-drawer');
-        const overlay = document.getElementById('mobile-overlay');
-        if (cart && overlay) {
-            cart.classList.toggle('translate-x-full');
-            overlay.classList.toggle('hidden');
-        }
-    };
+    const cart = document.getElementById('mobile-cart-drawer'); // Note: ID might be cart-sidebar in HTML
+    const overlay = document.getElementById('mobile-overlay');
+    // Fallback if ID mismatch
+    const realCart = document.getElementById('cart-sidebar') || cart;
+
+    if (realCart && overlay) {
+        realCart.classList.toggle('translate-x-full');
+        overlay.classList.toggle('hidden');
+    }
+};
 
 window.closeMobileCart = function () {
-        const cart = document.getElementById('mobile-cart-drawer');
-        const overlay = document.getElementById('mobile-overlay');
-        if (cart && overlay) {
-            cart.classList.add('translate-x-full');
-            overlay.classList.add('hidden');
-        }
-    };
+    const cart = document.getElementById('mobile-cart-drawer');
+    const overlay = document.getElementById('mobile-overlay');
+    // Fallback
+    const realCart = document.getElementById('cart-sidebar') || cart;
+
+    if (realCart && overlay) {
+        realCart.classList.add('translate-x-full');
+        overlay.classList.add('hidden');
+    }
+};
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
-    window.pos = new POS();
 });

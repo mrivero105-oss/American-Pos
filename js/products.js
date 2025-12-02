@@ -333,7 +333,7 @@ export const Products = {
             name: this.dom.inputName.value,
             price: parseFloat(this.dom.inputPrice.value),
             priceBs: parseFloat(this.dom.inputPriceBs.value),
-            stock: parseInt(this.dom.inputStock.value),
+            stockQuantity: parseInt(this.dom.inputStock.value),
             category: this.dom.inputCategory.value,
             imageUri: this.currentImageUri || '',
             barcode: this.dom.inputBarcode.value

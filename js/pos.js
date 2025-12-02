@@ -293,7 +293,10 @@ export class POS {
             <div class="cart-item bg-white p-3 rounded-lg border border-gray-100 flex justify-between items-center group" data-id="${item.id}">
                 <div class="flex-1 min-w-0 mr-3">
                     <h4 class="font-medium text-gray-800 truncate">${item.name}</h4>
-                    <div class="text-sm text-gray-500">$${parseFloat(item.price).toFixed(2)} x ${item.quantity}</div>
+                    <div class="text-sm text-gray-500">
+                        $${parseFloat(item.price).toFixed(2)} x ${item.quantity} 
+                        <span class="text-xs text-gray-400">| Bs ${(item.price * this.exchangeRate).toFixed(2)} c/u</span>
+                    </div>
                 </div>
                 <div class="flex items-center gap-2">
                     <div class="flex items-center gap-1 bg-gray-50 rounded-lg p-1">

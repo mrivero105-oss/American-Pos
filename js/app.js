@@ -1,12 +1,12 @@
-import { POS } from './pos.v4.js?v=198';
-import { Dashboard } from './dashboard.js?v=198';
-import { SalesHistory } from './sales.js?v=198';
-import { Settings } from './settings.js?v=198';
-import { Customers } from './customers.js?v=198';
-import { Products } from './products.js?v=198';
-import { authService } from './auth.js?v=198';
+import { POS } from './pos.v4.js?v=215';
+import { Dashboard } from './dashboard.js?v=215';
+import { SalesHistory } from './sales.js?v=215';
+import { Settings } from './settings.js?v=215';
+import { Customers } from './customers.js?v=215';
+import { Products } from './products.js?v=215';
+import { authService } from './auth.js?v=215';
 
-const APP_VERSION = 'v199';
+const APP_VERSION = 'v215';
 
 class App {
     constructor() {
@@ -50,11 +50,13 @@ class App {
         // Logout Button
         const logoutBtn = document.getElementById('logout-btn');
         if (logoutBtn) {
-            logoutBtn.addEventListener('click', async () => {
+            logoutBtn.onclick = async (e) => {
+                e.preventDefault();
+                e.stopImmediatePropagation();
                 if (confirm('¿Estás seguro de que deseas cerrar sesión?')) {
                     await authService.logout();
                 }
-            });
+            };
         }
 
         // Mobile Menu Button
@@ -169,6 +171,11 @@ class App {
             activeSection.classList.remove('hidden');
             console.log(`Switching to view: ${viewName}`);
 
+            // Close Held Sales Drawer if open (when leaving POS or just in case)
+            if (this.views.pos && typeof this.views.pos.closeHeldSalesDrawer === 'function') {
+                this.views.pos.closeHeldSalesDrawer();
+            }
+
             // Trigger data load if needed
             try {
                 if (viewName === 'dashboard') this.views.dashboard.loadData();
@@ -185,6 +192,18 @@ class App {
         }
 
         this.currentView = viewName;
+
+        // Manage Cart Visibility
+        const cartSidebar = document.getElementById('cart-sidebar');
+        const mobileCartBtn = document.getElementById('mobile-cart-btn');
+
+        if (viewName === 'pos') {
+            if (cartSidebar) cartSidebar.classList.remove('hidden');
+            if (mobileCartBtn) mobileCartBtn.classList.remove('hidden');
+        } else {
+            if (cartSidebar) cartSidebar.classList.add('hidden');
+            if (mobileCartBtn) mobileCartBtn.classList.add('hidden');
+        }
     }
 }
 

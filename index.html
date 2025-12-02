@@ -109,6 +109,11 @@
             color: white;
             border: 1px solid #334155;
         }
+
+        /* Force hide unwanted buttons in mobile header */
+        header.md\:hidden>button:not(#mobile-menu-btn):not(#mobile-cart-btn) {
+            display: none !important;
+        }
     </style>
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -117,7 +122,7 @@
 
     <!-- Main Script -->
 
-    <script type="module" src="js/app.js?v=v193"></script>
+
 
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -253,6 +258,36 @@
                 display: block !important;
             }
         }
+
+        @keyframes tip-over {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            20% {
+                transform: rotate(-10deg);
+            }
+
+            40% {
+                transform: rotate(10deg);
+            }
+
+            60% {
+                transform: rotate(-5deg);
+            }
+
+            80% {
+                transform: rotate(135deg);
+            }
+
+            100% {
+                transform: rotate(135deg);
+            }
+        }
+
+        .animate-tip-over {
+            animation: tip-over 1.5s ease-in-out forwards;
+        }
     </style>
 
     <!-- Service Worker Registration -->
@@ -315,7 +350,7 @@
 
     <!-- SIDEBAR -->
     <aside id="sidebar"
-        class="fixed inset-y-0 left-0 z-50 w-64 md:w-20 lg:w-72 bg-white dark:bg-slate-900 text-slate-800 dark:text-white flex flex-col shadow-2xl transform -translate-x-full md:translate-x-0 md:relative md:flex transition-transform duration-300 ease-in-out border-r border-slate-200 dark:border-slate-800">
+        class="fixed inset-y-0 left-0 z-50 w-64 md:w-64 lg:w-72 bg-white dark:bg-slate-900 text-slate-800 dark:text-white flex flex-col shadow-2xl transform -translate-x-full md:translate-x-0 md:relative md:flex transition-transform duration-300 ease-in-out border-r border-slate-200 dark:border-slate-800">
         <a href="#" data-view="pos"
             class="p-6 flex flex-col items-center gap-4 border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors group">
             <div
@@ -324,7 +359,7 @@
                     class="w-full h-full object-cover opacity-100 dark:opacity-90 transition-opacity">
             </div>
             <h1
-                class="text-2xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-200 text-center hidden lg:block">
+                class="text-2xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-200 text-center block">
                 American POS</h1>
         </a>
 
@@ -465,7 +500,7 @@
     <div id="custom-item-modal"
         class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center backdrop-blur-sm p-4">
         <div
-            class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all">
+            class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden transform transition-all">
             <div
                 class="p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 flex justify-between items-center">
                 <h3 class="font-bold text-lg text-slate-800 dark:text-white">Artículo Personalizado</h3>
@@ -573,8 +608,8 @@
                     <h2
                         class="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600 hidden md:block">
                         Productos</h2>
-                    <div class="relative w-full md:max-w-md flex gap-2">
-                        <div class="relative flex-1">
+                    <div class="relative w-full md:max-w-md flex gap-2 items-center">
+                        <div class="relative flex-1 min-w-0">
                             <input type="text" id="search-input" placeholder="Buscar producto..."
                                 class="w-full pl-10 pr-4 py-3 md:py-2 border border-slate-200 dark:border-slate-700 rounded-full focus:outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500 transition-all bg-slate-50 dark:bg-slate-800 dark:text-white text-base">
                             <svg class="w-5 h-5 text-slate-400 absolute left-3 top-3.5 md:top-2.5" fill="none"
@@ -637,9 +672,9 @@
                 </div>
 
                 <!-- Grid -->
-                <div class="flex-1 overflow-y-auto p-2 md:p-6 bg-slate-200 dark:bg-slate-900">
+                <div class="flex-1 overflow-y-auto p-2 md:p-4 bg-slate-200 dark:bg-slate-900">
                     <div id="product-grid"
-                        class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 md:gap-5 pb-20 md:pb-0">
+                        class="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4 pb-20 md:pb-0">
                         <!-- JS Injected -->
                     </div>
                 </div>
@@ -695,17 +730,31 @@
 
                         <!-- Selected Customer Display -->
                         <div id="pos-selected-customer" class="hidden">
-                            <div class="flex justify-between items-start">
-                                <div>
-                                    <p class="text-sm font-bold text-slate-800 dark:text-white"
-                                        id="selected-customer-name">Nombre Cliente</p>
-                                    <p class="text-xs text-slate-500 dark:text-slate-400" id="selected-customer-doc">CI:
-                                        123456</p>
+                            <div
+                                class="flex justify-between items-center bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-100 dark:border-blue-800">
+                                <div class="flex items-center gap-3">
+                                    <div class="bg-blue-100 dark:bg-blue-800 p-2 rounded-full">
+                                        <svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none"
+                                            stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z">
+                                            </path>
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm font-bold text-slate-800 dark:text-white"
+                                            id="selected-customer-name">Nombre Cliente</p>
+                                        <p class="text-xs text-slate-500 dark:text-slate-400"
+                                            id="selected-customer-doc">CI: 12345</p>
+                                    </div>
                                 </div>
-                                <button id="remove-customer-btn" class="text-red-500 hover:text-red-700 p-1">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <button id="deselect-customer-btn"
+                                    class="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-full transition-colors"
+                                    title="Quitar cliente">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M6 18L18 6M6 6l12 12"></path>
+                                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
+                                        </path>
                                     </svg>
                                 </button>
                             </div>
@@ -730,12 +779,18 @@
                     </div>
                     <div class="grid grid-cols-5 gap-2">
                         <button id="clear-cart-btn"
-                            class="col-span-1 p-2 bg-red-100 text-red-600 hover:bg-red-200 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40 font-bold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center"
+                            class="col-span-1 p-2 bg-red-100 text-red-600 hover:bg-red-200 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40 font-bold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center group/clear"
                             title="Vaciar Carrito">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
+                            <svg class="w-6 h-6 overflow-visible" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path
+                                    class="origin-bottom transition-transform duration-300 group-hover/clear:-rotate-12 group-hover/clear:-translate-y-1"
+                                    stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6">
                                 </path>
+                                <path
+                                    class="origin-center transition-transform duration-300 group-hover/clear:-translate-y-2 group-hover/clear:rotate-12"
+                                    stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 7V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                             </svg>
                         </button>
 
@@ -1268,23 +1323,9 @@
             });
 
             // Logout button
-            document.getElementById('logout-btn')?.addEventListener('click', async () => {
-                if (confirm('¿Estás seguro de que quieres cerrar sesión?')) {
-                    await authService.logout();
-                }
-            });
+
         </script>
-        <!-- Unregister Service Worker (Fix for auto-refresh) -->
-        <script>
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.getRegistrations().then(function (registrations) {
-                    for (let registration of registrations) {
-                        registration.unregister();
-                        console.log('Service Worker unregistered');
-                    }
-                });
-            }
-        </script>
+
         <!-- Main Script -->
 
         <script>
@@ -1438,14 +1479,15 @@
                                 <label for="product-barcode"
                                     class="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Código de
                                     Barras</label>
-                                <div class="flex gap-2">
+                                <div class="flex gap-2 items-center">
                                     <input type="text" id="product-barcode"
-                                        class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg focus:ring-2 focus:ring-slate-500 text-slate-900 dark:text-white">
-                                    <button type="button" id="scan-barcode-btn" <svg class="w-6 h-6" fill="none"
-                                        stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z">
-                                        </path>
+                                        class="flex-1 min-w-0 px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg focus:ring-2 focus:ring-slate-500 text-slate-900 dark:text-white">
+                                    <button type="button" id="scan-barcode-btn"
+                                        class="flex-none p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm z-10">
+                                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z">
+                                            </path>
                                         </svg>
                                     </button>
                                 </div>
@@ -1631,7 +1673,7 @@
             </div>
         </div>
         <!-- Main App Logic -->
-        <script type="module" src="js/app.js?v=199"></script>
+        <script type="module" src="js/app.js?v=215"></script>
 
         <!-- CUSTOMER SELECTION MODAL -->
         <div id="customer-selection-modal"
@@ -1867,22 +1909,7 @@
             <div id="held-sales-list" class="flex-1 overflow-y-auto p-4 space-y-3">
                 <!-- JS Injected -->
             </div>
-            <script type="module">
-                (async () => {
-                    try {
-                        await import('./js/utils.js');
-                        // alert('DEBUG: utils.js loaded');
-                        await import('./js/ui.js');
-                        // alert('DEBUG: ui.js loaded');
-                        await import('./js/api.js');
-                        // alert('DEBUG: api.js loaded');
-                        await import('./js/app.js');
-                        // POS is loaded via app.js
-                    } catch (e) {
-                        alert('CRITICAL IMPORT ERROR:\n' + e.message + '\n' + e.stack);
-                    }
-                })();
-            </script>
+
         </div>
 
         <!-- STANDALONE DEBUG SCRIPT (Moved outside module) -->
@@ -1934,9 +1961,13 @@
             };
 
             // Global Escape listener
+            // Global Escape listener
             document.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape') {
                     window.closePriceCheck();
+                    if (window.pos && window.pos.closeHeldSalesDrawer) {
+                        window.pos.closeHeldSalesDrawer();
+                    }
                 }
             });
 
@@ -1953,6 +1984,39 @@
                 }
             });
         </script>
+        <!-- CONFIRMATION MODAL -->
+        <div id="confirmation-modal"
+            class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-[100] flex items-center justify-center p-4">
+            <div
+                class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all scale-100">
+                <div class="p-6 text-center">
+                    <div id="confirm-modal-icon-container"
+                        class="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg class="w-8 h-8 text-red-600 dark:text-red-400 animate-tip-over" fill="none"
+                            stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
+                            </path>
+                        </svg>
+                    </div>
+                    <h3 id="confirm-modal-title" class="text-xl font-bold text-slate-900 dark:text-white mb-2">Confirmar
+                        Acción</h3>
+                    <p id="confirm-modal-message" class="text-slate-500 dark:text-slate-400 mb-6">¿Estás seguro de que
+                        deseas realizar esta acción?</p>
+                    <div class="flex gap-3 justify-center">
+                        <button id="cancel-confirm-btn"
+                            class="px-5 py-2.5 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 font-medium transition-colors">
+                            Cancelar
+                        </button>
+                        <button id="confirm-action-btn"
+                            class="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold shadow-lg shadow-red-600/20 transition-colors">
+                            Confirmar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- PRICE CHECK MODAL (Moved to end of body) -->
         <div id="price-check-modal"
             class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-[9999] flex items-center justify-center p-4">

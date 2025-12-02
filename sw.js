@@ -1,4 +1,4 @@
-const CACHE_NAME = 'v199';
+const CACHE_NAME = 'american-pos-v217';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
@@ -9,7 +9,6 @@ const ASSETS_TO_CACHE = [
     './js/ui.js',
     './js/utils.js',
     './assets/logo.jpg',
-    'https://cdn.tailwindcss.com',
     'https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap',
     'https://cdn.jsdelivr.net/npm/chart.js',
     'https://unpkg.com/html5-qrcode'
@@ -32,7 +31,22 @@ self.addEventListener('fetch', (event) => {
 
     event.respondWith(
         caches.match(event.request).then((response) => {
-            return response || fetch(event.request);
+            if (response) return response;
+
+            // Use event.request.url to avoid "redirected response" error on navigation
+            return fetch(event.request.url).then(networkResponse => {
+                // Check if we received a redirected response
+                if (networkResponse.redirected) {
+                    // Create a new response to "clean" the redirected status
+                    const cleanResponse = new Response(networkResponse.body, {
+                        status: networkResponse.status,
+                        statusText: networkResponse.statusText,
+                        headers: networkResponse.headers
+                    });
+                    return cleanResponse;
+                }
+                return networkResponse;
+            });
         })
     );
 });
