@@ -1769,62 +1769,8 @@ export class POS {
         ui.showNotification('Item personalizado agregado', 'success');
     }
 
-    // Weighted Product Logic
-    openWeightModal(product) {
-        this.currentWeightedProduct = product;
-        this.dom.weightModalTitle.textContent = product.name;
-        this.dom.weightInput.value = '';
-        this.dom.weightPriceUsd.value = '';
-        this.dom.weightPriceBs.value = '';
-        this.dom.weightModal.classList.remove('hidden');
-        this.dom.weightInput.focus();
-    }
 
-    closeWeightModal() {
-        this.dom.weightModal.classList.add('hidden');
-        this.currentWeightedProduct = null;
-    }
 
-    calculateWeightValues(source) {
-        if (!this.currentWeightedProduct) return;
-        const pricePerUnit = this.currentWeightedProduct.price;
-        const exchangeRate = this.exchangeRate;
-
-        if (source === 'weight') {
-            const weight = parseFloat(this.dom.weightInput.value) || 0;
-            const totalUsd = weight * pricePerUnit;
-            const totalBs = totalUsd * exchangeRate;
-            this.dom.weightPriceUsd.value = totalUsd.toFixed(2);
-            this.dom.weightPriceBs.value = totalBs.toFixed(2);
-        } else if (source === 'usd') {
-            const totalUsd = parseFloat(this.dom.weightPriceUsd.value) || 0;
-            const weight = totalUsd / pricePerUnit;
-            const totalBs = totalUsd * exchangeRate;
-            this.dom.weightInput.value = weight.toFixed(3);
-            this.dom.weightPriceBs.value = totalBs.toFixed(2);
-        } else if (source === 'bs') {
-            const totalBs = parseFloat(this.dom.weightPriceBs.value) || 0;
-            const totalUsd = totalBs / exchangeRate;
-            const weight = totalUsd / pricePerUnit;
-            this.dom.weightInput.value = weight.toFixed(3);
-            this.dom.weightPriceUsd.value = totalUsd.toFixed(2);
-        }
-    }
-
-    confirmWeightItem(e) {
-        e.preventDefault();
-        if (!this.currentWeightedProduct) return;
-
-        const weight = parseFloat(this.dom.weightInput.value);
-        if (isNaN(weight) || weight <= 0) {
-            ui.showNotification('Peso inválido', 'error');
-            return;
-        }
-
-        this.addToCart(this.currentWeightedProduct, weight);
-        this.closeWeightModal();
-        ui.showNotification('Producto agregado', 'success');
-    }
 
     processCheckout(customer) {
         this.selectedCustomer = customer;
