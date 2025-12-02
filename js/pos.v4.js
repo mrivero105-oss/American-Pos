@@ -969,6 +969,48 @@ export class POS {
         if (this.dom.weightModal) this.dom.weightModal.classList.add('hidden');
         this.selectedWeightProduct = null;
     }
+
+    calculateWeightValues(source) {
+        if (!this.selectedWeightProduct) return;
+
+        const pricePerKg = parseFloat(this.selectedWeightProduct.price);
+        const exchangeRate = this.exchangeRate;
+
+        if (source === 'weight') {
+            const weight = parseFloat(this.dom.weightInput.value);
+            if (!isNaN(weight)) {
+                const totalPrice = weight * pricePerKg;
+                const totalBs = totalPrice * exchangeRate;
+                this.dom.weightPriceUsd.value = totalPrice.toFixed(2);
+                if (this.dom.weightPriceBs) this.dom.weightPriceBs.value = totalBs.toFixed(2);
+            } else {
+                this.dom.weightPriceUsd.value = '';
+                if (this.dom.weightPriceBs) this.dom.weightPriceBs.value = '';
+            }
+        } else if (source === 'usd') {
+            const price = parseFloat(this.dom.weightPriceUsd.value);
+            if (!isNaN(price) && pricePerKg > 0) {
+                const weight = price / pricePerKg;
+                const totalBs = price * exchangeRate;
+                this.dom.weightInput.value = weight.toFixed(3);
+                if (this.dom.weightPriceBs) this.dom.weightPriceBs.value = totalBs.toFixed(2);
+            } else {
+                this.dom.weightInput.value = '';
+                if (this.dom.weightPriceBs) this.dom.weightPriceBs.value = '';
+            }
+        } else if (source === 'bs') {
+            const priceBs = parseFloat(this.dom.weightPriceBs.value);
+            if (!isNaN(priceBs) && exchangeRate > 0 && pricePerKg > 0) {
+                const priceUsd = priceBs / exchangeRate;
+                const weight = priceUsd / pricePerKg;
+                this.dom.weightPriceUsd.value = priceUsd.toFixed(2);
+                this.dom.weightInput.value = weight.toFixed(3);
+            } else {
+                this.dom.weightPriceUsd.value = '';
+                this.dom.weightInput.value = '';
+            }
+        }
+    }
     confirmWeightItem() {
         if (!this.selectedWeightProduct) return;
 
@@ -987,6 +1029,91 @@ export class POS {
         } catch (error) {
             console.error('Error adding weighted item:', error);
             ui.showNotification('Error al agregar producto', 'error');
+        }
+    }
+
+    searchCustomers(query) {
+        if (!query || query.length < 2) {
+            if (this.dom.customerSearchResults) this.dom.customerSearchResults.classList.add('hidden');
+            return;
+        }
+
+        const lowerQuery = query.toLowerCase();
+        const results = this.customers.filter(c =>
+            c.name.toLowerCase().includes(lowerQuery) ||
+            (c.document_number && c.document_number.includes(lowerQuery))
+        );
+
+        this.renderCustomerSearchResults(results);
+    }
+
+    renderCustomerSearchResults(results) {
+        if (!this.dom.customerSearchResults) return;
+
+        if (results.length === 0) {
+            this.dom.customerSearchResults.innerHTML = '<div class="p-3 text-slate-500 text-center">No se encontraron clientes</div>';
+        } else {
+            this.dom.customerSearchResults.innerHTML = results.map(c => `
+                <div class="customer-result-item p-3 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer border-b border-slate-100 dark:border-slate-700 last:border-0" data-id="${c.id}">
+                    <div class="font-medium text-slate-900 dark:text-white">${c.name}</div>
+                    <div class="text-sm text-slate-500 dark:text-slate-400">${c.document_number || 'Sin documento'}</div>
+                </div>
+            `).join('');
+
+            // Bind click events
+            this.dom.customerSearchResults.querySelectorAll('.customer-result-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const id = item.dataset.id;
+                    const customer = this.customers.find(c => String(c.id) === String(id));
+                    if (customer) {
+                        this.selectCustomer(customer);
+                    }
+                });
+            });
+        }
+
+        this.dom.customerSearchResults.classList.remove('hidden');
+    }
+
+    selectCustomer(customer) {
+        this.selectedCustomer = customer;
+
+        // Update UI
+        if (this.dom.customerSearchInput) {
+            this.dom.customerSearchInput.value = customer.name;
+            this.dom.customerSearchInput.disabled = true;
+        }
+
+        if (this.dom.customerSearchResults) {
+            this.dom.customerSearchResults.classList.add('hidden');
+        }
+
+        if (this.dom.deselectCustomerBtn) {
+            this.dom.deselectCustomerBtn.classList.remove('hidden');
+        }
+
+        if (this.dom.customerDocumentDisplay) {
+            this.dom.customerDocumentDisplay.textContent = customer.document_number || 'Sin Documento';
+            this.dom.customerDocumentDisplay.parentElement.classList.remove('hidden');
+        }
+    }
+
+    deselectCustomer() {
+        this.selectedCustomer = null;
+
+        // Update UI
+        if (this.dom.customerSearchInput) {
+            this.dom.customerSearchInput.value = '';
+            this.dom.customerSearchInput.disabled = false;
+            this.dom.customerSearchInput.focus();
+        }
+
+        if (this.dom.deselectCustomerBtn) {
+            this.dom.deselectCustomerBtn.classList.add('hidden');
+        }
+
+        if (this.dom.customerDocumentDisplay) {
+            this.dom.customerDocumentDisplay.parentElement.classList.add('hidden');
         }
     }
 
