@@ -296,8 +296,28 @@
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./sw.js').then(registration => {
                     console.log('SW registered: ', registration);
+
+                    // Check for updates
+                    registration.onupdatefound = () => {
+                        const installingWorker = registration.installing;
+                        installingWorker.onstatechange = () => {
+                            if (installingWorker.state === 'installed') {
+                                if (navigator.serviceWorker.controller) {
+                                    console.log('New content is available; please refresh.');
+                                    // Optional: Show a toast to the user
+                                } else {
+                                    console.log('Content is cached for offline use.');
+                                }
+                            }
+                        };
+                    };
                 }).catch(registrationError => {
                     console.log('SW registration failed: ', registrationError);
+                });
+
+                // Reload page when new SW takes control
+                navigator.serviceWorker.addEventListener('controllerchange', () => {
+                    window.location.reload();
                 });
             });
         }
