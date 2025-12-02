@@ -535,7 +535,15 @@ export class POS {
                     }
                 });
             }
-            // if (this.dom.weightPriceBs) this.dom.weightPriceBs.addEventListener('input', () => this.calculateWeightValues('bs')); // BS input not implemented in HTML yet
+            if (this.dom.weightPriceBs) {
+                this.dom.weightPriceBs.addEventListener('input', () => this.calculateWeightValues('bs'));
+                this.dom.weightPriceBs.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        this.confirmWeightItem();
+                    }
+                });
+            }
 
             if (this.dom.cancelWeightBtn) this.dom.cancelWeightBtn.addEventListener('click', () => this.closeWeightModal());
             if (this.dom.cancelWeightBtnX) this.dom.cancelWeightBtnX.addEventListener('click', () => this.closeWeightModal());
@@ -949,6 +957,7 @@ export class POS {
 
         this.dom.weightInput.value = '';
         this.dom.weightPriceUsd.value = '';
+        if (this.dom.weightPriceBs) this.dom.weightPriceBs.value = '';
 
         // Focus weight input by default
         setTimeout(() => this.dom.weightInput.focus(), 100);
@@ -960,31 +969,6 @@ export class POS {
         if (this.dom.weightModal) this.dom.weightModal.classList.add('hidden');
         this.selectedWeightProduct = null;
     }
-
-    calculateWeightValues(source) {
-        if (!this.selectedWeightProduct) return;
-
-        const pricePerKg = parseFloat(this.selectedWeightProduct.price);
-
-        if (source === 'weight') {
-            const weight = parseFloat(this.dom.weightInput.value);
-            if (!isNaN(weight)) {
-                const totalPrice = weight * pricePerKg;
-                this.dom.weightPriceUsd.value = totalPrice.toFixed(2);
-            } else {
-                this.dom.weightPriceUsd.value = '';
-            }
-        } else if (source === 'usd') {
-            const price = parseFloat(this.dom.weightPriceUsd.value);
-            if (!isNaN(price) && pricePerKg > 0) {
-                const weight = price / pricePerKg;
-                this.dom.weightInput.value = weight.toFixed(3);
-            } else {
-                this.dom.weightInput.value = '';
-            }
-        }
-    }
-
     confirmWeightItem() {
         if (!this.selectedWeightProduct) return;
 
@@ -997,8 +981,13 @@ export class POS {
 
         // Add to cart with specific quantity (weight)
         // We pass the weight as quantity
-        this.addToCart(this.selectedWeightProduct, weight);
-        this.closeWeightModal();
+        try {
+            this.addToCart(this.selectedWeightProduct, weight);
+            this.closeWeightModal();
+        } catch (error) {
+            console.error('Error adding weighted item:', error);
+            ui.showNotification('Error al agregar producto', 'error');
+        }
     }
 
     renderCart() {
