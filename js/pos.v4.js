@@ -140,6 +140,13 @@ export class POS {
             // Custom Item
             cancelWeightBtn: document.getElementById('cancel-weight-btn'),
             cancelWeightBtnX: document.getElementById('close-weight-modal'),
+            weightModal: document.getElementById('weight-modal'),
+            weightModalTitle: document.getElementById('weight-modal-product-name'),
+            weightModalUnitPrice: document.getElementById('weight-modal-unit-price'),
+            weightInput: document.getElementById('weight-input'),
+            weightPriceUsd: document.getElementById('weight-price-input'),
+            weightPriceBs: document.getElementById('weight-price-bs'), // Note: ID in HTML is weight-price-input for USD, need to check if BS input exists or if I should map correctly
+            confirmWeightBtn: document.getElementById('confirm-weight-btn'),
 
             // Customer Search Elements
             customerSearchInput: document.getElementById('pos-customer-search'),
@@ -510,11 +517,29 @@ export class POS {
             }
 
             // Weight Modal Events
-            if (this.dom.weightInput) this.dom.weightInput.addEventListener('input', () => this.calculateWeightValues('weight'));
-            if (this.dom.weightPriceUsd) this.dom.weightPriceUsd.addEventListener('input', () => this.calculateWeightValues('usd'));
-            if (this.dom.weightPriceBs) this.dom.weightPriceBs.addEventListener('input', () => this.calculateWeightValues('bs'));
+            if (this.dom.weightInput) {
+                this.dom.weightInput.addEventListener('input', () => this.calculateWeightValues('weight'));
+                this.dom.weightInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        this.confirmWeightItem();
+                    }
+                });
+            }
+            if (this.dom.weightPriceUsd) {
+                this.dom.weightPriceUsd.addEventListener('input', () => this.calculateWeightValues('usd'));
+                this.dom.weightPriceUsd.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        this.confirmWeightItem();
+                    }
+                });
+            }
+            // if (this.dom.weightPriceBs) this.dom.weightPriceBs.addEventListener('input', () => this.calculateWeightValues('bs')); // BS input not implemented in HTML yet
+
             if (this.dom.cancelWeightBtn) this.dom.cancelWeightBtn.addEventListener('click', () => this.closeWeightModal());
             if (this.dom.cancelWeightBtnX) this.dom.cancelWeightBtnX.addEventListener('click', () => this.closeWeightModal());
+            if (this.dom.confirmWeightBtn) this.dom.confirmWeightBtn.addEventListener('click', () => this.confirmWeightItem());
 
             const weightForm = document.getElementById('weight-item-form');
             if (weightForm) {
@@ -913,33 +938,26 @@ export class POS {
 
     openWeightModal(product) {
         this.selectedWeightProduct = product;
-        const modal = document.getElementById('weight-modal');
-        const nameEl = document.getElementById('weight-modal-product-name');
-        const unitPriceEl = document.getElementById('weight-modal-unit-price');
-        const weightInput = document.getElementById('weight-input');
-        const priceInput = document.getElementById('weight-price-input');
-        const confirmBtn = document.getElementById('confirm-weight-btn');
 
-        if (!modal || !nameEl || !unitPriceEl || !weightInput || !priceInput) return;
+        if (!this.dom.weightModal || !this.dom.weightModalTitle || !this.dom.weightModalUnitPrice || !this.dom.weightInput || !this.dom.weightPriceUsd) {
+            console.error('Weight modal elements not found in DOM cache');
+            return;
+        }
 
-        nameEl.textContent = product.name;
-        unitPriceEl.textContent = `$${parseFloat(product.price).toFixed(2)} / Kg`;
+        this.dom.weightModalTitle.textContent = product.name;
+        this.dom.weightModalUnitPrice.textContent = `$${parseFloat(product.price).toFixed(2)} / Kg`;
 
-        weightInput.value = '';
-        priceInput.value = '';
+        this.dom.weightInput.value = '';
+        this.dom.weightPriceUsd.value = '';
 
         // Focus weight input by default
-        setTimeout(() => weightInput.focus(), 100);
+        setTimeout(() => this.dom.weightInput.focus(), 100);
 
-        modal.classList.remove('hidden');
-
-        // Bind confirm button dynamically or ensure it's bound in init
-        confirmBtn.onclick = () => this.confirmWeightItem();
+        this.dom.weightModal.classList.remove('hidden');
     }
 
     closeWeightModal() {
-        const modal = document.getElementById('weight-modal');
-        if (modal) modal.classList.add('hidden');
+        if (this.dom.weightModal) this.dom.weightModal.classList.add('hidden');
         this.selectedWeightProduct = null;
     }
 
@@ -947,35 +965,30 @@ export class POS {
         if (!this.selectedWeightProduct) return;
 
         const pricePerKg = parseFloat(this.selectedWeightProduct.price);
-        const weightInput = document.getElementById('weight-input');
-        const priceInput = document.getElementById('weight-price-input');
 
         if (source === 'weight') {
-            const weight = parseFloat(weightInput.value);
+            const weight = parseFloat(this.dom.weightInput.value);
             if (!isNaN(weight)) {
                 const totalPrice = weight * pricePerKg;
-                priceInput.value = totalPrice.toFixed(2);
+                this.dom.weightPriceUsd.value = totalPrice.toFixed(2);
             } else {
-                priceInput.value = '';
+                this.dom.weightPriceUsd.value = '';
             }
         } else if (source === 'usd') {
-            const price = parseFloat(priceInput.value);
+            const price = parseFloat(this.dom.weightPriceUsd.value);
             if (!isNaN(price) && pricePerKg > 0) {
                 const weight = price / pricePerKg;
-                weightInput.value = weight.toFixed(3);
+                this.dom.weightInput.value = weight.toFixed(3);
             } else {
-                weightInput.value = '';
+                this.dom.weightInput.value = '';
             }
-        } else if (source === 'bs') {
-            // Optional: Handle Bs input if added later
         }
     }
 
     confirmWeightItem() {
         if (!this.selectedWeightProduct) return;
 
-        const weightInput = document.getElementById('weight-input');
-        const weight = parseFloat(weightInput.value);
+        const weight = parseFloat(this.dom.weightInput.value);
 
         if (isNaN(weight) || weight <= 0) {
             ui.showNotification('Ingrese un peso válido', 'warning');
