@@ -1497,6 +1497,16 @@
                             </div>
                         </div>
 
+                        <div class="mb-4">
+                            <div class="flex items-center">
+                                <input type="checkbox" id="product-is-sold-by-weight"
+                                    class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                                <label for="product-is-sold-by-weight"
+                                    class="ml-2 text-sm font-medium text-gray-900 dark:text-gray-300">Se vende por peso
+                                    (Kg/L)</label>
+                            </div>
+                        </div>
+
                         <!-- ADVANCED PRICING SECTION -->
                         <div class="mb-4">
                             <label class="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Imagen
@@ -1669,6 +1679,56 @@
                 </div>
                 <div class="p-6 text-slate-900 dark:text-white" id="sale-details-content">
                     <!-- JS Injected -->
+                </div>
+            </div>
+        </div>
+
+        <!-- WEIGHT MODAL -->
+        <div id="weight-modal"
+            class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center backdrop-blur-sm p-4">
+            <div
+                class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all">
+                <div
+                    class="p-4 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-700">
+                    <h3 class="font-bold text-lg text-slate-800 dark:text-white">Venta por Peso/Precio</h3>
+                    <button id="close-weight-modal"
+                        class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-2xl leading-none">&times;</button>
+                </div>
+                <div class="p-6">
+                    <h4 id="weight-modal-product-name"
+                        class="text-xl font-bold text-slate-800 dark:text-white mb-4 text-center">Producto</h4>
+
+                    <div class="grid grid-cols-2 gap-4 mb-6">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Peso
+                                (Kg/L)</label>
+                            <input type="number" id="weight-input" step="0.001" min="0" placeholder="0.000"
+                                class="w-full px-4 py-3 text-lg font-bold border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 text-slate-900 dark:text-white">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Precio
+                                Total ($)</label>
+                            <input type="number" id="weight-price-input" step="0.01" min="0" placeholder="0.00"
+                                class="w-full px-4 py-3 text-lg font-bold border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg focus:ring-2 focus:ring-green-500 text-slate-900 dark:text-white">
+                        </div>
+                    </div>
+
+                    <div class="mb-6 p-3 bg-slate-50 dark:bg-slate-700/50 rounded-lg flex justify-between items-center">
+                        <span class="text-slate-600 dark:text-slate-400">Precio Unitario:</span>
+                        <span id="weight-modal-unit-price" class="font-bold text-slate-900 dark:text-white">$0.00 /
+                            Kg</span>
+                    </div>
+
+                    <div class="flex gap-3">
+                        <button id="cancel-weight-btn"
+                            class="flex-1 px-4 py-3 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors font-medium">
+                            Cancelar
+                        </button>
+                        <button id="confirm-weight-btn"
+                            class="flex-1 px-4 py-3 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors font-bold shadow-lg">
+                            Agregar
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

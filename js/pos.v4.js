@@ -887,8 +887,8 @@ export class POS {
         }
 
         // Check for weighted product
-        // Assuming 'isWeighted' property or 'measurement' === 'kg'
-        const isWeighted = product.isWeighted || product.measurement === 'kg';
+        // isSoldByWeight comes from DB (0 or 1)
+        const isWeighted = product.isSoldByWeight === 1 || product.isSoldByWeight === true;
 
         // If it's weighted and no specific quantity was passed (meaning it came from a click), open modal
         if (isWeighted && quantity === 1 && arguments.length === 1) {
@@ -899,92 +899,169 @@ export class POS {
         const existingItem = this.cart.find(item => item.id === product.id);
         if (existingItem) {
             const newQty = existingItem.quantity + quantity;
+            // For weighted items, we might want to allow more precision or just check stock
             if (newQty <= product.stock) {
                 existingItem.quantity = newQty;
             } else {
                 ui.showNotification(`Stock máximo alcanzado (${product.stock})`, 'warning');
             }
         } else {
-            this.cart.push({ ...product, quantity: quantity });
+            this.cart.push({ ...product, quantity: quantity, isWeighted: isWeighted });
         }
         this.renderCart();
     }
 
-    renderCart() {
-        // Calculate Totals
-        const total = this.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-        const totalBs = total * this.exchangeRate;
-        const itemCount = this.cart.reduce((sum, item) => sum + item.quantity, 0);
+    openWeightModal(product) {
+        this.selectedWeightProduct = product;
+        const modal = document.getElementById('weight-modal');
+        const nameEl = document.getElementById('weight-modal-product-name');
+        const unitPriceEl = document.getElementById('weight-modal-unit-price');
+        const weightInput = document.getElementById('weight-input');
+        const priceInput = document.getElementById('weight-price-input');
+        const confirmBtn = document.getElementById('confirm-weight-btn');
 
-        // Update UI Totals
-        if (this.dom.cartTotal) this.dom.cartTotal.textContent = `$${total.toFixed(2)} `;
-        if (this.dom.cartTotalBs) this.dom.cartTotalBs.textContent = `Bs ${totalBs.toFixed(2)} `;
-        if (this.dom.mobileCartCount) this.dom.mobileCartCount.textContent = itemCount;
+        if (!modal || !nameEl || !unitPriceEl || !weightInput || !priceInput) return;
 
-        // Render Desktop Cart
-        if (this.dom.cartItems) {
-            if (this.cart.length === 0) {
-                this.dom.cartItems.innerHTML = '<div class="text-center text-slate-400 py-8">Carrito vacío</div>';
-            } else {
-                this.dom.cartItems.innerHTML = this.cart.map(item => this.renderCartItem(item)).join('');
-            }
-        }
+        nameEl.textContent = product.name;
+        unitPriceEl.textContent = `$${parseFloat(product.price).toFixed(2)} / Kg`;
 
-        // Render Mobile Cart
-        if (this.dom.mobileCartItems) {
-            if (this.cart.length === 0) {
-                this.dom.mobileCartItems.innerHTML = '<div class="text-center text-slate-400 py-8">Carrito vacío</div>';
-            } else {
-                this.dom.mobileCartItems.innerHTML = this.cart.map(item => this.renderCartItem(item)).join('');
-            }
-        } else {
-            // Try to find it again dynamically
-            const mobileContainer = document.getElementById('mobile-cart-items-container');
-            if (mobileContainer) {
-                this.dom.mobileCartItems = mobileContainer;
-                this.dom.mobileCartItems.innerHTML = this.cart.map(item => this.renderCartItem(item)).join('');
-            }
-        }
+        weightInput.value = '';
+        priceInput.value = '';
 
-        // Update Button States
-        const isCartEmpty = this.cart.length === 0;
-        if (this.dom.checkoutBtn) {
-            this.dom.checkoutBtn.disabled = isCartEmpty;
-            if (isCartEmpty) {
-                this.dom.checkoutBtn.classList.add('opacity-50', 'cursor-not-allowed');
-            } else {
-                this.dom.checkoutBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-            }
-        }
-        if (this.dom.clearCartBtn) {
-            this.dom.clearCartBtn.disabled = isCartEmpty;
-            if (isCartEmpty) {
-                this.dom.clearCartBtn.classList.add('opacity-50', 'cursor-not-allowed');
-            } else {
-                this.dom.clearCartBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-            }
-        }
+        // Focus weight input by default
+        setTimeout(() => weightInput.focus(), 100);
 
-        // Update Mobile Cart Button Badge visibility
-        // Update Mobile Cart Button Badge visibility
-        if (this.dom.mobileCartCount) {
-            if (itemCount > 0) {
-                this.dom.mobileCartCount.classList.remove('hidden');
+        modal.classList.remove('hidden');
+
+        // Bind confirm button dynamically or ensure it's bound in init
+        confirmBtn.onclick = () => this.confirmWeightItem();
+    }
+
+    closeWeightModal() {
+        const modal = document.getElementById('weight-modal');
+        if (modal) modal.classList.add('hidden');
+        this.selectedWeightProduct = null;
+    }
+
+    calculateWeightValues(source) {
+        if (!this.selectedWeightProduct) return;
+
+        const pricePerKg = parseFloat(this.selectedWeightProduct.price);
+        const weightInput = document.getElementById('weight-input');
+        const priceInput = document.getElementById('weight-price-input');
+
+        if (source === 'weight') {
+            const weight = parseFloat(weightInput.value);
+            if (!isNaN(weight)) {
+                const totalPrice = weight * pricePerKg;
+                priceInput.value = totalPrice.toFixed(2);
             } else {
-                this.dom.mobileCartCount.classList.add('hidden');
+                priceInput.value = '';
             }
+        } else if (source === 'usd') {
+            const price = parseFloat(priceInput.value);
+            if (!isNaN(price) && pricePerKg > 0) {
+                const weight = price / pricePerKg;
+                weightInput.value = weight.toFixed(3);
+            } else {
+                weightInput.value = '';
+            }
+        } else if (source === 'bs') {
+            // Optional: Handle Bs input if added later
         }
     }
 
-    renderCartItem(item) {
-        const isWeighted = item.isWeighted || item.measurement === 'kg';
-        const step = isWeighted ? '0.001' : '1';
-        const quantityDisplay = isWeighted ? parseFloat(item.quantity).toFixed(3) : item.quantity;
-        const weightTag = isWeighted ? '<span class="text-xs bg-blue-100 text-blue-800 px-1 rounded ml-1">Peso</span>' : '';
-        const imageUri = item.imageUri || 'https://via.placeholder.com/150?text=No+Image';
-        const priceBs = (item.price * this.exchangeRate).toFixed(2);
+    confirmWeightItem() {
+        if (!this.selectedWeightProduct) return;
 
-        return `
+        const weightInput = document.getElementById('weight-input');
+        const weight = parseFloat(weightInput.value);
+
+        if (isNaN(weight) || weight <= 0) {
+            ui.showNotification('Ingrese un peso válido', 'warning');
+            return;
+        }
+
+        // Add to cart with specific quantity (weight)
+        // We pass the weight as quantity
+        this.addToCart(this.selectedWeightProduct, weight);
+        this.closeWeightModal();
+
+        renderCart() {
+            // Calculate Totals
+            const total = this.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            const totalBs = total * this.exchangeRate;
+            const itemCount = this.cart.reduce((sum, item) => sum + item.quantity, 0);
+
+            // Update UI Totals
+            if (this.dom.cartTotal) this.dom.cartTotal.textContent = `$${total.toFixed(2)} `;
+            if (this.dom.cartTotalBs) this.dom.cartTotalBs.textContent = `Bs ${totalBs.toFixed(2)} `;
+            if (this.dom.mobileCartCount) this.dom.mobileCartCount.textContent = itemCount;
+
+            // Render Desktop Cart
+            if (this.dom.cartItems) {
+                if (this.cart.length === 0) {
+                    this.dom.cartItems.innerHTML = '<div class="text-center text-slate-400 py-8">Carrito vacío</div>';
+                } else {
+                    this.dom.cartItems.innerHTML = this.cart.map(item => this.renderCartItem(item)).join('');
+                }
+            }
+
+            // Render Mobile Cart
+            if (this.dom.mobileCartItems) {
+                if (this.cart.length === 0) {
+                    this.dom.mobileCartItems.innerHTML = '<div class="text-center text-slate-400 py-8">Carrito vacío</div>';
+                } else {
+                    this.dom.mobileCartItems.innerHTML = this.cart.map(item => this.renderCartItem(item)).join('');
+                }
+            } else {
+                // Try to find it again dynamically
+                const mobileContainer = document.getElementById('mobile-cart-items-container');
+                if (mobileContainer) {
+                    this.dom.mobileCartItems = mobileContainer;
+                    this.dom.mobileCartItems.innerHTML = this.cart.map(item => this.renderCartItem(item)).join('');
+                }
+            }
+
+            // Update Button States
+            const isCartEmpty = this.cart.length === 0;
+            if (this.dom.checkoutBtn) {
+                this.dom.checkoutBtn.disabled = isCartEmpty;
+                if (isCartEmpty) {
+                    this.dom.checkoutBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                } else {
+                    this.dom.checkoutBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                }
+            }
+            if (this.dom.clearCartBtn) {
+                this.dom.clearCartBtn.disabled = isCartEmpty;
+                if (isCartEmpty) {
+                    this.dom.clearCartBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                } else {
+                    this.dom.clearCartBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                }
+            }
+
+            // Update Mobile Cart Button Badge visibility
+            // Update Mobile Cart Button Badge visibility
+            if (this.dom.mobileCartCount) {
+                if (itemCount > 0) {
+                    this.dom.mobileCartCount.classList.remove('hidden');
+                } else {
+                    this.dom.mobileCartCount.classList.add('hidden');
+                }
+            }
+        }
+
+        renderCartItem(item) {
+            const isWeighted = item.isWeighted || item.measurement === 'kg';
+            const step = isWeighted ? '0.001' : '1';
+            const quantityDisplay = isWeighted ? parseFloat(item.quantity).toFixed(3) : item.quantity;
+            const weightTag = isWeighted ? '<span class="text-xs bg-blue-100 text-blue-800 px-1 rounded ml-1">Peso</span>' : '';
+            const imageUri = item.imageUri || 'https://via.placeholder.com/150?text=No+Image';
+            const priceBs = (item.price * this.exchangeRate).toFixed(2);
+
+            return `
         <div class="cart-item flex flex-col p-3 mb-2 bg-slate-50 dark:bg-slate-700/50 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-500 transition-colors" data-id="${item.id}">
             <!-- Name Row -->
             <div class="w-full mb-2 border-b border-slate-200 dark:border-slate-600 pb-2">
@@ -1024,208 +1101,208 @@ export class POS {
             </div>
         </div>
     `;
-    }
+        }
 
-    handleCartClick(e) {
-        const btn = e.target.closest('.increase-qty, .decrease-qty, .remove-item');
-        if (!btn) return;
+        handleCartClick(e) {
+            const btn = e.target.closest('.increase-qty, .decrease-qty, .remove-item');
+            if (!btn) return;
 
-        const cartItem = btn.closest('.cart-item');
-        if (!cartItem) return;
+            const cartItem = btn.closest('.cart-item');
+            if (!cartItem) return;
 
-        const id = cartItem.dataset.id;
-        const item = this.cart.find(i => String(i.id) === String(id));
-        if (!item) return;
+            const id = cartItem.dataset.id;
+            const item = this.cart.find(i => String(i.id) === String(id));
+            if (!item) return;
 
-        if (btn.classList.contains('increase-qty')) {
-            if (item.quantity < item.stock) {
-                item.quantity++;
-            } else {
-                ui.showNotification(`Stock máximo alcanzado(${item.stock})`, 'warning');
-            }
-        } else if (btn.classList.contains('decrease-qty')) {
-            if (item.quantity > 1) {
-                item.quantity--;
-            } else {
+            if (btn.classList.contains('increase-qty')) {
+                if (item.quantity < item.stock) {
+                    item.quantity++;
+                } else {
+                    ui.showNotification(`Stock máximo alcanzado(${item.stock})`, 'warning');
+                }
+            } else if (btn.classList.contains('decrease-qty')) {
+                if (item.quantity > 1) {
+                    item.quantity--;
+                } else {
+                    this.cart = this.cart.filter(i => String(i.id) !== String(id));
+                }
+            } else if (btn.classList.contains('remove-item')) {
                 this.cart = this.cart.filter(i => String(i.id) !== String(id));
             }
-        } else if (btn.classList.contains('remove-item')) {
-            this.cart = this.cart.filter(i => String(i.id) !== String(id));
+
+            this.renderCart();
         }
 
-        this.renderCart();
-    }
+        handleCartInput(e) {
+            if (!e.target.classList.contains('qty-input')) return;
 
-    handleCartInput(e) {
-        if (!e.target.classList.contains('qty-input')) return;
+            const cartItem = e.target.closest('.cart-item');
+            if (!cartItem) return;
 
-        const cartItem = e.target.closest('.cart-item');
-        if (!cartItem) return;
+            const id = cartItem.dataset.id;
+            const item = this.cart.find(i => String(i.id) === String(id));
+            if (!item) return;
 
-        const id = cartItem.dataset.id;
-        const item = this.cart.find(i => String(i.id) === String(id));
-        if (!item) return;
+            let newQty = parseFloat(e.target.value);
 
-        let newQty = parseFloat(e.target.value);
-
-        if (isNaN(newQty) || newQty < 1) {
-            newQty = 1;
-        }
-
-        if (newQty > item.stock) {
-            newQty = item.stock;
-            ui.showNotification(`Stock máximo alcanzado(${item.stock})`, 'warning');
-        }
-
-        item.quantity = newQty;
-        this.renderCart();
-    }
-
-    checkHeldSale() {
-        this.updateHeldSalesCount();
-    }
-
-    updateHeldSalesCount() {
-        const heldSales = JSON.parse(localStorage.getItem('held_sales') || '[]');
-        const count = heldSales.length;
-
-        if (this.dom.heldCountBadge) {
-            this.dom.heldCountBadge.textContent = count;
-            if (count > 0) {
-                this.dom.heldCountBadge.classList.remove('hidden');
-            } else {
-                this.dom.heldCountBadge.classList.add('hidden');
+            if (isNaN(newQty) || newQty < 1) {
+                newQty = 1;
             }
-        }
-    }
 
-    initiateHoldSale() {
-        if (this.cart.length === 0) {
-            ui.showNotification('El carrito está vacío', 'warning');
-            return;
-        }
+            if (newQty > item.stock) {
+                newQty = item.stock;
+                ui.showNotification(`Stock máximo alcanzado(${item.stock})`, 'warning');
+            }
 
-        // Always prompt for customer as requested
-        this.showConfirmationModal(
-            '¿Asignar Cliente?',
-            '¿Desea asignar un cliente a esta venta en espera? Si selecciona "No", se guardará como anónima.',
-            () => {
-                this.pendingHold = true;
-                this.showCustomerSelection();
-            },
-            'Sí, Asignar',
-            () => {
-                this.holdSale();
-            },
-            'No, Guardar Anónima'
-        );
-    }
-
-    holdSale() {
-        if (this.cart.length === 0) {
-            ui.showNotification('El carrito está vacío', 'warning');
-            return;
+            item.quantity = newQty;
+            this.renderCart();
         }
 
-        if (this.processingHold) return;
-        this.processingHold = true;
-
-        console.log('DEBUG: holdSale called');
-
-        const heldSales = JSON.parse(localStorage.getItem('held_sales') || '[]');
-        let existingSaleIndex = -1;
-
-        // If we have a customer, check if they already have a held sale
-        if (this.selectedCustomer) {
-            existingSaleIndex = heldSales.findIndex(s => s.customer && s.customer.id === this.selectedCustomer.id);
+        checkHeldSale() {
+            this.updateHeldSalesCount();
         }
 
-        if (existingSaleIndex !== -1) {
-            // Merge with existing sale
-            const existingSale = heldSales[existingSaleIndex];
+        updateHeldSalesCount() {
+            const heldSales = JSON.parse(localStorage.getItem('held_sales') || '[]');
+            const count = heldSales.length;
 
-            this.cart.forEach(cartItem => {
-                const existingItem = existingSale.items.find(i => i.id === cartItem.id);
-                if (existingItem) {
-                    existingItem.quantity += cartItem.quantity;
+            if (this.dom.heldCountBadge) {
+                this.dom.heldCountBadge.textContent = count;
+                if (count > 0) {
+                    this.dom.heldCountBadge.classList.remove('hidden');
                 } else {
-                    existingSale.items.push(cartItem);
+                    this.dom.heldCountBadge.classList.add('hidden');
                 }
-            });
+            }
+        }
 
-            // Recalculate total
-            existingSale.total = existingSale.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-            ui.showNotification(`Venta actualizada para ${this.selectedCustomer.name} `, 'success');
-        } else {
-            // Create new held sale
-            // Helper to save sale
-            const saveSale = (customer) => {
-                const sale = {
-                    id: Date.now().toString(),
-                    items: [...this.cart],
-                    customer: customer,
-                    total: this.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0),
-                    timestamp: new Date().toISOString()
-                };
-                heldSales.push(sale);
-                localStorage.setItem('held_sales', JSON.stringify(heldSales));
-                this.cart = [];
-                this.selectedCustomer = null;
-                this.renderCart();
-                this.renderCart();
-                this.updateHeldSalesCount();
-                this.closeHeldSalesDrawer();
+        initiateHoldSale() {
+            if (this.cart.length === 0) {
+                ui.showNotification('El carrito está vacío', 'warning');
+                return;
             }
 
-            if (!this.selectedCustomer) {
-                const customer = { id: 'ref-' + Date.now(), name: 'Cliente Casual', email: '', phone: '' };
-                saveSale(customer);
+            // Always prompt for customer as requested
+            this.showConfirmationModal(
+                '¿Asignar Cliente?',
+                '¿Desea asignar un cliente a esta venta en espera? Si selecciona "No", se guardará como anónima.',
+                () => {
+                    this.pendingHold = true;
+                    this.showCustomerSelection();
+                },
+                'Sí, Asignar',
+                () => {
+                    this.holdSale();
+                },
+                'No, Guardar Anónima'
+            );
+        }
+
+        holdSale() {
+            if (this.cart.length === 0) {
+                ui.showNotification('El carrito está vacío', 'warning');
+                return;
+            }
+
+            if (this.processingHold) return;
+            this.processingHold = true;
+
+            console.log('DEBUG: holdSale called');
+
+            const heldSales = JSON.parse(localStorage.getItem('held_sales') || '[]');
+            let existingSaleIndex = -1;
+
+            // If we have a customer, check if they already have a held sale
+            if (this.selectedCustomer) {
+                existingSaleIndex = heldSales.findIndex(s => s.customer && s.customer.id === this.selectedCustomer.id);
+            }
+
+            if (existingSaleIndex !== -1) {
+                // Merge with existing sale
+                const existingSale = heldSales[existingSaleIndex];
+
+                this.cart.forEach(cartItem => {
+                    const existingItem = existingSale.items.find(i => i.id === cartItem.id);
+                    if (existingItem) {
+                        existingItem.quantity += cartItem.quantity;
+                    } else {
+                        existingSale.items.push(cartItem);
+                    }
+                });
+
+                // Recalculate total
+                existingSale.total = existingSale.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                ui.showNotification(`Venta actualizada para ${this.selectedCustomer.name} `, 'success');
             } else {
-                saveSale(this.selectedCustomer);
+                // Create new held sale
+                // Helper to save sale
+                const saveSale = (customer) => {
+                    const sale = {
+                        id: Date.now().toString(),
+                        items: [...this.cart],
+                        customer: customer,
+                        total: this.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0),
+                        timestamp: new Date().toISOString()
+                    };
+                    heldSales.push(sale);
+                    localStorage.setItem('held_sales', JSON.stringify(heldSales));
+                    this.cart = [];
+                    this.selectedCustomer = null;
+                    this.renderCart();
+                    this.renderCart();
+                    this.updateHeldSalesCount();
+                    this.closeHeldSalesDrawer();
+                }
+
+                if (!this.selectedCustomer) {
+                    const customer = { id: 'ref-' + Date.now(), name: 'Cliente Casual', email: '', phone: '' };
+                    saveSale(customer);
+                } else {
+                    saveSale(this.selectedCustomer);
+                }
+            }
+
+            setTimeout(() => { this.processingHold = false; }, 1000);
+        }
+
+        showHeldSales() {
+            const heldSales = JSON.parse(localStorage.getItem('held_sales') || '[]');
+            this.renderHeldSalesList(heldSales);
+            if (this.dom.heldSalesDrawer) {
+                this.dom.heldSalesDrawer.classList.remove('translate-x-full');
+                if (this.dom.mobileOverlay) this.dom.mobileOverlay.classList.remove('hidden');
             }
         }
 
-        setTimeout(() => { this.processingHold = false; }, 1000);
-    }
 
-    showHeldSales() {
-        const heldSales = JSON.parse(localStorage.getItem('held_sales') || '[]');
-        this.renderHeldSalesList(heldSales);
-        if (this.dom.heldSalesDrawer) {
-            this.dom.heldSalesDrawer.classList.remove('translate-x-full');
-            if (this.dom.mobileOverlay) this.dom.mobileOverlay.classList.remove('hidden');
-        }
-    }
-
-
-    closeHeldSalesDrawer() {
-        if (this.dom.heldSalesDrawer) {
-            this.dom.heldSalesDrawer.classList.add('translate-x-full');
-            if (this.dom.mobileOverlay) this.dom.mobileOverlay.classList.add('hidden');
-        }
-    }
-
-    renderHeldSalesList(heldSales) {
-        if (!this.dom.heldSalesList) return;
-
-        if (heldSales.length === 0) {
-            this.dom.heldSalesList.innerHTML = '<p class="text-center text-slate-400 py-8">No hay ventas en espera</p>';
-            return;
+        closeHeldSalesDrawer() {
+            if (this.dom.heldSalesDrawer) {
+                this.dom.heldSalesDrawer.classList.add('translate-x-full');
+                if (this.dom.mobileOverlay) this.dom.mobileOverlay.classList.add('hidden');
+            }
         }
 
-        this.dom.heldSalesList.innerHTML = heldSales.map(sale => {
-            const date = new Date(sale.timestamp);
-            const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            const dateStr = date.toLocaleDateString();
-            const itemCount = sale.items.reduce((sum, item) => sum + item.quantity, 0);
-            const customerName = sale.customer
-                ? `<div class="text-sm font-bold text-blue-600 dark:text-blue-400 mb-1 flex items-center gap-1">
+        renderHeldSalesList(heldSales) {
+            if (!this.dom.heldSalesList) return;
+
+            if (heldSales.length === 0) {
+                this.dom.heldSalesList.innerHTML = '<p class="text-center text-slate-400 py-8">No hay ventas en espera</p>';
+                return;
+            }
+
+            this.dom.heldSalesList.innerHTML = heldSales.map(sale => {
+                const date = new Date(sale.timestamp);
+                const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                const dateStr = date.toLocaleDateString();
+                const itemCount = sale.items.reduce((sum, item) => sum + item.quantity, 0);
+                const customerName = sale.customer
+                    ? `<div class="text-sm font-bold text-blue-600 dark:text-blue-400 mb-1 flex items-center gap-1">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
                     ${sale.customer.name}
                    </div>`
-                : `<div class="text-sm font-medium text-slate-400 dark:text-slate-500 mb-1 italic">Sin cliente asignado</div>`;
+                    : `<div class="text-sm font-medium text-slate-400 dark:text-slate-500 mb-1 italic">Sin cliente asignado</div>`;
 
-            return `
+                return `
                 <div class="bg-slate-50 dark:bg-slate-700/50 p-4 rounded-xl border border-slate-200 dark:border-slate-600 hover:border-yellow-400 dark:hover:border-yellow-500/50 transition-colors group mb-3">
                     <div class="flex justify-between items-start mb-2">
                         <div>
@@ -1251,104 +1328,104 @@ export class POS {
                     </div>
                 </div>
             `;
-        }).join('');
-    }
-
-    restoreSale(id) {
-        const heldSales = JSON.parse(localStorage.getItem('held_sales') || '[]');
-        const saleIndex = heldSales.findIndex(s => s.id === id);
-
-        if (saleIndex === -1) return;
-
-        const sale = heldSales[saleIndex];
-
-        const doRestore = () => {
-            this.cart = sale.items;
-            this.selectedCustomer = sale.customer;
-
-            // Remove from held sales
-            heldSales.splice(saleIndex, 1);
-            localStorage.setItem('held_sales', JSON.stringify(heldSales));
-
-            this.renderCart();
-            this.updateHeldSalesCount();
-            this.closeHeldSalesDrawer();
-            ui.showNotification('Venta recuperada', 'success');
-        };
-
-        // Confirm if cart is not empty
-        if (this.cart.length > 0) {
-            this.showConfirmationModal(
-                '¿Reemplazar carrito?',
-                'Hay productos en el carrito actual. ¿Desea reemplazarlos por la venta en espera?',
-                () => doRestore(),
-                'Sí, Reemplazar'
-            );
-        } else {
-            doRestore();
+            }).join('');
         }
-    }
 
-    deleteHeldSale(id) {
-        console.log('POS: deleteHeldSale called for id', id);
-        this.showConfirmationModal(
-            '¿Eliminar venta en espera?',
-            '¿Está seguro de eliminar esta venta en espera? Esta acción no se puede deshacer.',
-            () => {
-                const heldSales = JSON.parse(localStorage.getItem('held_sales') || '[]');
-                const newHeldSales = heldSales.filter(s => s.id !== id);
+        restoreSale(id) {
+            const heldSales = JSON.parse(localStorage.getItem('held_sales') || '[]');
+            const saleIndex = heldSales.findIndex(s => s.id === id);
 
-                localStorage.setItem('held_sales', JSON.stringify(newHeldSales));
+            if (saleIndex === -1) return;
 
-                this.renderHeldSalesList(newHeldSales);
+            const sale = heldSales[saleIndex];
+
+            const doRestore = () => {
+                this.cart = sale.items;
+                this.selectedCustomer = sale.customer;
+
+                // Remove from held sales
+                heldSales.splice(saleIndex, 1);
+                localStorage.setItem('held_sales', JSON.stringify(heldSales));
+
+                this.renderCart();
                 this.updateHeldSalesCount();
-                ui.showNotification('Venta eliminada', 'success');
-            },
-            'Sí, Eliminar'
-        );
-    }
+                this.closeHeldSalesDrawer();
+                ui.showNotification('Venta recuperada', 'success');
+            };
 
-    openHeldSalesDrawer() {
-        const heldSales = JSON.parse(localStorage.getItem('held_sales') || '[]');
-
-        if (heldSales.length === 0) {
-            ui.showNotification('No hay ventas en espera', 'info');
-            return;
+            // Confirm if cart is not empty
+            if (this.cart.length > 0) {
+                this.showConfirmationModal(
+                    '¿Reemplazar carrito?',
+                    'Hay productos en el carrito actual. ¿Desea reemplazarlos por la venta en espera?',
+                    () => doRestore(),
+                    'Sí, Reemplazar'
+                );
+            } else {
+                doRestore();
+            }
         }
 
-        this.renderHeldSalesList(heldSales);
-        this.dom.heldSalesDrawer.classList.remove('translate-x-full');
-    }
+        deleteHeldSale(id) {
+            console.log('POS: deleteHeldSale called for id', id);
+            this.showConfirmationModal(
+                '¿Eliminar venta en espera?',
+                '¿Está seguro de eliminar esta venta en espera? Esta acción no se puede deshacer.',
+                () => {
+                    const heldSales = JSON.parse(localStorage.getItem('held_sales') || '[]');
+                    const newHeldSales = heldSales.filter(s => s.id !== id);
+
+                    localStorage.setItem('held_sales', JSON.stringify(newHeldSales));
+
+                    this.renderHeldSalesList(newHeldSales);
+                    this.updateHeldSalesCount();
+                    ui.showNotification('Venta eliminada', 'success');
+                },
+                'Sí, Eliminar'
+            );
+        }
+
+        openHeldSalesDrawer() {
+            const heldSales = JSON.parse(localStorage.getItem('held_sales') || '[]');
+
+            if (heldSales.length === 0) {
+                ui.showNotification('No hay ventas en espera', 'info');
+                return;
+            }
+
+            this.renderHeldSalesList(heldSales);
+            this.dom.heldSalesDrawer.classList.remove('translate-x-full');
+        }
 
     async showCustomerSelection() {
-        await this.loadCustomers();
-        if (!this.customers || this.customers.length === 0) {
-            this.processCheckout(null);
-            return;
+            await this.loadCustomers();
+            if (!this.customers || this.customers.length === 0) {
+                this.processCheckout(null);
+                return;
+            }
+            this.renderCustomerList(this.customers);
+            if (this.dom.customerSelectionModal) this.dom.customerSelectionModal.classList.remove('hidden');
+            setTimeout(() => {
+                if (this.dom.searchCustomerCheckout) this.dom.searchCustomerCheckout.focus();
+            }, 100);
         }
-        this.renderCustomerList(this.customers);
-        if (this.dom.customerSelectionModal) this.dom.customerSelectionModal.classList.remove('hidden');
-        setTimeout(() => {
-            if (this.dom.searchCustomerCheckout) this.dom.searchCustomerCheckout.focus();
-        }, 100);
-    }
 
-    hideCustomerSelection() {
-        if (this.dom.customerSelectionModal) this.dom.customerSelectionModal.classList.add('hidden');
-        if (this.dom.searchCustomerCheckout) this.dom.searchCustomerCheckout.value = '';
-    }
+        hideCustomerSelection() {
+            if (this.dom.customerSelectionModal) this.dom.customerSelectionModal.classList.add('hidden');
+            if (this.dom.searchCustomerCheckout) this.dom.searchCustomerCheckout.value = '';
+        }
 
-    renderCustomerList(customers) {
-        console.log('Rendering customer list:', customers ? customers.length : 'null');
-        if (!this.dom.customerListCheckout) {
-            console.error('Customer list container not found!');
-            return;
-        }
-        if (!customers || customers.length === 0) {
-            this.dom.customerListCheckout.innerHTML = '<p class="text-gray-400 text-center py-4">No hay clientes</p>';
-            return;
-        }
-        this.dom.customerListCheckout.innerHTML = customers.map(customer => `
+        renderCustomerList(customers) {
+            console.log('Rendering customer list:', customers ? customers.length : 'null');
+            if (!this.dom.customerListCheckout) {
+                console.error('Customer list container not found!');
+                return;
+            }
+            if (!customers || customers.length === 0) {
+                this.dom.customerListCheckout.innerHTML = '<p class="text-gray-400 text-center py-4">No hay clientes</p>';
+                return;
+            }
+            this.dom.customerListCheckout.innerHTML = customers.map(customer => `
             <div class="customer-item p-3 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer transition-colors bg-white dark:bg-slate-800" data-id="${customer.id}">
                 <div class="font-medium text-slate-800 dark:text-white">${customer.name}</div>
                 <div class="text-sm text-slate-500 dark:text-slate-400">
@@ -1358,72 +1435,72 @@ export class POS {
                 </div>
             </div>
         `).join('');
-    }
-
-    filterCustomers(query) {
-        console.log('Filtering customers with query:', query);
-        if (!this.customers) {
-            console.error('this.customers is undefined or null');
-            return;
         }
 
-        if (!query) {
-            this.renderCustomerList(this.customers);
-            return;
-        }
-        const lowerQuery = query.toLowerCase();
-        const filtered = this.customers.filter(c =>
-            (c.name && c.name.toLowerCase().includes(lowerQuery)) ||
-            (c.phone && c.phone.includes(query)) ||
-            (c.email && c.email.toLowerCase().includes(lowerQuery)) ||
-            (c.idDocument && c.idDocument.toLowerCase().includes(lowerQuery))
-        );
-        console.log('Filtered count:', filtered.length);
-        this.renderCustomerList(filtered);
-    }
+        filterCustomers(query) {
+            console.log('Filtering customers with query:', query);
+            if (!this.customers) {
+                console.error('this.customers is undefined or null');
+                return;
+            }
 
-    handleCustomerSelect(e) {
-        const item = e.target.closest('.customer-item');
-        if (!item) return;
-        const id = item.dataset.id;
-        const customer = this.customers.find(c => String(c.id) === String(id));
-        if (customer) {
-            this.selectedCustomer = customer;
-            this.hideCustomerSelection();
-            if (this.pendingHold) {
-                this.holdSale();
-                this.pendingHold = false;
+            if (!query) {
+                this.renderCustomerList(this.customers);
+                return;
+            }
+            const lowerQuery = query.toLowerCase();
+            const filtered = this.customers.filter(c =>
+                (c.name && c.name.toLowerCase().includes(lowerQuery)) ||
+                (c.phone && c.phone.includes(query)) ||
+                (c.email && c.email.toLowerCase().includes(lowerQuery)) ||
+                (c.idDocument && c.idDocument.toLowerCase().includes(lowerQuery))
+            );
+            console.log('Filtered count:', filtered.length);
+            this.renderCustomerList(filtered);
+        }
+
+        handleCustomerSelect(e) {
+            const item = e.target.closest('.customer-item');
+            if (!item) return;
+            const id = item.dataset.id;
+            const customer = this.customers.find(c => String(c.id) === String(id));
+            if (customer) {
+                this.selectedCustomer = customer;
+                this.hideCustomerSelection();
+                if (this.pendingHold) {
+                    this.holdSale();
+                    this.pendingHold = false;
+                }
             }
         }
-    }
 
-    handleCustomerSearch(query) {
-        if (!query) {
-            if (this.dom.customerSearchResults) this.dom.customerSearchResults.classList.add('hidden');
-            return;
+        handleCustomerSearch(query) {
+            if (!query) {
+                if (this.dom.customerSearchResults) this.dom.customerSearchResults.classList.add('hidden');
+                return;
+            }
+
+            const lowerQuery = query.toLowerCase();
+            const filtered = this.customers.filter(c =>
+                (c.name && c.name.toLowerCase().includes(lowerQuery)) ||
+                (c.phone && c.phone.includes(query)) ||
+                (c.email && c.email.toLowerCase().includes(lowerQuery)) ||
+                (c.idDocument && c.idDocument.toLowerCase().includes(lowerQuery))
+            );
+
+            this.renderCustomerSearchResults(filtered);
         }
 
-        const lowerQuery = query.toLowerCase();
-        const filtered = this.customers.filter(c =>
-            (c.name && c.name.toLowerCase().includes(lowerQuery)) ||
-            (c.phone && c.phone.includes(query)) ||
-            (c.email && c.email.toLowerCase().includes(lowerQuery)) ||
-            (c.idDocument && c.idDocument.toLowerCase().includes(lowerQuery))
-        );
+        renderCustomerSearchResults(customers) {
+            if (!this.dom.customerSearchResults) return;
 
-        this.renderCustomerSearchResults(filtered);
-    }
+            if (customers.length === 0) {
+                this.dom.customerSearchResults.innerHTML = '<div class="p-3 text-sm text-slate-500 text-center">No se encontraron clientes</div>';
+                this.dom.customerSearchResults.classList.remove('hidden');
+                return;
+            }
 
-    renderCustomerSearchResults(customers) {
-        if (!this.dom.customerSearchResults) return;
-
-        if (customers.length === 0) {
-            this.dom.customerSearchResults.innerHTML = '<div class="p-3 text-sm text-slate-500 text-center">No se encontraron clientes</div>';
-            this.dom.customerSearchResults.classList.remove('hidden');
-            return;
-        }
-
-        this.dom.customerSearchResults.innerHTML = customers.map((c, index) => `
+            this.dom.customerSearchResults.innerHTML = customers.map((c, index) => `
             <div class="p-3 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer border-b border-slate-100 dark:border-slate-700 last:border-0"
                  onclick="window.pos.selectCustomerById('${c.id}')">
                 <div class="font-bold text-slate-800 dark:text-white text-sm">${c.name}</div>
@@ -1434,474 +1511,474 @@ export class POS {
             </div>
         `).join('');
 
-        this.dom.customerSearchResults.classList.remove('hidden');
-        this.customerSearchHighlightIndex = -1;
-    }
-
-    selectCustomerById(id) {
-        const customer = this.customers.find(c => String(c.id) === String(id));
-        if (customer) this.selectCustomer(customer);
-    }
-
-    selectCustomer(customer) {
-        this.selectedCustomer = customer;
-
-        // Update Sidebar UI
-        if (this.dom.selectedCustomerName) this.dom.selectedCustomerName.textContent = customer.name;
-        if (this.dom.selectedCustomerDoc) this.dom.selectedCustomerDoc.textContent = customer.idDocument || 'Sin Documento';
-
-        if (this.dom.customerSearchContainer) this.dom.customerSearchContainer.classList.add('hidden');
-        if (this.dom.posSelectedCustomer) this.dom.posSelectedCustomer.classList.remove('hidden');
-        if (this.dom.customerSearchResults) this.dom.customerSearchResults.classList.add('hidden');
-        if (this.dom.customerSearchInput) this.dom.customerSearchInput.value = '';
-
-        ui.showNotification(`Cliente seleccionado: ${customer.name}`, 'success');
-    }
-
-    deselectCustomer() {
-        this.selectedCustomer = null;
-
-        if (this.dom.customerSearchContainer) this.dom.customerSearchContainer.classList.remove('hidden');
-        if (this.dom.posSelectedCustomer) this.dom.posSelectedCustomer.classList.add('hidden');
-        if (this.dom.customerSearchInput) {
-            this.dom.customerSearchInput.value = '';
-            this.dom.customerSearchInput.focus();
+            this.dom.customerSearchResults.classList.remove('hidden');
+            this.customerSearchHighlightIndex = -1;
         }
-    }
+
+        selectCustomerById(id) {
+            const customer = this.customers.find(c => String(c.id) === String(id));
+            if (customer) this.selectCustomer(customer);
+        }
+
+        selectCustomer(customer) {
+            this.selectedCustomer = customer;
+
+            // Update Sidebar UI
+            if (this.dom.selectedCustomerName) this.dom.selectedCustomerName.textContent = customer.name;
+            if (this.dom.selectedCustomerDoc) this.dom.selectedCustomerDoc.textContent = customer.idDocument || 'Sin Documento';
+
+            if (this.dom.customerSearchContainer) this.dom.customerSearchContainer.classList.add('hidden');
+            if (this.dom.posSelectedCustomer) this.dom.posSelectedCustomer.classList.remove('hidden');
+            if (this.dom.customerSearchResults) this.dom.customerSearchResults.classList.add('hidden');
+            if (this.dom.customerSearchInput) this.dom.customerSearchInput.value = '';
+
+            ui.showNotification(`Cliente seleccionado: ${customer.name}`, 'success');
+        }
+
+        deselectCustomer() {
+            this.selectedCustomer = null;
+
+            if (this.dom.customerSearchContainer) this.dom.customerSearchContainer.classList.remove('hidden');
+            if (this.dom.posSelectedCustomer) this.dom.posSelectedCustomer.classList.add('hidden');
+            if (this.dom.customerSearchInput) {
+                this.dom.customerSearchInput.value = '';
+                this.dom.customerSearchInput.focus();
+            }
+        }
 
     async refreshData() {
-        // Always reload settings to get latest payment methods/rates
-        await this.loadSettings();
+            // Always reload settings to get latest payment methods/rates
+            await this.loadSettings();
 
-        // Only refresh products/customers if cache is missing (meaning it was invalidated by management views)
-        if (!localStorage.getItem('cached_products') || !localStorage.getItem('cached_customers')) {
-            console.log('POS: Cache invalidated, refreshing data...');
-            await Promise.all([
-                this.loadProducts(),
-                this.loadCustomers()
-            ]);
+            // Only refresh products/customers if cache is missing (meaning it was invalidated by management views)
+            if (!localStorage.getItem('cached_products') || !localStorage.getItem('cached_customers')) {
+                console.log('POS: Cache invalidated, refreshing data...');
+                await Promise.all([
+                    this.loadProducts(),
+                    this.loadCustomers()
+                ]);
+            }
         }
-    }
 
-    showInputModal(title, message, onConfirm, placeholder = '') {
-        if (this.dom.inputModal) {
-            if (this.dom.inputModalTitle) this.dom.inputModalTitle.textContent = title;
-            if (this.dom.inputModalMessage) this.dom.inputModalMessage.textContent = message;
-            if (this.dom.inputModalValue) {
-                this.dom.inputModalValue.value = '';
-                this.dom.inputModalValue.placeholder = placeholder;
-            }
+        showInputModal(title, message, onConfirm, placeholder = '') {
+            if (this.dom.inputModal) {
+                if (this.dom.inputModalTitle) this.dom.inputModalTitle.textContent = title;
+                if (this.dom.inputModalMessage) this.dom.inputModalMessage.textContent = message;
+                if (this.dom.inputModalValue) {
+                    this.dom.inputModalValue.value = '';
+                    this.dom.inputModalValue.placeholder = placeholder;
+                }
 
-            const confirmBtn = this.dom.confirmInputBtn;
-            const cancelBtn = this.dom.cancelInputBtn;
+                const confirmBtn = this.dom.confirmInputBtn;
+                const cancelBtn = this.dom.cancelInputBtn;
 
-            if (confirmBtn) {
-                const newConfirmBtn = confirmBtn.cloneNode(true);
-                confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
-                this.dom.confirmInputBtn = newConfirmBtn;
+                if (confirmBtn) {
+                    const newConfirmBtn = confirmBtn.cloneNode(true);
+                    confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+                    this.dom.confirmInputBtn = newConfirmBtn;
 
-                newConfirmBtn.addEventListener('click', () => {
-                    const value = this.dom.inputModalValue.value;
-                    if (onConfirm) onConfirm(value);
-                    this.hideInputModal();
-                });
-            }
-
-            if (cancelBtn) {
-                const newCancelBtn = cancelBtn.cloneNode(true);
-                cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
-                this.dom.cancelInputBtn = newCancelBtn;
-
-                newCancelBtn.addEventListener('click', () => {
-                    this.hideInputModal();
-                });
-            }
-
-            // Allow Enter key to confirm
-            if (this.dom.inputModalValue) {
-                const input = this.dom.inputModalValue;
-                const newInput = input.cloneNode(true);
-                input.parentNode.replaceChild(newInput, input);
-                this.dom.inputModalValue = newInput;
-
-                newInput.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter') {
+                    newConfirmBtn.addEventListener('click', () => {
                         const value = this.dom.inputModalValue.value;
                         if (onConfirm) onConfirm(value);
                         this.hideInputModal();
-                    }
-                });
-            }
+                    });
+                }
 
-            this.dom.inputModal.classList.remove('hidden');
-            this.dom.inputModal.style.display = 'flex';
-            setTimeout(() => {
-                if (this.dom.inputModalValue) this.dom.inputModalValue.focus();
-            }, 100);
-        }
-    }
+                if (cancelBtn) {
+                    const newCancelBtn = cancelBtn.cloneNode(true);
+                    cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+                    this.dom.cancelInputBtn = newCancelBtn;
 
-    hideInputModal() {
-        if (this.dom.inputModal) {
-            this.dom.inputModal.classList.add('hidden');
-            this.dom.inputModal.style.display = 'none';
-        }
-    }
+                    newCancelBtn.addEventListener('click', () => {
+                        this.hideInputModal();
+                    });
+                }
 
-    removeFromCart(id) {
-        this.cart = this.cart.filter(item => item.id !== id);
-        this.renderCart();
-    }
+                // Allow Enter key to confirm
+                if (this.dom.inputModalValue) {
+                    const input = this.dom.inputModalValue;
+                    const newInput = input.cloneNode(true);
+                    input.parentNode.replaceChild(newInput, input);
+                    this.dom.inputModalValue = newInput;
 
-    updateQuantity(id, change) {
-        const item = this.cart.find(i => i.id === id);
-        if (item) {
-            const newQty = item.quantity + change;
-            if (newQty > 0 && newQty <= item.stock) {
-                item.quantity = newQty;
-                this.renderCart();
-            } else if (newQty > item.stock) {
-                ui.showNotification(`Stock máximo alcanzado(${item.stock})`, 'warning');
-            }
-        }
-    }
+                    newInput.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter') {
+                            const value = this.dom.inputModalValue.value;
+                            if (onConfirm) onConfirm(value);
+                            this.hideInputModal();
+                        }
+                    });
+                }
 
-    setQuantity(id, qty) {
-        const item = this.cart.find(i => i.id === id);
-        if (item) {
-            if (qty > 0 && qty <= item.stock) {
-                item.quantity = qty;
-                this.renderCart();
-            } else if (qty > item.stock) {
-                ui.showNotification(`Stock máximo alcanzado(${item.stock})`, 'warning');
-                this.renderCart(); // Reset input
+                this.dom.inputModal.classList.remove('hidden');
+                this.dom.inputModal.style.display = 'flex';
+                setTimeout(() => {
+                    if (this.dom.inputModalValue) this.dom.inputModalValue.focus();
+                }, 100);
             }
         }
-    }
 
-    clearCart() {
-        if (this.cart.length === 0) return;
+        hideInputModal() {
+            if (this.dom.inputModal) {
+                this.dom.inputModal.classList.add('hidden');
+                this.dom.inputModal.style.display = 'none';
+            }
+        }
 
-        this.showConfirmationModal(
-            '¿Vaciar Carrito?',
-            '¿Estás seguro de que deseas eliminar todos los productos del carrito? Esta acción no se puede deshacer.',
-            () => this.executeClearCart(),
-            'Sí, Vaciar'
-        );
-    }
+        removeFromCart(id) {
+            this.cart = this.cart.filter(item => item.id !== id);
+            this.renderCart();
+        }
 
-    executeClearCart() {
-        this.cart = [];
-        this.selectedCustomer = null;
-        this.customerSelectionSkipped = false;
-        this.renderCart();
-        this.hideConfirmationModal();
-        ui.showNotification('Carrito vaciado');
-    }
+        updateQuantity(id, change) {
+            const item = this.cart.find(i => i.id === id);
+            if (item) {
+                const newQty = item.quantity + change;
+                if (newQty > 0 && newQty <= item.stock) {
+                    item.quantity = newQty;
+                    this.renderCart();
+                } else if (newQty > item.stock) {
+                    ui.showNotification(`Stock máximo alcanzado(${item.stock})`, 'warning');
+                }
+            }
+        }
 
-    showConfirmationModal(title, message, onConfirm, confirmText = 'Confirmar', onCancel = null, cancelText = 'Cancelar') {
-        if (this.dom.confirmationModal) {
-            if (this.dom.confirmModalTitle) this.dom.confirmModalTitle.textContent = title;
-            if (this.dom.confirmModalMessage) this.dom.confirmModalMessage.textContent = message;
+        setQuantity(id, qty) {
+            const item = this.cart.find(i => i.id === id);
+            if (item) {
+                if (qty > 0 && qty <= item.stock) {
+                    item.quantity = qty;
+                    this.renderCart();
+                } else if (qty > item.stock) {
+                    ui.showNotification(`Stock máximo alcanzado(${item.stock})`, 'warning');
+                    this.renderCart(); // Reset input
+                }
+            }
+        }
 
-            // Force update icon to animated trash can (Robust selector for cache issues)
-            const iconContainer = this.dom.confirmModalIconContainer ||
-                (this.dom.confirmationModal ? this.dom.confirmationModal.querySelector('.rounded-full') : null);
+        clearCart() {
+            if (this.cart.length === 0) return;
 
-            if (iconContainer) {
-                iconContainer.innerHTML = `
+            this.showConfirmationModal(
+                '¿Vaciar Carrito?',
+                '¿Estás seguro de que deseas eliminar todos los productos del carrito? Esta acción no se puede deshacer.',
+                () => this.executeClearCart(),
+                'Sí, Vaciar'
+            );
+        }
+
+        executeClearCart() {
+            this.cart = [];
+            this.selectedCustomer = null;
+            this.customerSelectionSkipped = false;
+            this.renderCart();
+            this.hideConfirmationModal();
+            ui.showNotification('Carrito vaciado');
+        }
+
+        showConfirmationModal(title, message, onConfirm, confirmText = 'Confirmar', onCancel = null, cancelText = 'Cancelar') {
+            if (this.dom.confirmationModal) {
+                if (this.dom.confirmModalTitle) this.dom.confirmModalTitle.textContent = title;
+                if (this.dom.confirmModalMessage) this.dom.confirmModalMessage.textContent = message;
+
+                // Force update icon to animated trash can (Robust selector for cache issues)
+                const iconContainer = this.dom.confirmModalIconContainer ||
+                    (this.dom.confirmationModal ? this.dom.confirmationModal.querySelector('.rounded-full') : null);
+
+                if (iconContainer) {
+                    iconContainer.innerHTML = `
                     <svg class="w-10 h-10 text-red-600 dark:text-red-400 animate-tip-over overflow-visible" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6"></path>
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                     </svg>
                 `;
+                }
+
+                const confirmBtn = this.dom.confirmActionBtn;
+                const cancelBtn = this.dom.cancelConfirmBtn;
+
+                if (confirmBtn) {
+                    confirmBtn.textContent = confirmText;
+                    // Remove old listeners by cloning
+                    const newConfirmBtn = confirmBtn.cloneNode(true);
+                    confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+                    this.dom.confirmActionBtn = newConfirmBtn;
+
+                    newConfirmBtn.addEventListener('click', () => {
+                        if (onConfirm) onConfirm();
+                        this.hideConfirmationModal();
+                    });
+                }
+
+                if (cancelBtn) {
+                    cancelBtn.textContent = cancelText;
+                    const newCancelBtn = cancelBtn.cloneNode(true);
+                    cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+                    this.dom.cancelConfirmBtn = newCancelBtn;
+
+                    newCancelBtn.addEventListener('click', () => {
+                        if (onCancel) onCancel();
+                        this.hideConfirmationModal();
+                    });
+                }
+
+                this.dom.confirmationModal.classList.remove('hidden');
+                this.dom.confirmationModal.style.display = 'flex';
+            }
+        }
+
+        hideConfirmationModal() {
+            if (this.dom.confirmationModal) {
+                this.dom.confirmationModal.classList.add('hidden');
+                this.dom.confirmationModal.style.display = 'none';
+            }
+        }
+
+        openCustomItemModal() {
+            if (this.dom.customItemModal) this.dom.customItemModal.classList.remove('hidden');
+            if (this.dom.customItemName) this.dom.customItemName.focus();
+        }
+
+        closeCustomItemModal() {
+            if (this.dom.customItemModal) this.dom.customItemModal.classList.add('hidden');
+            if (this.dom.customItemForm) this.dom.customItemForm.reset();
+        }
+
+        handleCustomItemSubmit(e) {
+            e.preventDefault();
+            const name = this.dom.customItemName.value;
+            const price = parseFloat(this.dom.customItemPriceUsd.value);
+
+            if (!name || isNaN(price) || price <= 0) {
+                ui.showNotification('Datos inválidos', 'error');
+                return;
             }
 
-            const confirmBtn = this.dom.confirmActionBtn;
-            const cancelBtn = this.dom.cancelConfirmBtn;
+            const customProduct = {
+                id: 'custom-' + Date.now(),
+                name: name,
+                price: price,
+                stock: 9999,
+                imageUri: 'https://via.placeholder.com/150?text=Custom',
+                isCustom: true
+            };
 
-            if (confirmBtn) {
-                confirmBtn.textContent = confirmText;
-                // Remove old listeners by cloning
-                const newConfirmBtn = confirmBtn.cloneNode(true);
-                confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
-                this.dom.confirmActionBtn = newConfirmBtn;
+            this.addToCart(customProduct);
+            this.closeCustomItemModal();
+            ui.showNotification('Item personalizado agregado', 'success');
+        }
 
-                newConfirmBtn.addEventListener('click', () => {
-                    if (onConfirm) onConfirm();
-                    this.hideConfirmationModal();
-                });
+        // Weighted Product Logic
+        openWeightModal(product) {
+            this.currentWeightedProduct = product;
+            this.dom.weightModalTitle.textContent = product.name;
+            this.dom.weightInput.value = '';
+            this.dom.weightPriceUsd.value = '';
+            this.dom.weightPriceBs.value = '';
+            this.dom.weightModal.classList.remove('hidden');
+            this.dom.weightInput.focus();
+        }
+
+        closeWeightModal() {
+            this.dom.weightModal.classList.add('hidden');
+            this.currentWeightedProduct = null;
+        }
+
+        calculateWeightValues(source) {
+            if (!this.currentWeightedProduct) return;
+            const pricePerUnit = this.currentWeightedProduct.price;
+            const exchangeRate = this.exchangeRate;
+
+            if (source === 'weight') {
+                const weight = parseFloat(this.dom.weightInput.value) || 0;
+                const totalUsd = weight * pricePerUnit;
+                const totalBs = totalUsd * exchangeRate;
+                this.dom.weightPriceUsd.value = totalUsd.toFixed(2);
+                this.dom.weightPriceBs.value = totalBs.toFixed(2);
+            } else if (source === 'usd') {
+                const totalUsd = parseFloat(this.dom.weightPriceUsd.value) || 0;
+                const weight = totalUsd / pricePerUnit;
+                const totalBs = totalUsd * exchangeRate;
+                this.dom.weightInput.value = weight.toFixed(3);
+                this.dom.weightPriceBs.value = totalBs.toFixed(2);
+            } else if (source === 'bs') {
+                const totalBs = parseFloat(this.dom.weightPriceBs.value) || 0;
+                const totalUsd = totalBs / exchangeRate;
+                const weight = totalUsd / pricePerUnit;
+                this.dom.weightInput.value = weight.toFixed(3);
+                this.dom.weightPriceUsd.value = totalUsd.toFixed(2);
+            }
+        }
+
+        confirmWeightItem(e) {
+            e.preventDefault();
+            if (!this.currentWeightedProduct) return;
+
+            const weight = parseFloat(this.dom.weightInput.value);
+            if (isNaN(weight) || weight <= 0) {
+                ui.showNotification('Peso inválido', 'error');
+                return;
             }
 
-            if (cancelBtn) {
-                cancelBtn.textContent = cancelText;
-                const newCancelBtn = cancelBtn.cloneNode(true);
-                cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
-                this.dom.cancelConfirmBtn = newCancelBtn;
+            this.addToCart(this.currentWeightedProduct, weight);
+            this.closeWeightModal();
+            ui.showNotification('Producto agregado', 'success');
+        }
 
-                newCancelBtn.addEventListener('click', () => {
-                    if (onCancel) onCancel();
-                    this.hideConfirmationModal();
-                });
+        processCheckout(customer) {
+            this.selectedCustomer = customer;
+            this.customerSelectionSkipped = !customer; // Set flag if skipped
+            this.hideCustomerSelection();
+
+            if (this.pendingHold) {
+                this.holdSale();
+                this.pendingHold = false;
+                return;
             }
 
-            this.dom.confirmationModal.classList.remove('hidden');
-            this.dom.confirmationModal.style.display = 'flex';
-        }
-    }
-
-    hideConfirmationModal() {
-        if (this.dom.confirmationModal) {
-            this.dom.confirmationModal.classList.add('hidden');
-            this.dom.confirmationModal.style.display = 'none';
-        }
-    }
-
-    openCustomItemModal() {
-        if (this.dom.customItemModal) this.dom.customItemModal.classList.remove('hidden');
-        if (this.dom.customItemName) this.dom.customItemName.focus();
-    }
-
-    closeCustomItemModal() {
-        if (this.dom.customItemModal) this.dom.customItemModal.classList.add('hidden');
-        if (this.dom.customItemForm) this.dom.customItemForm.reset();
-    }
-
-    handleCustomItemSubmit(e) {
-        e.preventDefault();
-        const name = this.dom.customItemName.value;
-        const price = parseFloat(this.dom.customItemPriceUsd.value);
-
-        if (!name || isNaN(price) || price <= 0) {
-            ui.showNotification('Datos inválidos', 'error');
-            return;
+            this.showPaymentModal();
         }
 
-        const customProduct = {
-            id: 'custom-' + Date.now(),
-            name: name,
-            price: price,
-            stock: 9999,
-            imageUri: 'https://via.placeholder.com/150?text=Custom',
-            isCustom: true
-        };
+        showPaymentModal() {
+            if (this.dom.paymentModal) this.dom.paymentModal.classList.remove('hidden');
 
-        this.addToCart(customProduct);
-        this.closeCustomItemModal();
-        ui.showNotification('Item personalizado agregado', 'success');
-    }
+            // Ensure methods are populated
+            this.populatePaymentMethods();
 
-    // Weighted Product Logic
-    openWeightModal(product) {
-        this.currentWeightedProduct = product;
-        this.dom.weightModalTitle.textContent = product.name;
-        this.dom.weightInput.value = '';
-        this.dom.weightPriceUsd.value = '';
-        this.dom.weightPriceBs.value = '';
-        this.dom.weightModal.classList.remove('hidden');
-        this.dom.weightInput.focus();
-    }
+            // Calculate totals
+            const total = this.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            const totalBs = total * this.exchangeRate;
 
-    closeWeightModal() {
-        this.dom.weightModal.classList.add('hidden');
-        this.currentWeightedProduct = null;
-    }
+            // Update Total Display
+            if (this.dom.paymentTotalUsd) this.dom.paymentTotalUsd.textContent = `$${total.toFixed(2)} `;
+            if (this.dom.paymentTotalVes) this.dom.paymentTotalVes.textContent = `Bs ${totalBs.toFixed(2)} `;
 
-    calculateWeightValues(source) {
-        if (!this.currentWeightedProduct) return;
-        const pricePerUnit = this.currentWeightedProduct.price;
-        const exchangeRate = this.exchangeRate;
+            // Select default method (Cash)
+            this.handlePaymentMethodClick('cash');
 
-        if (source === 'weight') {
-            const weight = parseFloat(this.dom.weightInput.value) || 0;
-            const totalUsd = weight * pricePerUnit;
-            const totalBs = totalUsd * exchangeRate;
-            this.dom.weightPriceUsd.value = totalUsd.toFixed(2);
-            this.dom.weightPriceBs.value = totalBs.toFixed(2);
-        } else if (source === 'usd') {
-            const totalUsd = parseFloat(this.dom.weightPriceUsd.value) || 0;
-            const weight = totalUsd / pricePerUnit;
-            const totalBs = totalUsd * exchangeRate;
-            this.dom.weightInput.value = weight.toFixed(3);
-            this.dom.weightPriceBs.value = totalBs.toFixed(2);
-        } else if (source === 'bs') {
-            const totalBs = parseFloat(this.dom.weightPriceBs.value) || 0;
-            const totalUsd = totalBs / exchangeRate;
-            const weight = totalUsd / pricePerUnit;
-            this.dom.weightInput.value = weight.toFixed(3);
-            this.dom.weightPriceUsd.value = totalUsd.toFixed(2);
-        }
-    }
+            // Auto-fill amount for Cash USD
+            // Auto-fill amount for Cash USD
+            const cashUsdInput = this.dom.paymentFields.querySelector('input[data-id="cash_usd"]');
+            if (cashUsdInput) {
+                cashUsdInput.value = total.toFixed(2);
+                this.calculateChange();
+            }
 
-    confirmWeightItem(e) {
-        e.preventDefault();
-        if (!this.currentWeightedProduct) return;
-
-        const weight = parseFloat(this.dom.weightInput.value);
-        if (isNaN(weight) || weight <= 0) {
-            ui.showNotification('Peso inválido', 'error');
-            return;
+            // Show payment form, hide receipt
+            if (this.dom.paymentFormContent) this.dom.paymentFormContent.classList.remove('hidden');
+            if (this.dom.receiptModalContent) this.dom.receiptModalContent.classList.add('hidden');
         }
 
-        this.addToCart(this.currentWeightedProduct, weight);
-        this.closeWeightModal();
-        ui.showNotification('Producto agregado', 'success');
-    }
-
-    processCheckout(customer) {
-        this.selectedCustomer = customer;
-        this.customerSelectionSkipped = !customer; // Set flag if skipped
-        this.hideCustomerSelection();
-
-        if (this.pendingHold) {
-            this.holdSale();
-            this.pendingHold = false;
-            return;
+        hidePaymentModal() {
+            if (this.dom.paymentModal) this.dom.paymentModal.classList.add('hidden');
         }
 
-        this.showPaymentModal();
-    }
+        populatePaymentMethods() {
+            if (!this.dom.paymentMethodOptions) return;
+            this.dom.paymentMethodOptions.innerHTML = '';
 
-    showPaymentModal() {
-        if (this.dom.paymentModal) this.dom.paymentModal.classList.remove('hidden');
+            // Ensure Cash exists
+            if (!this.paymentMethods.some(m => m.id === 'cash')) {
+                this.paymentMethods.unshift({ id: 'cash', name: 'Efectivo (USD/VES)', currency: 'MIXED' });
+            }
 
-        // Ensure methods are populated
-        this.populatePaymentMethods();
+            // Render Buttons
+            this.paymentMethods.forEach(method => {
+                // Skip individual cash entries if they exist in the list (legacy)
+                if (method.id === 'cash_usd' || method.id === 'cash_bs') return;
 
-        // Calculate totals
-        const total = this.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-        const totalBs = total * this.exchangeRate;
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = `payment-method-btn w-full py-3 px-4 rounded-lg border text-sm font-medium transition-all duration-200 ${method.id === this.selectedPaymentMethodId
+                    ? 'bg-slate-900 text-white border-slate-900 dark:bg-blue-600 dark:border-blue-600 dark:text-white shadow-md'
+                    : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-600'
+                    } `;
+                button.textContent = method.name;
+                button.dataset.id = method.id;
+                button.addEventListener('click', () => this.handlePaymentMethodClick(method.id));
+                this.dom.paymentMethodOptions.appendChild(button);
+            });
 
-        // Update Total Display
-        if (this.dom.paymentTotalUsd) this.dom.paymentTotalUsd.textContent = `$${total.toFixed(2)} `;
-        if (this.dom.paymentTotalVes) this.dom.paymentTotalVes.textContent = `Bs ${totalBs.toFixed(2)} `;
-
-        // Select default method (Cash)
-        this.handlePaymentMethodClick('cash');
-
-        // Auto-fill amount for Cash USD
-        // Auto-fill amount for Cash USD
-        const cashUsdInput = this.dom.paymentFields.querySelector('input[data-id="cash_usd"]');
-        if (cashUsdInput) {
-            cashUsdInput.value = total.toFixed(2);
-            this.calculateChange();
-        }
-
-        // Show payment form, hide receipt
-        if (this.dom.paymentFormContent) this.dom.paymentFormContent.classList.remove('hidden');
-        if (this.dom.receiptModalContent) this.dom.receiptModalContent.classList.add('hidden');
-    }
-
-    hidePaymentModal() {
-        if (this.dom.paymentModal) this.dom.paymentModal.classList.add('hidden');
-    }
-
-    populatePaymentMethods() {
-        if (!this.dom.paymentMethodOptions) return;
-        this.dom.paymentMethodOptions.innerHTML = '';
-
-        // Ensure Cash exists
-        if (!this.paymentMethods.some(m => m.id === 'cash')) {
-            this.paymentMethods.unshift({ id: 'cash', name: 'Efectivo (USD/VES)', currency: 'MIXED' });
-        }
-
-        // Render Buttons
-        this.paymentMethods.forEach(method => {
-            // Skip individual cash entries if they exist in the list (legacy)
-            if (method.id === 'cash_usd' || method.id === 'cash_bs') return;
-
-            const button = document.createElement('button');
-            button.type = 'button';
-            button.className = `payment-method-btn w-full py-3 px-4 rounded-lg border text-sm font-medium transition-all duration-200 ${method.id === this.selectedPaymentMethodId
+            // Add Combined Option explicitly
+            const combinedButton = document.createElement('button');
+            combinedButton.type = 'button';
+            combinedButton.className = `payment-method-btn w-full py-3 px-4 rounded-lg border text-sm font-medium transition-all duration-200 ${this.selectedPaymentMethodId === 'combined'
                 ? 'bg-slate-900 text-white border-slate-900 dark:bg-blue-600 dark:border-blue-600 dark:text-white shadow-md'
                 : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-600'
                 } `;
-            button.textContent = method.name;
-            button.dataset.id = method.id;
-            button.addEventListener('click', () => this.handlePaymentMethodClick(method.id));
-            this.dom.paymentMethodOptions.appendChild(button);
-        });
+            combinedButton.textContent = 'Combinado (Múltiples)';
+            combinedButton.dataset.id = 'combined';
+            combinedButton.addEventListener('click', () => this.handlePaymentMethodClick('combined'));
+            this.dom.paymentMethodOptions.appendChild(combinedButton);
 
-        // Add Combined Option explicitly
-        const combinedButton = document.createElement('button');
-        combinedButton.type = 'button';
-        combinedButton.className = `payment-method-btn w-full py-3 px-4 rounded-lg border text-sm font-medium transition-all duration-200 ${this.selectedPaymentMethodId === 'combined'
-            ? 'bg-slate-900 text-white border-slate-900 dark:bg-blue-600 dark:border-blue-600 dark:text-white shadow-md'
-            : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-600'
-            } `;
-        combinedButton.textContent = 'Combinado (Múltiples)';
-        combinedButton.dataset.id = 'combined';
-        combinedButton.addEventListener('click', () => this.handlePaymentMethodClick('combined'));
-        this.dom.paymentMethodOptions.appendChild(combinedButton);
-
-        this.onPaymentMethodChange();
-    }
-
-    handlePaymentMethodClick(methodId) {
-        this.selectedPaymentMethodId = methodId;
-
-        // Update UI
-        const buttons = this.dom.paymentMethodOptions.querySelectorAll('.payment-method-btn');
-        buttons.forEach(btn => {
-            if (btn.dataset.id === methodId) {
-                btn.className = 'payment-method-btn w-full py-3 px-4 rounded-lg border text-sm font-medium transition-all duration-200 bg-slate-900 text-white border-slate-900 dark:bg-blue-600 dark:border-blue-600 dark:text-white shadow-md';
-            } else {
-                btn.className = 'payment-method-btn w-full py-3 px-4 rounded-lg border text-sm font-medium transition-all duration-200 bg-white text-slate-700 border-slate-300 hover:bg-slate-50 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-600';
-            }
-        });
-
-        this.onPaymentMethodChange();
-    }
-
-    onPaymentMethodChange() {
-        const methodId = this.selectedPaymentMethodId;
-        this.dom.paymentFields.innerHTML = '';
-
-        let inputsToRender = [];
-
-        if (methodId === 'cash') {
-            inputsToRender.push(
-                { id: 'cash_usd', name: 'Efectivo USD', currency: 'USD', placeholder: 'Monto $' },
-                { id: 'cash_ves', name: 'Efectivo VES', currency: 'VES', placeholder: 'Monto Bs' }
-            );
-        } else if (methodId === 'combined') {
-            // Cash first
-            inputsToRender.push(
-                { id: 'cash_usd', name: 'Efectivo USD', currency: 'USD', placeholder: 'Monto $' },
-                { id: 'cash_ves', name: 'Efectivo VES', currency: 'VES', placeholder: 'Monto Bs' }
-            );
-            // Then all others
-            this.paymentMethods.forEach(m => {
-                if (m.id !== 'cash' && m.id !== 'combined' && m.id !== 'cash_usd' && m.id !== 'cash_bs') {
-                    inputsToRender.push({
-                        id: m.id,
-                        name: m.name,
-                        currency: m.currency || 'VES',
-                        placeholder: `Monto ${m.currency || 'VES'} `,
-                        requiresReference: m.requiresReference // Keep this if needed
-                    });
-                }
-            });
-        } else {
-            // Single specific method
-            const method = this.paymentMethods.find(m => m.id === methodId);
-            if (method) {
-                inputsToRender.push({
-                    id: method.id,
-                    name: method.name,
-                    currency: method.currency || 'VES',
-                    placeholder: `Monto ${method.currency || 'VES'} `,
-                    requiresReference: method.requiresReference
-                });
-            }
+            this.onPaymentMethodChange();
         }
 
-        // Generate HTML
-        let html = '<div class="space-y-3 mb-4 max-h-60 overflow-y-auto pr-2">';
-        inputsToRender.forEach(input => {
-            const showRef = input.requiresReference || input.id === 'pago_movil' || input.name.toLowerCase().includes('pago movil');
+        handlePaymentMethodClick(methodId) {
+            this.selectedPaymentMethodId = methodId;
 
-            html += `
+            // Update UI
+            const buttons = this.dom.paymentMethodOptions.querySelectorAll('.payment-method-btn');
+            buttons.forEach(btn => {
+                if (btn.dataset.id === methodId) {
+                    btn.className = 'payment-method-btn w-full py-3 px-4 rounded-lg border text-sm font-medium transition-all duration-200 bg-slate-900 text-white border-slate-900 dark:bg-blue-600 dark:border-blue-600 dark:text-white shadow-md';
+                } else {
+                    btn.className = 'payment-method-btn w-full py-3 px-4 rounded-lg border text-sm font-medium transition-all duration-200 bg-white text-slate-700 border-slate-300 hover:bg-slate-50 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-600';
+                }
+            });
+
+            this.onPaymentMethodChange();
+        }
+
+        onPaymentMethodChange() {
+            const methodId = this.selectedPaymentMethodId;
+            this.dom.paymentFields.innerHTML = '';
+
+            let inputsToRender = [];
+
+            if (methodId === 'cash') {
+                inputsToRender.push(
+                    { id: 'cash_usd', name: 'Efectivo USD', currency: 'USD', placeholder: 'Monto $' },
+                    { id: 'cash_ves', name: 'Efectivo VES', currency: 'VES', placeholder: 'Monto Bs' }
+                );
+            } else if (methodId === 'combined') {
+                // Cash first
+                inputsToRender.push(
+                    { id: 'cash_usd', name: 'Efectivo USD', currency: 'USD', placeholder: 'Monto $' },
+                    { id: 'cash_ves', name: 'Efectivo VES', currency: 'VES', placeholder: 'Monto Bs' }
+                );
+                // Then all others
+                this.paymentMethods.forEach(m => {
+                    if (m.id !== 'cash' && m.id !== 'combined' && m.id !== 'cash_usd' && m.id !== 'cash_bs') {
+                        inputsToRender.push({
+                            id: m.id,
+                            name: m.name,
+                            currency: m.currency || 'VES',
+                            placeholder: `Monto ${m.currency || 'VES'} `,
+                            requiresReference: m.requiresReference // Keep this if needed
+                        });
+                    }
+                });
+            } else {
+                // Single specific method
+                const method = this.paymentMethods.find(m => m.id === methodId);
+                if (method) {
+                    inputsToRender.push({
+                        id: method.id,
+                        name: method.name,
+                        currency: method.currency || 'VES',
+                        placeholder: `Monto ${method.currency || 'VES'} `,
+                        requiresReference: method.requiresReference
+                    });
+                }
+            }
+
+            // Generate HTML
+            let html = '<div class="space-y-3 mb-4 max-h-60 overflow-y-auto pr-2">';
+            inputsToRender.forEach(input => {
+                const showRef = input.requiresReference || input.id === 'pago_movil' || input.name.toLowerCase().includes('pago movil');
+
+                html += `
                 <div class="grid grid-cols-12 gap-2 items-end payment-row">
                     <div class="col-span-12">
                         <label class="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">${input.name}</label>
@@ -1921,47 +1998,47 @@ export class POS {
                             placeholder="Ref.">
                     </div>
                     ` : ''
-                }
+                    }
                 </div>
             `;
-        });
-        html += '</div>';
-        this.dom.paymentFields.innerHTML = html;
+            });
+            html += '</div>';
+            this.dom.paymentFields.innerHTML = html;
 
-        // Bind events
-        this.dom.paymentFields.querySelectorAll('.payment-input').forEach(input => {
-            input.addEventListener('input', () => this.calculateChange());
-        });
+            // Bind events
+            this.dom.paymentFields.querySelectorAll('.payment-input').forEach(input => {
+                input.addEventListener('input', () => this.calculateChange());
+            });
 
-        // Reset change display
-        this.calculateChange();
-    }
+            // Reset change display
+            this.calculateChange();
+        }
 
 
 
-    calculateChange() {
-        const total = this.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-        let paidUsd = 0;
-        let paidBs = 0;
+        calculateChange() {
+            const total = this.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            let paidUsd = 0;
+            let paidBs = 0;
 
-        // Unified calculation: Iterate over ALL visible payment inputs
-        const inputs = this.dom.paymentFields.querySelectorAll('.payment-input');
-        inputs.forEach(input => {
-            const val = parseFloat(input.value || 0);
-            const currency = input.dataset.currency;
-            if (currency === 'USD') {
-                paidUsd += val;
-            } else {
-                paidBs += val;
-            }
-        });
+            // Unified calculation: Iterate over ALL visible payment inputs
+            const inputs = this.dom.paymentFields.querySelectorAll('.payment-input');
+            inputs.forEach(input => {
+                const val = parseFloat(input.value || 0);
+                const currency = input.dataset.currency;
+                if (currency === 'USD') {
+                    paidUsd += val;
+                } else {
+                    paidBs += val;
+                }
+            });
 
-        const paidTotalInUsd = paidUsd + (paidBs / (this.exchangeRate || 1));
-        const changeUsd = paidTotalInUsd - total;
-        const changeBs = changeUsd * this.exchangeRate;
+            const paidTotalInUsd = paidUsd + (paidBs / (this.exchangeRate || 1));
+            const changeUsd = paidTotalInUsd - total;
+            const changeBs = changeUsd * this.exchangeRate;
 
-        if (changeUsd >= -0.01) { // Tolerance for float errors
-            this.dom.paymentChange.innerHTML = `
+            if (changeUsd >= -0.01) { // Tolerance for float errors
+                this.dom.paymentChange.innerHTML = `
                 <div class="flex flex-col items-center justify-center">
                     <span class="text-sm text-slate-500 dark:text-slate-400">Su Vuelto</span>
                     <div class="text-xl font-bold text-green-600 dark:text-green-400">
@@ -1972,10 +2049,10 @@ export class POS {
                     </div>
                 </div>
             `;
-        } else {
-            const missing = Math.abs(changeUsd);
-            const missingBs = missing * this.exchangeRate;
-            this.dom.paymentChange.innerHTML = `
+            } else {
+                const missing = Math.abs(changeUsd);
+                const missingBs = missing * this.exchangeRate;
+                this.dom.paymentChange.innerHTML = `
                 <div class="flex flex-col items-center justify-center">
                     <span class="text-sm text-red-500 dark:text-red-400 font-medium">Faltan</span>
                     <div class="text-xl font-bold text-red-600 dark:text-red-400">
@@ -1986,116 +2063,116 @@ export class POS {
                     </div>
                 </div>
             `;
+            }
         }
-    }
 
     async confirmPayment() {
-        const total = this.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-        let paidUsd = 0;
-        let paidBs = 0;
+            const total = this.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            let paidUsd = 0;
+            let paidBs = 0;
 
-        const inputs = this.dom.paymentFields.querySelectorAll('.payment-input');
-        inputs.forEach(input => {
-            const val = parseFloat(input.value || 0);
-            const currency = input.dataset.currency;
-            if (currency === 'USD') {
-                paidUsd += val;
-            } else {
-                paidBs += val;
-            }
-        });
-
-        const paidTotalInUsd = paidUsd + (paidBs / (this.exchangeRate || 1));
-
-        if (paidTotalInUsd < total - 0.01) {
-            ui.showNotification('Monto insuficiente', 'warning');
-            return;
-        }
-
-        let paymentDetails = [];
-        inputs.forEach(input => {
-            const val = parseFloat(input.value || 0);
-            if (val > 0) {
-                const id = input.dataset.id;
+            const inputs = this.dom.paymentFields.querySelectorAll('.payment-input');
+            inputs.forEach(input => {
+                const val = parseFloat(input.value || 0);
                 const currency = input.dataset.currency;
-                const refInput = this.dom.paymentFields.querySelector(`[data-ref-for="${id}"]`);
-                const reference = refInput ? refInput.value : '';
+                if (currency === 'USD') {
+                    paidUsd += val;
+                } else {
+                    paidBs += val;
+                }
+            });
 
-                paymentDetails.push({
-                    method: id,
-                    amount: val,
-                    currency: currency,
-                    reference: reference
-                });
+            const paidTotalInUsd = paidUsd + (paidBs / (this.exchangeRate || 1));
+
+            if (paidTotalInUsd < total - 0.01) {
+                ui.showNotification('Monto insuficiente', 'warning');
+                return;
             }
-        });
 
-        if (paymentDetails.length === 0) {
-            ui.showNotification('Por favor ingrese un monto de pago', 'warning');
-            return;
+            let paymentDetails = [];
+            inputs.forEach(input => {
+                const val = parseFloat(input.value || 0);
+                if (val > 0) {
+                    const id = input.dataset.id;
+                    const currency = input.dataset.currency;
+                    const refInput = this.dom.paymentFields.querySelector(`[data-ref-for="${id}"]`);
+                    const reference = refInput ? refInput.value : '';
+
+                    paymentDetails.push({
+                        method: id,
+                        amount: val,
+                        currency: currency,
+                        reference: reference
+                    });
+                }
+            });
+
+            if (paymentDetails.length === 0) {
+                ui.showNotification('Por favor ingrese un monto de pago', 'warning');
+                return;
+            }
+
+            const saleData = {
+                items: this.cart,
+                total: total,
+                paymentDetails: paymentDetails,
+                date: new Date().toISOString(),
+                customer: this.selectedCustomer || { name: 'Cliente General' },
+                exchangeRate: this.exchangeRate
+            };
+
+            try {
+                const createdSale = await api.sales.create(saleData);
+                this.lastSale = createdSale;
+                this.cart = [];
+                this.selectedCustomer = null;
+                this.customerSelectionSkipped = false;
+                this.renderCart();
+                // this.hidePaymentModal(); // Keep modal open for receipt
+                this.showReceipt(createdSale);
+                ui.showNotification('Venta procesada correctamente');
+            } catch (error) {
+                console.error('Error processing sale:', error);
+                ui.showNotification('Error al procesar la venta: ' + error.message, 'error');
+            }
         }
 
-        const saleData = {
-            items: this.cart,
-            total: total,
-            paymentDetails: paymentDetails,
-            date: new Date().toISOString(),
-            customer: this.selectedCustomer || { name: 'Cliente General' },
-            exchangeRate: this.exchangeRate
-        };
+        showReceipt(saleData) {
+            this.lastSale = saleData;
+            if (this.dom.paymentModal) this.dom.paymentModal.classList.remove('hidden');
+            if (this.dom.paymentFormContent) this.dom.paymentFormContent.classList.add('hidden');
+            if (this.dom.receiptModalContent) this.dom.receiptModalContent.classList.remove('hidden');
 
-        try {
-            const createdSale = await api.sales.create(saleData);
-            this.lastSale = createdSale;
-            this.cart = [];
-            this.selectedCustomer = null;
-            this.customerSelectionSkipped = false;
-            this.renderCart();
-            // this.hidePaymentModal(); // Keep modal open for receipt
-            this.showReceipt(createdSale);
-            ui.showNotification('Venta procesada correctamente');
-        } catch (error) {
-            console.error('Error processing sale:', error);
-            ui.showNotification('Error al procesar la venta: ' + error.message, 'error');
+            if (this.dom.receiptContent) {
+                this.dom.receiptContent.innerHTML = this.generateReceiptHtml(saleData);
+            }
         }
-    }
 
-    showReceipt(saleData) {
-        this.lastSale = saleData;
-        if (this.dom.paymentModal) this.dom.paymentModal.classList.remove('hidden');
-        if (this.dom.paymentFormContent) this.dom.paymentFormContent.classList.add('hidden');
-        if (this.dom.receiptModalContent) this.dom.receiptModalContent.classList.remove('hidden');
+        generateReceiptHtml(saleData) {
+            // Premium Receipt Design
+            const styles = {
+                container: "font-family: 'Courier New', Courier, monospace; max-width: 380px; margin: 0 auto; background-color: #fff; color: #000000; padding: 20px; border: 1px solid #eee;",
+                header: "text-align: center; margin-bottom: 20px; border-bottom: 2px dashed #000; padding-bottom: 15px;",
+                title: "font-size: 24px; font-weight: bold; margin: 0 0 5px 0; text-transform: uppercase; color: #000000;",
+                subtitle: "font-size: 12px; color: #555; margin: 2px 0;",
+                info: "font-size: 12px; margin-bottom: 15px; color: #000000;",
+                row: "display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 12px; color: #000000;",
+                itemRow: "display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 12px; color: #000000;",
+                divider: "border-top: 1px dashed #000; margin: 10px 0;",
+                totalRow: "display: flex; justify-content: space-between; font-size: 16px; font-weight: bold; margin-top: 5px; color: #000000;",
+                footer: "text-align: center; margin-top: 20px; font-size: 10px; color: #555; border-top: 1px dashed #000; padding-top: 10px;"
+            };
 
-        if (this.dom.receiptContent) {
-            this.dom.receiptContent.innerHTML = this.generateReceiptHtml(saleData);
-        }
-    }
+            const dateStr = saleData.date ? new Date(saleData.date).toLocaleString('es-VE') : new Date().toLocaleString('es-VE');
+            const saleIdShort = saleData.id ? saleData.id.slice(0, 8).toUpperCase() : 'N/A';
 
-    generateReceiptHtml(saleData) {
-        // Premium Receipt Design
-        const styles = {
-            container: "font-family: 'Courier New', Courier, monospace; max-width: 380px; margin: 0 auto; background-color: #fff; color: #000000; padding: 20px; border: 1px solid #eee;",
-            header: "text-align: center; margin-bottom: 20px; border-bottom: 2px dashed #000; padding-bottom: 15px;",
-            title: "font-size: 24px; font-weight: bold; margin: 0 0 5px 0; text-transform: uppercase; color: #000000;",
-            subtitle: "font-size: 12px; color: #555; margin: 2px 0;",
-            info: "font-size: 12px; margin-bottom: 15px; color: #000000;",
-            row: "display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 12px; color: #000000;",
-            itemRow: "display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 12px; color: #000000;",
-            divider: "border-top: 1px dashed #000; margin: 10px 0;",
-            totalRow: "display: flex; justify-content: space-between; font-size: 16px; font-weight: bold; margin-top: 5px; color: #000000;",
-            footer: "text-align: center; margin-top: 20px; font-size: 10px; color: #555; border-top: 1px dashed #000; padding-top: 10px;"
-        };
+            // Helper to get method name
+            const getMethodName = (id) => {
+                const method = this.paymentMethods.find(m => m.id === id);
+                return method ? method.name : (id === 'cash' ? 'Efectivo' : id);
+            };
 
-        const dateStr = saleData.date ? new Date(saleData.date).toLocaleString('es-VE') : new Date().toLocaleString('es-VE');
-        const saleIdShort = saleData.id ? saleData.id.slice(0, 8).toUpperCase() : 'N/A';
-
-        // Helper to get method name
-        const getMethodName = (id) => {
-            const method = this.paymentMethods.find(m => m.id === id);
-            return method ? method.name : (id === 'cash' ? 'Efectivo' : id);
-        };
-
-        return `
+            return `
             <div style="${styles.container}">
                 <div style="${styles.header}">
                     <h1 style="${styles.title}">${this.businessInfo?.name || 'AMERICAN POS'}</h1>
@@ -2154,104 +2231,104 @@ export class POS {
                 </div>
             </div>
         `;
-    }
+        }
 
-    hideReceipt() {
-        this.hidePaymentModal();
-        // Reset modal state for next time
-        if (this.dom.paymentFormContent) this.dom.paymentFormContent.classList.remove('hidden');
-        if (this.dom.receiptModalContent) this.dom.receiptModalContent.classList.add('hidden');
-    }
+        hideReceipt() {
+            this.hidePaymentModal();
+            // Reset modal state for next time
+            if (this.dom.paymentFormContent) this.dom.paymentFormContent.classList.remove('hidden');
+            if (this.dom.receiptModalContent) this.dom.receiptModalContent.classList.add('hidden');
+        }
 
     async emailReceipt() {
-        if (!this.lastSale) return;
+            if (!this.lastSale) return;
 
-        let email = this.lastSale.customer?.email;
+            let email = this.lastSale.customer?.email;
 
-        if (!email) {
-            this.showEmailInputModal((enteredEmail) => {
-                if (enteredEmail) {
-                    this.sendEmailInBackground(enteredEmail);
-                }
-            });
-        } else {
-            this.sendEmailInBackground(email);
-        }
-    }
-
-    sendEmailInBackground(email) {
-        ui.showNotification('Enviando recibo en segundo plano...', 'info');
-        const html = this.generateReceiptHtml(this.lastSale);
-
-        // Fire and forget (but handle errors)
-        api.sales.emailReceipt(this.lastSale.id, email, html)
-            .then(() => {
-                ui.showNotification(`Recibo enviado a ${email}`, 'success');
-            })
-            .catch(error => {
-                console.error('Error sending email:', error);
-                ui.showNotification('Error al enviar correo: ' + error.message, 'error');
-            });
-    }
-
-    showEmailInputModal(callback) {
-        const modal = document.getElementById('email-input-modal');
-        const input = document.getElementById('email-input-field');
-        const confirmBtn = document.getElementById('confirm-email-btn');
-        const cancelBtn = document.getElementById('cancel-email-btn');
-
-        if (!modal || !input || !confirmBtn || !cancelBtn) {
-            console.error('Email modal elements not found');
-            return;
-        }
-
-        input.value = '';
-        modal.classList.remove('hidden');
-        input.focus();
-
-        const close = () => {
-            modal.classList.add('hidden');
-            confirmBtn.onclick = null;
-            cancelBtn.onclick = null;
-            input.onkeydown = null;
-        };
-
-        const confirm = () => {
-            const email = input.value.trim();
-            if (email && email.includes('@')) {
-                close();
-                callback(email);
+            if (!email) {
+                this.showEmailInputModal((enteredEmail) => {
+                    if (enteredEmail) {
+                        this.sendEmailInBackground(enteredEmail);
+                    }
+                });
             } else {
-                ui.showNotification('Por favor ingrese un correo válido', 'warning');
-                input.focus();
+                this.sendEmailInBackground(email);
             }
-        };
+        }
 
-        confirmBtn.onclick = confirm;
-        cancelBtn.onclick = close;
+        sendEmailInBackground(email) {
+            ui.showNotification('Enviando recibo en segundo plano...', 'info');
+            const html = this.generateReceiptHtml(this.lastSale);
 
-        input.onkeydown = (e) => {
-            if (e.key === 'Enter') confirm();
-            if (e.key === 'Escape') close();
-        };
-    }
+            // Fire and forget (but handle errors)
+            api.sales.emailReceipt(this.lastSale.id, email, html)
+                .then(() => {
+                    ui.showNotification(`Recibo enviado a ${email}`, 'success');
+                })
+                .catch(error => {
+                    console.error('Error sending email:', error);
+                    ui.showNotification('Error al enviar correo: ' + error.message, 'error');
+                });
+        }
 
-    printReceipt() {
-        // Create a hidden iframe for printing
-        const iframe = document.createElement('iframe');
-        iframe.style.position = 'absolute';
-        iframe.style.width = '0px';
-        iframe.style.height = '0px';
-        iframe.style.left = '-9999px';
-        iframe.style.top = '-9999px';
-        document.body.appendChild(iframe);
+        showEmailInputModal(callback) {
+            const modal = document.getElementById('email-input-modal');
+            const input = document.getElementById('email-input-field');
+            const confirmBtn = document.getElementById('confirm-email-btn');
+            const cancelBtn = document.getElementById('cancel-email-btn');
 
-        const doc = iframe.contentWindow.document;
-        // Get the receipt HTML
-        const receiptHtml = this.dom.receiptContent.innerHTML;
+            if (!modal || !input || !confirmBtn || !cancelBtn) {
+                console.error('Email modal elements not found');
+                return;
+            }
 
-        doc.open();
-        doc.write(`
+            input.value = '';
+            modal.classList.remove('hidden');
+            input.focus();
+
+            const close = () => {
+                modal.classList.add('hidden');
+                confirmBtn.onclick = null;
+                cancelBtn.onclick = null;
+                input.onkeydown = null;
+            };
+
+            const confirm = () => {
+                const email = input.value.trim();
+                if (email && email.includes('@')) {
+                    close();
+                    callback(email);
+                } else {
+                    ui.showNotification('Por favor ingrese un correo válido', 'warning');
+                    input.focus();
+                }
+            };
+
+            confirmBtn.onclick = confirm;
+            cancelBtn.onclick = close;
+
+            input.onkeydown = (e) => {
+                if (e.key === 'Enter') confirm();
+                if (e.key === 'Escape') close();
+            };
+        }
+
+        printReceipt() {
+            // Create a hidden iframe for printing
+            const iframe = document.createElement('iframe');
+            iframe.style.position = 'absolute';
+            iframe.style.width = '0px';
+            iframe.style.height = '0px';
+            iframe.style.left = '-9999px';
+            iframe.style.top = '-9999px';
+            document.body.appendChild(iframe);
+
+            const doc = iframe.contentWindow.document;
+            // Get the receipt HTML
+            const receiptHtml = this.dom.receiptContent.innerHTML;
+
+            doc.open();
+            doc.write(`
             <html>
                 <head>
                     <title>Recibo de Venta</title>
@@ -2275,71 +2352,71 @@ export class POS {
                 </body>
             </html>
         `);
-        doc.close();
+            doc.close();
 
-        // Remove the iframe after a delay to ensure print dialog has opened
-        setTimeout(() => {
-            document.body.removeChild(iframe);
-        }, 2000);
-    }
-
-    // Price Check Logic
-    togglePriceCheck() {
-        if (this.dom.priceCheckModal && !this.dom.priceCheckModal.classList.contains('hidden')) {
-            this.closePriceCheck();
-        } else {
-            this.openPriceCheck();
-        }
-    }
-
-    openPriceCheck() {
-        if (this.dom.priceCheckModal) {
-            this.dom.priceCheckModal.classList.remove('hidden');
-            this.resetPriceCheckUI();
-            if (this.dom.priceCheckInput) this.dom.priceCheckInput.focus();
-        }
-    }
-
-    closePriceCheck() {
-        if (this.dom.priceCheckModal) {
-            this.dom.priceCheckModal.classList.add('hidden');
-        }
-    }
-
-    resetPriceCheckUI() {
-        if (this.dom.priceCheckInput) this.dom.priceCheckInput.value = '';
-        if (this.dom.priceCheckResult) this.dom.priceCheckResult.classList.add('hidden');
-        if (this.dom.priceCheckList) {
-            this.dom.priceCheckList.classList.add('hidden');
-            this.dom.priceCheckList.innerHTML = '';
-        }
-        this.priceCheckSelectedIndex = -1;
-    }
-
-    searchPriceCheck(query) {
-        if (!query) {
-            if (this.dom.priceCheckList) this.dom.priceCheckList.classList.add('hidden');
-            return;
+            // Remove the iframe after a delay to ensure print dialog has opened
+            setTimeout(() => {
+                document.body.removeChild(iframe);
+            }, 2000);
         }
 
-        const lowerQuery = query.toLowerCase();
-        const results = this.products.filter(p =>
-            p.name.toLowerCase().includes(lowerQuery) ||
-            (p.barcode && p.barcode.includes(query))
-        ).slice(0, 5); // Limit to 5 results
-
-        this.displayPriceCheckList(results);
-    }
-
-    displayPriceCheckList(products) {
-        if (!this.dom.priceCheckList) return;
-
-        if (products.length === 0) {
-            this.dom.priceCheckList.classList.add('hidden');
-            return;
+        // Price Check Logic
+        togglePriceCheck() {
+            if (this.dom.priceCheckModal && !this.dom.priceCheckModal.classList.contains('hidden')) {
+                this.closePriceCheck();
+            } else {
+                this.openPriceCheck();
+            }
         }
 
-        this.dom.priceCheckList.innerHTML = products.map((p, index) => `
+        openPriceCheck() {
+            if (this.dom.priceCheckModal) {
+                this.dom.priceCheckModal.classList.remove('hidden');
+                this.resetPriceCheckUI();
+                if (this.dom.priceCheckInput) this.dom.priceCheckInput.focus();
+            }
+        }
+
+        closePriceCheck() {
+            if (this.dom.priceCheckModal) {
+                this.dom.priceCheckModal.classList.add('hidden');
+            }
+        }
+
+        resetPriceCheckUI() {
+            if (this.dom.priceCheckInput) this.dom.priceCheckInput.value = '';
+            if (this.dom.priceCheckResult) this.dom.priceCheckResult.classList.add('hidden');
+            if (this.dom.priceCheckList) {
+                this.dom.priceCheckList.classList.add('hidden');
+                this.dom.priceCheckList.innerHTML = '';
+            }
+            this.priceCheckSelectedIndex = -1;
+        }
+
+        searchPriceCheck(query) {
+            if (!query) {
+                if (this.dom.priceCheckList) this.dom.priceCheckList.classList.add('hidden');
+                return;
+            }
+
+            const lowerQuery = query.toLowerCase();
+            const results = this.products.filter(p =>
+                p.name.toLowerCase().includes(lowerQuery) ||
+                (p.barcode && p.barcode.includes(query))
+            ).slice(0, 5); // Limit to 5 results
+
+            this.displayPriceCheckList(results);
+        }
+
+        displayPriceCheckList(products) {
+            if (!this.dom.priceCheckList) return;
+
+            if (products.length === 0) {
+                this.dom.priceCheckList.classList.add('hidden');
+                return;
+            }
+
+            this.dom.priceCheckList.innerHTML = products.map((p, index) => `
         <div class="price-check-item p-3 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer border-b border-slate-100 dark:border-slate-700 last:border-0 flex justify-between items-center"
              data-id="${p.id}"
              onclick="if(window.pos) window.pos.selectPriceCheckProduct('${p.id}')">
@@ -2351,40 +2428,40 @@ export class POS {
         </div>
     `).join('');
 
-        this.dom.priceCheckList.classList.remove('hidden');
-        this.priceCheckSelectedIndex = -1;
+            this.dom.priceCheckList.classList.remove('hidden');
+            this.priceCheckSelectedIndex = -1;
 
-        // Keep event listeners as backup/primary
-        this.dom.priceCheckList.querySelectorAll('.price-check-item').forEach(item => {
-            item.addEventListener('click', (e) => {
-                e.stopPropagation(); // Prevent bubbling issues
-                const id = item.dataset.id;
-                console.log('Event listener click:', id);
-                this.selectPriceCheckProduct(id);
+            // Keep event listeners as backup/primary
+            this.dom.priceCheckList.querySelectorAll('.price-check-item').forEach(item => {
+                item.addEventListener('click', (e) => {
+                    e.stopPropagation(); // Prevent bubbling issues
+                    const id = item.dataset.id;
+                    console.log('Event listener click:', id);
+                    this.selectPriceCheckProduct(id);
+                });
             });
-        });
-    }
-
-    selectPriceCheckProduct(id) {
-        console.log('selectPriceCheckProduct called with ID:', id);
-        const product = this.products.find(p => String(p.id) === String(id));
-        if (product) {
-            console.log('Product found:', product.name);
-            this.displayPriceCheckResult(product);
-            if (this.dom.priceCheckList) this.dom.priceCheckList.classList.add('hidden');
-            if (this.dom.priceCheckInput) this.dom.priceCheckInput.value = ''; // Clear input
-        } else {
-            console.error('Product not found in local cache for ID:', id);
         }
-    }
 
-    displayPriceCheckResult(product) {
-        if (!this.dom.priceCheckResult) return;
+        selectPriceCheckProduct(id) {
+            console.log('selectPriceCheckProduct called with ID:', id);
+            const product = this.products.find(p => String(p.id) === String(id));
+            if (product) {
+                console.log('Product found:', product.name);
+                this.displayPriceCheckResult(product);
+                if (this.dom.priceCheckList) this.dom.priceCheckList.classList.add('hidden');
+                if (this.dom.priceCheckInput) this.dom.priceCheckInput.value = ''; // Clear input
+            } else {
+                console.error('Product not found in local cache for ID:', id);
+            }
+        }
 
-        const priceBs = product.price * this.exchangeRate;
-        const imageUri = product.imageUri || 'https://via.placeholder.com/150?text=No+Image';
+        displayPriceCheckResult(product) {
+            if (!this.dom.priceCheckResult) return;
 
-        this.dom.priceCheckResult.innerHTML = `
+            const priceBs = product.price * this.exchangeRate;
+            const imageUri = product.imageUri || 'https://via.placeholder.com/150?text=No+Image';
+
+            this.dom.priceCheckResult.innerHTML = `
             <div class="flex flex-col items-center text-center p-6 bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700">
                 <img src="${imageUri}" alt="${product.name}" class="w-32 h-32 object-cover rounded-lg mb-4 shadow-sm">
                 <h3 class="text-xl font-bold text-slate-900 dark:text-white mb-2">${product.name}</h3>
@@ -2409,29 +2486,29 @@ export class POS {
             </div>
         `;
 
-        // Toggle visibility
-        this.dom.priceCheckResult.classList.remove('hidden');
-        if (this.dom.priceCheckPlaceholder) {
-            this.dom.priceCheckPlaceholder.classList.add('hidden');
-        }
-    }
-
-    renderCustomerSearchResults(results) {
-        if (!this.dom.customerSearchResults) {
-            console.error('POS: customerSearchResults DOM element not found!');
-            return;
+            // Toggle visibility
+            this.dom.priceCheckResult.classList.remove('hidden');
+            if (this.dom.priceCheckPlaceholder) {
+                this.dom.priceCheckPlaceholder.classList.add('hidden');
+            }
         }
 
-        console.log('POS: Rendering search results:', results);
+        renderCustomerSearchResults(results) {
+            if (!this.dom.customerSearchResults) {
+                console.error('POS: customerSearchResults DOM element not found!');
+                return;
+            }
 
-        if (results.length === 0) {
-            this.dom.customerSearchResults.innerHTML = `
+            console.log('POS: Rendering search results:', results);
+
+            if (results.length === 0) {
+                this.dom.customerSearchResults.innerHTML = `
                 <div class="p-3 text-sm text-slate-500 dark:text-slate-400 text-center">
                     No se encontraron clientes
                 </div>
             `;
-        } else {
-            this.dom.customerSearchResults.innerHTML = results.map(c => `
+            } else {
+                this.dom.customerSearchResults.innerHTML = results.map(c => `
                 <div class="p-3 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer border-b border-slate-100 dark:border-slate-700 last:border-0 transition-colors"
                     onclick="pos.selectCustomer('${c.id}')">
                     <div class="font-bold text-slate-800 dark:text-white text-sm">${c.name}</div>
@@ -2442,146 +2519,146 @@ export class POS {
                     </div>
                 </div>
             `).join('');
-        }
-
-        this.dom.customerSearchResults.classList.remove('hidden');
-        console.log('POS: customerSearchResults classList:', this.dom.customerSearchResults.classList.toString());
-    }
-
-    selectCustomer(customerId) {
-        const customer = this.customers.find(c => c.id == customerId); // Loose equality for string/number mismatch
-        if (!customer) return;
-
-        this.selectedCustomer = customer;
-
-        // Update UI
-        if (this.dom.selectedCustomerName) this.dom.selectedCustomerName.textContent = customer.name;
-        if (this.dom.selectedCustomerDoc) this.dom.selectedCustomerDoc.textContent = `${customer.docType || ''}-${customer.docNumber || ''}`;
-
-        if (this.dom.customerSearchContainer) {
-            const inputContainer = this.dom.customerSearchContainer.querySelector('.relative');
-            if (inputContainer) inputContainer.classList.add('hidden');
-        }
-
-        if (this.dom.selectedCustomerDisplay) this.dom.selectedCustomerDisplay.classList.remove('hidden');
-        if (this.dom.customerSearchResults) this.dom.customerSearchResults.classList.add('hidden');
-        if (this.dom.customerSearchInput) this.dom.customerSearchInput.value = '';
-
-        ui.showNotification(`Cliente seleccionado: ${customer.name}`);
-    }
-
-    deselectCustomer() {
-        this.selectedCustomer = null;
-
-        if (this.dom.customerSearchContainer) {
-            const inputContainer = this.dom.customerSearchContainer.querySelector('.relative');
-            if (inputContainer) inputContainer.classList.remove('hidden');
-        }
-
-        if (this.dom.selectedCustomerDisplay) this.dom.selectedCustomerDisplay.classList.add('hidden');
-        if (this.dom.customerSearchInput) {
-            this.dom.customerSearchInput.value = '';
-            this.dom.customerSearchInput.focus();
-        }
-    }
-    enableSwipeToClose(element, onClose) {
-        let startX = 0;
-        let currentX = 0;
-        let isDragging = false;
-
-        element.addEventListener('touchstart', (e) => {
-            startX = e.touches[0].clientX;
-            isDragging = true;
-            element.style.transition = 'none'; // Disable transition for direct follow
-        }, { passive: true });
-
-        element.addEventListener('touchmove', (e) => {
-            if (!isDragging) return;
-            currentX = e.touches[0].clientX;
-            const deltaX = currentX - startX;
-
-            // Only allow dragging to the right (positive delta)
-            if (deltaX > 0) {
-                element.style.transform = `translateX(${deltaX}px)`;
             }
-        }, { passive: true });
 
-        element.addEventListener('touchend', (e) => {
-            if (!isDragging) return;
-            isDragging = false;
-            element.style.transition = ''; // Re-enable transition
+            this.dom.customerSearchResults.classList.remove('hidden');
+            console.log('POS: customerSearchResults classList:', this.dom.customerSearchResults.classList.toString());
+        }
 
-            const deltaX = currentX - startX;
-            const threshold = 100; // px to trigger close
+        selectCustomer(customerId) {
+            const customer = this.customers.find(c => c.id == customerId); // Loose equality for string/number mismatch
+            if (!customer) return;
 
-            if (deltaX > threshold) {
-                // Trigger close
-                element.style.transform = ''; // Clear inline style so class takes over
-                onClose();
-            } else {
-                // Reset
-                element.style.transform = '';
+            this.selectedCustomer = customer;
+
+            // Update UI
+            if (this.dom.selectedCustomerName) this.dom.selectedCustomerName.textContent = customer.name;
+            if (this.dom.selectedCustomerDoc) this.dom.selectedCustomerDoc.textContent = `${customer.docType || ''}-${customer.docNumber || ''}`;
+
+            if (this.dom.customerSearchContainer) {
+                const inputContainer = this.dom.customerSearchContainer.querySelector('.relative');
+                if (inputContainer) inputContainer.classList.add('hidden');
             }
-        });
-    }
 
-    enableSwipeToOpen(element, onOpen) {
-        let startX = 0;
-        let startY = 0;
+            if (this.dom.selectedCustomerDisplay) this.dom.selectedCustomerDisplay.classList.remove('hidden');
+            if (this.dom.customerSearchResults) this.dom.customerSearchResults.classList.add('hidden');
+            if (this.dom.customerSearchInput) this.dom.customerSearchInput.value = '';
 
-        element.addEventListener('touchstart', (e) => {
-            startX = e.touches[0].clientX;
-            startY = e.touches[0].clientY;
-        }, { passive: true });
+            ui.showNotification(`Cliente seleccionado: ${customer.name}`);
+        }
 
-        element.addEventListener('touchend', (e) => {
-            const endX = e.changedTouches[0].clientX;
-            const endY = e.changedTouches[0].clientY;
-            const deltaX = endX - startX;
-            const deltaY = endY - startY;
+        deselectCustomer() {
+            this.selectedCustomer = null;
 
-            // Check if horizontal swipe is dominant
-            if (Math.abs(deltaX) > Math.abs(deltaY)) {
-                // Swipe Left (negative deltaX)
-                if (deltaX < -100) {
-                    onOpen();
+            if (this.dom.customerSearchContainer) {
+                const inputContainer = this.dom.customerSearchContainer.querySelector('.relative');
+                if (inputContainer) inputContainer.classList.remove('hidden');
+            }
+
+            if (this.dom.selectedCustomerDisplay) this.dom.selectedCustomerDisplay.classList.add('hidden');
+            if (this.dom.customerSearchInput) {
+                this.dom.customerSearchInput.value = '';
+                this.dom.customerSearchInput.focus();
+            }
+        }
+        enableSwipeToClose(element, onClose) {
+            let startX = 0;
+            let currentX = 0;
+            let isDragging = false;
+
+            element.addEventListener('touchstart', (e) => {
+                startX = e.touches[0].clientX;
+                isDragging = true;
+                element.style.transition = 'none'; // Disable transition for direct follow
+            }, { passive: true });
+
+            element.addEventListener('touchmove', (e) => {
+                if (!isDragging) return;
+                currentX = e.touches[0].clientX;
+                const deltaX = currentX - startX;
+
+                // Only allow dragging to the right (positive delta)
+                if (deltaX > 0) {
+                    element.style.transform = `translateX(${deltaX}px)`;
                 }
-            }
-        });
+            }, { passive: true });
+
+            element.addEventListener('touchend', (e) => {
+                if (!isDragging) return;
+                isDragging = false;
+                element.style.transition = ''; // Re-enable transition
+
+                const deltaX = currentX - startX;
+                const threshold = 100; // px to trigger close
+
+                if (deltaX > threshold) {
+                    // Trigger close
+                    element.style.transform = ''; // Clear inline style so class takes over
+                    onClose();
+                } else {
+                    // Reset
+                    element.style.transform = '';
+                }
+            });
+        }
+
+        enableSwipeToOpen(element, onOpen) {
+            let startX = 0;
+            let startY = 0;
+
+            element.addEventListener('touchstart', (e) => {
+                startX = e.touches[0].clientX;
+                startY = e.touches[0].clientY;
+            }, { passive: true });
+
+            element.addEventListener('touchend', (e) => {
+                const endX = e.changedTouches[0].clientX;
+                const endY = e.changedTouches[0].clientY;
+                const deltaX = endX - startX;
+                const deltaY = endY - startY;
+
+                // Check if horizontal swipe is dominant
+                if (Math.abs(deltaX) > Math.abs(deltaY)) {
+                    // Swipe Left (negative deltaX)
+                    if (deltaX < -100) {
+                        onOpen();
+                    }
+                }
+            });
+        }
     }
-}
 
 // Global Functions for HTML access
 window.toggleMobileMenu = function () {
-    const menu = document.getElementById('mobile-menu');
-    if (menu) {
-        menu.classList.toggle('hidden');
-    }
-};
+        const menu = document.getElementById('mobile-menu');
+        if (menu) {
+            menu.classList.toggle('hidden');
+        }
+    };
 
 window.toggleMobileCart = function () {
-    const cart = document.getElementById('mobile-cart-drawer'); // Note: ID might be cart-sidebar in HTML
-    const overlay = document.getElementById('mobile-overlay');
-    // Fallback if ID mismatch
-    const realCart = document.getElementById('cart-sidebar') || cart;
+        const cart = document.getElementById('mobile-cart-drawer'); // Note: ID might be cart-sidebar in HTML
+        const overlay = document.getElementById('mobile-overlay');
+        // Fallback if ID mismatch
+        const realCart = document.getElementById('cart-sidebar') || cart;
 
-    if (realCart && overlay) {
-        realCart.classList.toggle('translate-x-full');
-        overlay.classList.toggle('hidden');
-    }
-};
+        if (realCart && overlay) {
+            realCart.classList.toggle('translate-x-full');
+            overlay.classList.toggle('hidden');
+        }
+    };
 
 window.closeMobileCart = function () {
-    const cart = document.getElementById('mobile-cart-drawer');
-    const overlay = document.getElementById('mobile-overlay');
-    // Fallback
-    const realCart = document.getElementById('cart-sidebar') || cart;
+        const cart = document.getElementById('mobile-cart-drawer');
+        const overlay = document.getElementById('mobile-overlay');
+        // Fallback
+        const realCart = document.getElementById('cart-sidebar') || cart;
 
-    if (realCart && overlay) {
-        realCart.classList.add('translate-x-full');
-        overlay.classList.add('hidden');
-    }
-};
+        if (realCart && overlay) {
+            realCart.classList.add('translate-x-full');
+            overlay.classList.add('hidden');
+        }
+    };
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {

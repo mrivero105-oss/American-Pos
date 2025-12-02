@@ -279,6 +279,9 @@ export const Products = {
         this.dom.form.reset();
         this.dom.inputId.value = '';
 
+        const isSoldByWeightCheckbox = document.getElementById('product-is-sold-by-weight');
+        if (isSoldByWeightCheckbox) isSoldByWeightCheckbox.checked = false;
+
         // Reset pricing fields
         if (this.dom.packageType) this.dom.packageType.value = '';
         if (this.dom.unitsPerBulk) this.dom.unitsPerBulk.value = '';
@@ -304,6 +307,11 @@ export const Products = {
             this.dom.inputStock.value = product.stock;
             this.dom.inputCategory.value = product.category || '';
             this.dom.inputBarcode.value = product.barcode || '';
+
+            const isSoldByWeightCheckbox = document.getElementById('product-is-sold-by-weight');
+            if (isSoldByWeightCheckbox) {
+                isSoldByWeightCheckbox.checked = !!product.isSoldByWeight;
+            }
 
             // Show existing image preview
             if (product.imageUri) {
@@ -336,7 +344,8 @@ export const Products = {
             stockQuantity: parseInt(this.dom.inputStock.value),
             category: this.dom.inputCategory.value,
             imageUri: this.currentImageUri || '',
-            barcode: this.dom.inputBarcode.value
+            barcode: this.dom.inputBarcode.value,
+            isSoldByWeight: document.getElementById('product-is-sold-by-weight').checked ? 1 : 0
         };
 
         const id = this.dom.inputId.value;
