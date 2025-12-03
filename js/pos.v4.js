@@ -756,22 +756,22 @@ export class POS {
             }
 
             return `
-                <div class="product-card bg-white dark:bg-slate-800 rounded-xl shadow-md border border-slate-200 dark:border-slate-700 overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group cursor-pointer ring-1 ring-slate-900/5 ${!isAvailable ? 'opacity-75' : ''}" data-id="${product.id}">
+                <div class="product-card bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 group cursor-pointer ring-1 ring-slate-900/5 ${!isAvailable ? 'opacity-75' : ''}" data-id="${product.id}">
                     <div class="aspect-square overflow-hidden bg-gray-50 dark:bg-slate-700 relative">
-                        <img src="${imageUri}" alt="${product.name}" loading="lazy" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
+                        <img src="${imageUri}" alt="${product.name}" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
                         ${availabilityBadge}
                     </div>
-                    <div class="p-2">
-                        <div class="mb-1 flex justify-between items-start">
-                            <span class="text-[10px] text-slate-500 dark:text-slate-400 font-mono">#${product.id}</span>
+                    <div class="p-1.5">
+                        <div class="mb-0.5 flex justify-between items-start">
+                            <span class="text-[9px] text-slate-500 dark:text-slate-400 font-mono">#${product.id}</span>
                             ${dispBadge}
                         </div>
-                        <h3 class="font-bold text-slate-800 dark:text-slate-100 mb-1 text-[11px] md:text-xs line-clamp-2 leading-tight h-8">${product.name}</h3>
-                        <div class="flex justify-between items-center mt-auto pt-1.5 border-t border-slate-100 dark:border-slate-700/50">
-                            <span class="text-sm md:text-base font-extrabold text-slate-900 dark:text-white">$${parseFloat(product.price).toFixed(2)}</span>
-                            <button class="add-to-cart-btn w-6 h-6 md:w-7 md:h-7 bg-slate-900 dark:bg-blue-600 text-white rounded-full hover:bg-blue-600 dark:hover:bg-blue-500 hover:scale-110 transition-all flex items-center justify-center shadow-lg shadow-slate-900/20"
+                        <h3 class="font-bold text-slate-800 dark:text-slate-100 mb-0.5 text-[10px] md:text-[11px] line-clamp-2 leading-tight h-7">${product.name}</h3>
+                        <div class="flex justify-between items-center mt-auto pt-1 border-t border-slate-100 dark:border-slate-700/50">
+                            <span class="text-xs md:text-sm font-extrabold text-slate-900 dark:text-white">$${parseFloat(product.price).toFixed(2)}</span>
+                            <button class="add-to-cart-btn w-5 h-5 md:w-6 md:h-6 bg-slate-900 dark:bg-blue-600 text-white rounded-full hover:bg-blue-600 dark:hover:bg-blue-500 hover:scale-110 transition-all flex items-center justify-center shadow-md shadow-slate-900/20"
                                 ${!isAvailable ? 'disabled' : ''}>
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
                                 </svg>
                             </button>
