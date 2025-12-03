@@ -144,7 +144,7 @@ export class POS {
             weightModalTitle: document.getElementById('weight-modal-product-name'),
             weightModalUnitPrice: document.getElementById('weight-modal-unit-price'),
             weightInput: document.getElementById('weight-input'),
-            weightPriceUsd: document.getElementById('weight-price-input'),
+            weightPriceUsd: document.getElementById('weight-price-usd'),
             weightPriceBs: document.getElementById('weight-price-bs'), // Note: ID in HTML is weight-price-input for USD, need to check if BS input exists or if I should map correctly
             confirmWeightBtn: document.getElementById('confirm-weight-btn'),
 
@@ -976,11 +976,15 @@ export class POS {
         const pricePerKg = parseFloat(this.selectedWeightProduct.price);
         const exchangeRate = this.exchangeRate;
 
+        console.log(`Calculating weight values. Source: ${source}, Price/Kg: ${pricePerKg}, Rate: ${exchangeRate}`);
+
         if (source === 'weight') {
             const weight = parseFloat(this.dom.weightInput.value);
+            console.log('Weight input:', weight);
             if (!isNaN(weight)) {
                 const totalPrice = weight * pricePerKg;
                 const totalBs = totalPrice * exchangeRate;
+                console.log('Calculated Total USD:', totalPrice);
                 this.dom.weightPriceUsd.value = totalPrice.toFixed(2);
                 if (this.dom.weightPriceBs) this.dom.weightPriceBs.value = totalBs.toFixed(2);
             } else {
@@ -989,9 +993,11 @@ export class POS {
             }
         } else if (source === 'usd') {
             const price = parseFloat(this.dom.weightPriceUsd.value);
+            console.log('USD input:', price);
             if (!isNaN(price) && pricePerKg > 0) {
                 const weight = price / pricePerKg;
                 const totalBs = price * exchangeRate;
+                console.log('Calculated Weight:', weight);
                 this.dom.weightInput.value = weight.toFixed(3);
                 if (this.dom.weightPriceBs) this.dom.weightPriceBs.value = totalBs.toFixed(2);
             } else {
@@ -1000,9 +1006,11 @@ export class POS {
             }
         } else if (source === 'bs') {
             const priceBs = parseFloat(this.dom.weightPriceBs.value);
+            console.log('Bs input:', priceBs);
             if (!isNaN(priceBs) && exchangeRate > 0 && pricePerKg > 0) {
                 const priceUsd = priceBs / exchangeRate;
                 const weight = priceUsd / pricePerKg;
+                console.log('Calculated USD:', priceUsd, 'Weight:', weight);
                 this.dom.weightPriceUsd.value = priceUsd.toFixed(2);
                 this.dom.weightInput.value = weight.toFixed(3);
             } else {
@@ -1011,6 +1019,7 @@ export class POS {
             }
         }
     }
+
     confirmWeightItem() {
         if (!this.selectedWeightProduct) return;
 
