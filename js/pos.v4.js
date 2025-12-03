@@ -2671,80 +2671,120 @@ export class POS {
         if (this.dom.customerSearchInput) {
             this.dom.customerSearchInput.value = '';
             this.dom.customerSearchInput.focus();
-            if (!cartContainer || !icon) return;
+        }
+    }
 
-            const isHidden = cartContainer.classList.contains('translate-x-full');
+    toggleCartSidebar() {
+        const cartContainer = document.getElementById('cart-container');
 
-            if (isHidden) {
-                // Cart is CLOSED (off screen)
-                // Icon should point LEFT (to open)
-                icon.style.transform = 'rotate(0deg)';
+        if (!cartContainer) return;
+
+        // Toggle translate-x-full to show/hide
+        cartContainer.classList.toggle('translate-x-full');
+        cartContainer.classList.toggle('md:translate-x-0'); // Toggle the desktop reset class too
+
+        this.syncMainContentMargin();
+        this.updateCartToggleState();
+    }
+
+    syncMainContentMargin() {
+        const cartContainer = document.getElementById('cart-container');
+        const mainContent = document.getElementById('main-content-area');
+
+        if (!cartContainer || !mainContent) return;
+
+        const isClosed = cartContainer.classList.contains('translate-x-full');
+
+        if (isClosed) {
+            // Cart is closed, remove margin
+            mainContent.style.marginRight = '0px';
+        } else {
+            // Cart is open, add margin based on screen size
+            if (window.innerWidth >= 1024) {
+                mainContent.style.marginRight = '24rem'; // 384px (w-96)
             } else {
-                // Cart is OPEN
-                // Icon should point RIGHT (to close)
-                icon.style.transform = 'rotate(180deg)';
+                mainContent.style.marginRight = '20rem'; // 320px (w-80)
             }
         }
+    }
 
-        enableSwipeToClose() {
-            const cartSidebar = document.getElementById('cart-sidebar');
-            if (!cartSidebar) return;
+    updateCartToggleState() {
+        const cartContainer = document.getElementById('cart-container');
+        const icon = this.dom.cartToggleIcon;
 
-            let startX = 0;
-            let startY = 0;
+        if (!cartContainer || !icon) return;
 
-            cartSidebar.addEventListener('touchstart', (e) => {
-                startX = e.touches[0].clientX;
-                startY = e.touches[0].clientY;
-            }, { passive: true });
+        const isHidden = cartContainer.classList.contains('translate-x-full');
 
-            cartSidebar.addEventListener('touchend', (e) => {
-                const endX = e.changedTouches[0].clientX;
-                const endY = e.changedTouches[0].clientY;
-                const deltaX = endX - startX;
-                const deltaY = endY - startY;
+        if (isHidden) {
+            // Cart is CLOSED (off screen)
+            // Icon should point LEFT (to open)
+            icon.style.transform = 'rotate(0deg)';
+        } else {
+            // Cart is OPEN
+            // Icon should point RIGHT (to close)
+            icon.style.transform = 'rotate(180deg)';
+        }
+    }
 
-                // Check if horizontal swipe is dominant
-                if (Math.abs(deltaX) > Math.abs(deltaY)) {
-                    // Swipe Right (positive deltaX) to close
-                    if (deltaX > 50) {
+    enableSwipeToClose() {
+        const cartSidebar = document.getElementById('cart-sidebar');
+        if (!cartSidebar) return;
+
+        let startX = 0;
+        let startY = 0;
+
+        cartSidebar.addEventListener('touchstart', (e) => {
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+        }, { passive: true });
+
+        cartSidebar.addEventListener('touchend', (e) => {
+            const endX = e.changedTouches[0].clientX;
+            const endY = e.changedTouches[0].clientY;
+            const deltaX = endX - startX;
+            const deltaY = endY - startY;
+
+            // Check if horizontal swipe is dominant
+            if (Math.abs(deltaX) > Math.abs(deltaY)) {
+                // Swipe Right (positive deltaX) to close
+                if (deltaX > 50) {
+                    this.toggleCartSidebar();
+                }
+            }
+        });
+    }
+
+    enableSwipeToOpen() {
+        // Add swipe listener to the document body or a specific edge area
+        let startX = 0;
+        let startY = 0;
+
+        document.addEventListener('touchstart', (e) => {
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+        }, { passive: true });
+
+        document.addEventListener('touchend', (e) => {
+            // Only trigger if starting near the right edge (e.g., last 30px)
+            if (window.innerWidth - startX > 30) return;
+
+            const endX = e.changedTouches[0].clientX;
+            const endY = e.changedTouches[0].clientY;
+            const deltaX = endX - startX;
+            const deltaY = endY - startY;
+
+            // Check if horizontal swipe is dominant
+            if (Math.abs(deltaX) > Math.abs(deltaY)) {
+                // Swipe Left (negative deltaX) to open
+                if (deltaX < -50) {
+                    const cartContainer = document.getElementById('cart-container');
+                    if (cartContainer && cartContainer.classList.contains('translate-x-full')) {
                         this.toggleCartSidebar();
                     }
                 }
-            });
-        }
-
-        enableSwipeToOpen() {
-            // Add swipe listener to the document body or a specific edge area
-            let startX = 0;
-            let startY = 0;
-
-            document.addEventListener('touchstart', (e) => {
-                startX = e.touches[0].clientX;
-                startY = e.touches[0].clientY;
-            }, { passive: true });
-
-            document.addEventListener('touchend', (e) => {
-                // Only trigger if starting near the right edge (e.g., last 30px)
-                if (window.innerWidth - startX > 30) return;
-
-                const endX = e.changedTouches[0].clientX;
-                const endY = e.changedTouches[0].clientY;
-                const deltaX = endX - startX;
-                const deltaY = endY - startY;
-
-                // Check if horizontal swipe is dominant
-                if (Math.abs(deltaX) > Math.abs(deltaY)) {
-                    // Swipe Left (negative deltaX) to open
-                    if (deltaX < -50) {
-                        const cartContainer = document.getElementById('cart-container');
-                        if (cartContainer && cartContainer.classList.contains('translate-x-full')) {
-                            this.toggleCartSidebar();
-                        }
-                    }
-                }
-            });
-        }
+            }
+        });
     }
 }
 
