@@ -283,10 +283,35 @@
             100% {
                 transform: rotate(135deg);
             }
+
+            overflow-x: auto;
+            scrollbar-width: thin;
+            scrollbar-color: transparent transparent;
+            transition: scrollbar-color 0.3s;
         }
 
-        .animate-tip-over {
-            animation: tip-over 1.5s ease-in-out forwards;
+        .hover-scroll:hover {
+            scrollbar-color: #94a3b8 transparent;
+            /* slate-400 */
+        }
+
+        .hover-scroll::-webkit-scrollbar {
+            height: 6px;
+            background-color: transparent;
+        }
+
+        .hover-scroll::-webkit-scrollbar-track {
+            background-color: transparent;
+        }
+
+        .hover-scroll::-webkit-scrollbar-thumb {
+            background-color: transparent;
+            border-radius: 20px;
+        }
+
+        .hover-scroll:hover::-webkit-scrollbar-thumb {
+            background-color: #94a3b8;
+            /* slate-400 */
         }
     </style>
 
@@ -653,7 +678,7 @@
                 </div>
 
                 <!-- Category Filter Bar -->
-                <div class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-2 py-3 flex items-center gap-3 z-10 min-h-[60px] whitespace-nowrap overflow-x-auto"
+                <div class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-2 py-3 flex items-center gap-3 z-10 min-h-[60px] whitespace-nowrap hover-scroll"
                     id="category-filters">
                     <!-- Categories injected via JS -->
                 </div>
