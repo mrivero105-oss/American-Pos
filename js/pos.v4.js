@@ -564,8 +564,13 @@ export class POS {
             window.addEventListener('resize', () => {
                 if (window.innerWidth >= 768) {
                     this.updateCartToggleState();
+                    this.syncMainContentMargin();
                 }
             });
+
+            // Initial sync
+            setTimeout(() => this.syncMainContentMargin(), 100);
+
         } catch (error) {
             console.error('Error binding events:', error);
         }
@@ -2666,150 +2671,113 @@ export class POS {
         if (this.dom.customerSearchInput) {
             this.dom.customerSearchInput.value = '';
             this.dom.customerSearchInput.focus();
-        }
-    }
+            if (!cartContainer || !icon) return;
 
-    toggleCartSidebar() {
-        const cartContainer = document.getElementById('cart-container');
-        const mainContent = document.getElementById('main-content-area');
+            const isHidden = cartContainer.classList.contains('translate-x-full');
 
-        if (!cartContainer) return;
-
-        // Toggle translate-x-full to show/hide
-        cartContainer.classList.toggle('translate-x-full');
-        cartContainer.classList.toggle('md:translate-x-0'); // Toggle the desktop reset class too
-
-        // Toggle margin on main content to push it
-        if (mainContent) {
-            const isClosed = cartContainer.classList.contains('translate-x-full');
-
-            if (isClosed) {
-                // Cart is closed, remove margin
-                mainContent.style.marginRight = '0px';
+            if (isHidden) {
+                // Cart is CLOSED (off screen)
+                // Icon should point LEFT (to open)
+                icon.style.transform = 'rotate(0deg)';
             } else {
-                // Cart is open, add margin based on screen size
-                if (window.innerWidth >= 1024) {
-                    mainContent.style.marginRight = '24rem'; // 384px (w-96)
-                } else {
-                    mainContent.style.marginRight = '20rem'; // 320px (w-80)
-                }
+                // Cart is OPEN
+                // Icon should point RIGHT (to close)
+                icon.style.transform = 'rotate(180deg)';
             }
         }
 
-        this.updateCartToggleState();
-    }
+        enableSwipeToClose() {
+            const cartSidebar = document.getElementById('cart-sidebar');
+            if (!cartSidebar) return;
 
-    updateCartToggleState() {
-        const cartContainer = document.getElementById('cart-container');
-        const icon = this.dom.cartToggleIcon;
+            let startX = 0;
+            let startY = 0;
 
-        if (!cartContainer || !icon) return;
+            cartSidebar.addEventListener('touchstart', (e) => {
+                startX = e.touches[0].clientX;
+                startY = e.touches[0].clientY;
+            }, { passive: true });
 
-        const isHidden = cartContainer.classList.contains('translate-x-full');
+            cartSidebar.addEventListener('touchend', (e) => {
+                const endX = e.changedTouches[0].clientX;
+                const endY = e.changedTouches[0].clientY;
+                const deltaX = endX - startX;
+                const deltaY = endY - startY;
 
-        if (isHidden) {
-            // Cart is CLOSED (off screen)
-            // Icon should point LEFT (to open)
-            icon.style.transform = 'rotate(0deg)';
-        } else {
-            // Cart is OPEN
-            // Icon should point RIGHT (to close)
-            icon.style.transform = 'rotate(180deg)';
-        }
-    }
-
-    enableSwipeToClose() {
-        const cartSidebar = document.getElementById('cart-sidebar');
-        if (!cartSidebar) return;
-
-        let startX = 0;
-        let startY = 0;
-
-        cartSidebar.addEventListener('touchstart', (e) => {
-            startX = e.touches[0].clientX;
-            startY = e.touches[0].clientY;
-        }, { passive: true });
-
-        cartSidebar.addEventListener('touchend', (e) => {
-            const endX = e.changedTouches[0].clientX;
-            const endY = e.changedTouches[0].clientY;
-            const deltaX = endX - startX;
-            const deltaY = endY - startY;
-
-            // Check if horizontal swipe is dominant
-            if (Math.abs(deltaX) > Math.abs(deltaY)) {
-                // Swipe Right (positive deltaX) to close
-                if (deltaX > 50) {
-                    this.toggleCartSidebar();
-                }
-            }
-        });
-    }
-
-    enableSwipeToOpen() {
-        // Add swipe listener to the document body or a specific edge area
-        let startX = 0;
-        let startY = 0;
-
-        document.addEventListener('touchstart', (e) => {
-            startX = e.touches[0].clientX;
-            startY = e.touches[0].clientY;
-        }, { passive: true });
-
-        document.addEventListener('touchend', (e) => {
-            // Only trigger if starting near the right edge (e.g., last 30px)
-            if (window.innerWidth - startX > 30) return;
-
-            const endX = e.changedTouches[0].clientX;
-            const endY = e.changedTouches[0].clientY;
-            const deltaX = endX - startX;
-            const deltaY = endY - startY;
-
-            // Check if horizontal swipe is dominant
-            if (Math.abs(deltaX) > Math.abs(deltaY)) {
-                // Swipe Left (negative deltaX) to open
-                if (deltaX < -50) {
-                    const cartContainer = document.getElementById('cart-container');
-                    if (cartContainer && cartContainer.classList.contains('translate-x-full')) {
+                // Check if horizontal swipe is dominant
+                if (Math.abs(deltaX) > Math.abs(deltaY)) {
+                    // Swipe Right (positive deltaX) to close
+                    if (deltaX > 50) {
                         this.toggleCartSidebar();
                     }
                 }
-            }
-        });
+            });
+        }
+
+        enableSwipeToOpen() {
+            // Add swipe listener to the document body or a specific edge area
+            let startX = 0;
+            let startY = 0;
+
+            document.addEventListener('touchstart', (e) => {
+                startX = e.touches[0].clientX;
+                startY = e.touches[0].clientY;
+            }, { passive: true });
+
+            document.addEventListener('touchend', (e) => {
+                // Only trigger if starting near the right edge (e.g., last 30px)
+                if (window.innerWidth - startX > 30) return;
+
+                const endX = e.changedTouches[0].clientX;
+                const endY = e.changedTouches[0].clientY;
+                const deltaX = endX - startX;
+                const deltaY = endY - startY;
+
+                // Check if horizontal swipe is dominant
+                if (Math.abs(deltaX) > Math.abs(deltaY)) {
+                    // Swipe Left (negative deltaX) to open
+                    if (deltaX < -50) {
+                        const cartContainer = document.getElementById('cart-container');
+                        if (cartContainer && cartContainer.classList.contains('translate-x-full')) {
+                            this.toggleCartSidebar();
+                        }
+                    }
+                }
+            });
+        }
     }
-}
 
 // Global Functions for HTML access
 window.toggleMobileMenu = function () {
-    const menu = document.getElementById('mobile-menu');
-    if (menu) {
-        menu.classList.toggle('hidden');
-    }
-};
+        const menu = document.getElementById('mobile-menu');
+        if (menu) {
+            menu.classList.toggle('hidden');
+        }
+    };
 
 window.toggleMobileCart = function () {
-    const cart = document.getElementById('mobile-cart-drawer');
-    const overlay = document.getElementById('mobile-overlay');
-    // Fallback if ID mismatch
-    const realCart = document.getElementById('cart-sidebar') || cart;
+        const cart = document.getElementById('mobile-cart-drawer');
+        const overlay = document.getElementById('mobile-overlay');
+        // Fallback if ID mismatch
+        const realCart = document.getElementById('cart-sidebar') || cart;
 
-    if (realCart && overlay) {
-        realCart.classList.toggle('translate-x-full');
-        overlay.classList.toggle('hidden');
-    }
-};
+        if (realCart && overlay) {
+            realCart.classList.toggle('translate-x-full');
+            overlay.classList.toggle('hidden');
+        }
+    };
 
 window.closeMobileCart = function () {
-    const cart = document.getElementById('mobile-cart-drawer');
-    const overlay = document.getElementById('mobile-overlay');
-    // Fallback
-    const realCart = document.getElementById('cart-sidebar') || cart;
+        const cart = document.getElementById('mobile-cart-drawer');
+        const overlay = document.getElementById('mobile-overlay');
+        // Fallback
+        const realCart = document.getElementById('cart-sidebar') || cart;
 
-    if (realCart && overlay) {
-        realCart.classList.add('translate-x-full');
-        overlay.classList.add('hidden');
-    }
-};
+        if (realCart && overlay) {
+            realCart.classList.add('translate-x-full');
+            overlay.classList.add('hidden');
+        }
+    };
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
