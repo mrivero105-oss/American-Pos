@@ -868,22 +868,19 @@ export class POS {
             const label = cat === 'Todas' ? 'Todas' : (cat.charAt(0).toUpperCase() + cat.slice(1));
 
             const btn = document.createElement('button');
-            const isSelected = false; // Default to false, will be updated by click or init? 
-            // Actually we need to track selected category. Default is 'Todas'.
-            // But for now let's just render.
 
             // Initial class
             const baseClass = "category-btn px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap flex items-center gap-2";
             const activeClass = "bg-slate-900 text-white dark:bg-blue-600";
             const inactiveClass = "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700";
 
-            btn.className = `${baseClass} ${cat === 'Todas' ? activeClass : inactiveClass} `;
+            btn.className = `${baseClass} ${cat === 'Todas' ? activeClass : inactiveClass}`;
             btn.dataset.category = cat;
 
             btn.innerHTML = `
-                    < span > ${label}</span >
-                        <span class="bg-white/20 px-1.5 py-0.5 rounded-full text-xs opacity-80">${count}</span>
-                `;
+                <span>${label}</span>
+                <span class="bg-white/20 px-1.5 py-0.5 rounded-full text-xs opacity-80">${count}</span>
+            `;
 
             btn.addEventListener('click', () => {
                 this.filterByCategory(cat);
@@ -891,12 +888,15 @@ export class POS {
                 // Update classes
                 this.dom.categoryFilters.querySelectorAll('.category-btn').forEach(b => {
                     const bCat = b.dataset.category;
-                    b.className = `${baseClass} ${bCat === cat ? activeClass : inactiveClass} `;
+                    b.className = `${baseClass} ${bCat === cat ? activeClass : inactiveClass}`;
                 });
             });
 
             this.dom.categoryFilters.appendChild(btn);
         });
+
+        // Ensure toggle button state is correct on load
+        this.updateCartToggleState();
     }
 
 
