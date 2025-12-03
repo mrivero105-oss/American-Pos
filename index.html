@@ -516,54 +516,7 @@
         </div>
     </div>
 
-    <!-- CUSTOM ITEM MODAL -->
-    <div id="custom-item-modal"
-        class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center backdrop-blur-sm p-4">
-        <div
-            class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden transform transition-all">
-            <div
-                class="p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 flex justify-between items-center">
-                <h3 class="font-bold text-lg text-slate-800 dark:text-white">Artículo Personalizado</h3>
-                <button id="close-custom-item-modal"
-                    class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-2xl leading-none">&times;</button>
-            </div>
-            <div class="p-6">
-                <form id="custom-item-form">
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Descripción del
-                            Artículo</label>
-                        <input type="text" id="custom-item-name" required placeholder="Ej: Servicio de Delivery"
-                            class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-white">
-                    </div>
-                    <div class="grid grid-cols-2 gap-4 mb-4">
-                        <div>
-                            <label class="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Precio USD
-                                *</label>
-                            <input type="number" id="custom-item-price-usd" step="0.01" min="0" required
-                                class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg focus:ring-2 focus:ring-slate-500 text-slate-900 dark:text-white">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Precio
-                                Bs</label>
-                            <input type="number" id="custom-item-price-bs" step="0.01" min="0"
-                                class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg focus:ring-2 focus:ring-slate-500 text-slate-900 dark:text-white">
-                        </div>
-                    </div>
 
-                    <div class="flex gap-3">
-                        <button type="button" id="cancel-custom-item"
-                            class="flex-1 px-4 py-2 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors font-medium">
-                            Cancelar
-                        </button>
-                        <button type="submit"
-                            class="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium shadow-md">
-                            Agregar al Carrito
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
 
     <!-- Weight/Price Modal -->
     <div id="weight-modal"
@@ -647,14 +600,7 @@
                                 </path>
                             </svg>
                         </button>
-                        <button id="custom-item-btn"
-                            class="px-3 py-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 transition-colors shadow-sm flex items-center justify-center ml-1"
-                            title="Artículo Personalizado">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                            </svg>
-                        </button>
+
                         <button id="price-check-btn" onclick="window.manualOpenPriceCheck()"
                             class="px-3 py-2 bg-emerald-600 text-white rounded-full hover:bg-emerald-700 transition-colors shadow-sm flex items-center justify-center ml-1"
                             title="Consultar Precio (F3)">
