@@ -2678,6 +2678,31 @@ export class POS {
         cartSidebar.classList.toggle('md:translate-x-0'); // Toggle the desktop reset class too
 
         this.updateCartToggleState();
+    }
+
+    updateCartToggleState() {
+        const cartSidebar = document.getElementById('cart-sidebar');
+        const icon = this.dom.cartToggleIcon;
+
+        if (!cartSidebar || !icon) return;
+
+        const isHidden = cartSidebar.classList.contains('translate-x-full');
+
+        if (isHidden) {
+            // Cart is CLOSED (off screen)
+            // Icon should point LEFT (to open)
+            icon.style.transform = 'rotate(0deg)';
+        } else {
+            // Cart is OPEN
+            // Icon should point RIGHT (to close)
+            icon.style.transform = 'rotate(180deg)';
+        }
+    }
+
+    enableSwipeToClose() {
+        const cartSidebar = document.getElementById('cart-sidebar');
+        if (!cartSidebar) return;
+
         let startX = 0;
         let startY = 0;
 
