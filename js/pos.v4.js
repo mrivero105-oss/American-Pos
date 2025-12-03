@@ -875,7 +875,7 @@ export class POS {
             const btn = document.createElement('button');
 
             // Initial class
-            const baseClass = "category-btn px-3 py-1.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap flex items-center gap-1.5";
+            const baseClass = "category-btn px-3 py-1.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap flex items-center gap-1.5 shrink-0";
             const activeClass = "bg-slate-900 text-white dark:bg-blue-600";
             const inactiveClass = "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700";
 
