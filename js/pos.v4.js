@@ -2691,19 +2691,23 @@ export class POS {
         const cartContainer = document.getElementById('cart-container');
         const mainContent = document.getElementById('main-content-area');
 
-        if (!cartContainer || !mainContent) return;
+        if (!cartContainer || !mainContent) {
+            console.warn('POS: syncMainContentMargin - Elements not found', { cartContainer, mainContent });
+            return;
+        }
 
         const isClosed = cartContainer.classList.contains('translate-x-full');
+        console.log('POS: syncMainContentMargin', { isClosed, innerWidth: window.innerWidth });
 
         if (isClosed) {
             // Cart is closed, remove margin
-            mainContent.style.marginRight = '0px';
+            mainContent.style.setProperty('margin-right', '0px', 'important');
         } else {
             // Cart is open, add margin based on screen size
             if (window.innerWidth >= 1024) {
-                mainContent.style.marginRight = '24rem'; // 384px (w-96)
+                mainContent.style.setProperty('margin-right', '24rem', 'important'); // 384px
             } else {
-                mainContent.style.marginRight = '20rem'; // 320px (w-80)
+                mainContent.style.setProperty('margin-right', '20rem', 'important'); // 320px
             }
         }
     }
