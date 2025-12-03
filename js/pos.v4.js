@@ -2679,9 +2679,19 @@ export class POS {
 
         if (!cartContainer) return;
 
-        // Toggle translate-x-full to show/hide
-        cartContainer.classList.toggle('translate-x-full');
-        cartContainer.classList.toggle('md:translate-x-0'); // Toggle the desktop reset class too
+        // Determine if currently open
+        // Open if: (No translate-x-full) OR (Has md:translate-x-0)
+        const isOpen = !cartContainer.classList.contains('translate-x-full') || cartContainer.classList.contains('md:translate-x-0');
+
+        if (isOpen) {
+            // Close it
+            cartContainer.classList.add('translate-x-full');
+            cartContainer.classList.remove('md:translate-x-0');
+        } else {
+            // Open it
+            cartContainer.classList.remove('translate-x-full');
+            cartContainer.classList.add('md:translate-x-0');
+        }
 
         this.syncMainContentMargin();
         this.updateCartToggleState();
