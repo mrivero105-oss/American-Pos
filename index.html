@@ -294,6 +294,15 @@
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
+                let refreshing = false;
+
+                // Handle controller change (reload)
+                navigator.serviceWorker.addEventListener('controllerchange', () => {
+                    if (refreshing) return;
+                    refreshing = true;
+                    window.location.reload();
+                });
+
                 navigator.serviceWorker.register('./sw.js').then(registration => {
                     console.log('SW registered: ', registration);
 
@@ -304,7 +313,23 @@
                             if (installingWorker.state === 'installed') {
                                 if (navigator.serviceWorker.controller) {
                                     console.log('New content is available; please refresh.');
-                                    // Optional: Show a toast to the user
+                                    // Show update notification
+                                    const notification = document.createElement('div');
+                                    notification.className = 'fixed bottom-4 right-4 bg-slate-900 text-white px-6 py-4 rounded-lg shadow-xl z-[100] flex items-center gap-4 animate-fade-in';
+                                    notification.innerHTML = `
+                                        <div>
+                                            <p class="font-bold">Nueva versión disponible</p>
+                                            <p class="text-sm text-slate-300">Actualizando...</p>
+                                        </div>
+                                        <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                                    `;
+                                    document.body.appendChild(notification);
+
+                                    // Optional: Force reload after a short delay if it doesn't happen automatically via controllerchange
+                                    setTimeout(() => {
+                                        if (!refreshing) window.location.reload();
+                                    }, 1500);
+
                                 } else {
                                     console.log('Content is cached for offline use.');
                                 }
@@ -313,11 +338,6 @@
                     };
                 }).catch(registrationError => {
                     console.log('SW registration failed: ', registrationError);
-                });
-
-                // Reload page when new SW takes control
-                navigator.serviceWorker.addEventListener('controllerchange', () => {
-                    window.location.reload();
                 });
             });
         }
