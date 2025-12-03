@@ -2671,11 +2671,32 @@ export class POS {
 
     toggleCartSidebar() {
         const cartContainer = document.getElementById('cart-container');
+        const mainContent = document.getElementById('main-content-area');
+
         if (!cartContainer) return;
 
         // Toggle translate-x-full to show/hide
         cartContainer.classList.toggle('translate-x-full');
         cartContainer.classList.toggle('md:translate-x-0'); // Toggle the desktop reset class too
+
+        // Toggle margin on main content to push it
+        if (mainContent) {
+            // Check if we are opening or closing based on the cart container state
+            // If cartContainer has translate-x-full, it is CLOSED (hidden)
+            // If it does NOT have translate-x-full, it is OPEN (visible)
+
+            const isClosed = cartContainer.classList.contains('translate-x-full');
+
+            if (isClosed) {
+                // Cart is closed, remove margin
+                mainContent.classList.remove('md:mr-80', 'lg:mr-96');
+                mainContent.classList.add('mr-0');
+            } else {
+                // Cart is open, add margin
+                mainContent.classList.remove('mr-0');
+                mainContent.classList.add('md:mr-80', 'lg:mr-96');
+            }
+        }
 
         this.updateCartToggleState();
     }
