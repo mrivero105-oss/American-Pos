@@ -7,9 +7,25 @@ export class SalesHistory {
         this.init();
     }
 
-    init() {
+    async init() {
         this.cacheDOM();
         this.bindEvents();
+        await this.loadSettings();
+    }
+
+    async loadSettings() {
+        try {
+            const [rateData, businessData, paymentMethods] = await Promise.all([
+                api.settings.getRate(),
+                api.settings.getBusinessInfo(),
+                api.settings.getPaymentMethods()
+            ]);
+            this.exchangeRate = rateData.rate || 1.0;
+            this.businessInfo = businessData || {};
+            this.paymentMethods = paymentMethods || [];
+        } catch (error) {
+            console.error('Error loading settings', error);
+        }
     }
 
     cacheDOM() {
@@ -99,32 +115,93 @@ export class SalesHistory {
 
     showDetails(sale) {
         if (!this.dom.modalContent) return;
+        this.dom.modalContent.innerHTML = this.generateReceiptHtml(sale);
+        ui.toggleModal('sale-details-modal', true);
+    }
 
-        const itemsHtml = sale.items.map(item => `
-            <div class="flex justify-between py-2 border-b border-gray-100 dark:border-slate-700 last:border-0">
-                <div>
-                    <p class="font-medium text-gray-800 dark:text-white">${item.name}</p>
-                    <p class="text-xs text-gray-500 dark:text-slate-400">${item.quantity} x ${formatCurrency(item.price)}</p>
+    generateReceiptHtml(saleData) {
+        // Premium Receipt Design
+        const styles = {
+            container: "font-family: 'Courier New', Courier, monospace; max-width: 380px; margin: 0 auto; background-color: #fff; color: #000000; padding: 20px; border: 1px solid #eee;",
+            header: "text-align: center; margin-bottom: 20px; border-bottom: 2px dashed #000; padding-bottom: 15px;",
+            title: "font-size: 24px; font-weight: bold; margin: 0 0 5px 0; text-transform: uppercase; color: #000000;",
+            subtitle: "font-size: 12px; color: #555; margin: 2px 0;",
+            info: "font-size: 12px; margin-bottom: 15px; color: #000000;",
+            row: "display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 12px; color: #000000;",
+            itemRow: "display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 12px; color: #000000;",
+            divider: "border-top: 1px dashed #000; margin: 10px 0;",
+            totalRow: "display: flex; justify-content: space-between; font-size: 16px; font-weight: bold; margin-top: 5px; color: #000000;",
+            footer: "text-align: center; margin-top: 20px; font-size: 10px; color: #555; border-top: 1px dashed #000; padding-top: 10px;"
+        };
+
+        const dateStr = saleData.timestamp ? new Date(saleData.timestamp.toDate ? saleData.timestamp.toDate() : saleData.timestamp).toLocaleString('es-VE') : new Date().toLocaleString('es-VE');
+        const saleIdShort = saleData.id ? saleData.id.slice(0, 8).toUpperCase() : 'N/A';
+
+        // Helper to get method name
+        const getMethodName = (id) => {
+            const method = this.paymentMethods.find(m => m.id === id);
+            return method ? method.name : (id === 'cash' ? 'Efectivo' : id);
+        };
+
+        return `
+            <div style="${styles.container}">
+                <div style="${styles.header}">
+                    <h1 style="${styles.title}">${this.businessInfo?.name || 'AMERICAN POS'}</h1>
+                    ${this.businessInfo?.address ? `<p style="${styles.subtitle}">${this.businessInfo.address}</p>` : ''}
+                    ${this.businessInfo?.phone ? `<p style="${styles.subtitle}">Tel: ${this.businessInfo.phone}</p>` : ''}
+                    ${this.businessInfo?.taxId ? `<p style="${styles.subtitle}">RIF: ${this.businessInfo.taxId}</p>` : ''}
                 </div>
-                <span class="font-medium text-gray-800 dark:text-white">${formatCurrency(item.price * item.quantity)}</span>
-            </div>
-        `).join('');
 
-        this.dom.modalContent.innerHTML = `
-            <div class="mb-4">
-                <p class="text-sm text-gray-500 dark:text-slate-400">ID Venta: ${sale.id}</p>
-                <p class="text-sm text-gray-500 dark:text-slate-400">Fecha: ${formatDate(sale.timestamp.toDate ? sale.timestamp.toDate() : sale.timestamp)}</p>
-            </div>
-            <div class="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-4 mb-4">
-                ${itemsHtml}
-            </div>
-            <div class="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-slate-700">
-                <span class="font-bold text-lg text-slate-900 dark:text-white">Total</span>
-                <span class="font-bold text-xl text-indigo-600 dark:text-indigo-400">${formatCurrency(sale.total)}</span>
+                <div style="${styles.info}">
+                    <div style="${styles.row}"><span>Fecha:</span> <span>${dateStr}</span></div>
+                    <div style="${styles.row}"><span>Orden #:</span> <span>${saleIdShort}</span></div>
+                    ${saleData.customer ? `
+                        <div style="${styles.divider}"></div>
+                        <div style="${styles.row}"><span>Cliente:</span> <span>${saleData.customer.name}</span></div>
+                        ${saleData.customer.idDocument ? `<div style="${styles.row}"><span>CI/RIF:</span> <span>${saleData.customer.idDocument}</span></div>` : ''}
+                    ` : ''}
+                </div>
+
+                <div style="${styles.divider}"></div>
+                <div style="margin-bottom: 10px;">
+                    <div style="${styles.row}; font-weight: bold; margin-bottom: 8px;">
+                        <span>CANT / DESCRIPCION</span>
+                        <span>TOTAL</span>
+                    </div>
+                    ${saleData.items.map(item => `
+                        <div style="${styles.itemRow}">
+                            <span style="flex: 1;">${item.quantity} x ${item.name}</span>
+                            <span>Bs ${(item.price * item.quantity * this.exchangeRate).toFixed(2)}</span>
+                        </div>
+                    `).join('')}
+                </div>
+
+                <div style="${styles.divider}"></div>
+                
+                <div style="${styles.totalRow}">
+                    <span>TOTAL PAGADO</span>
+                    <span>Bs ${(saleData.total * this.exchangeRate).toFixed(2)}</span>
+                </div>
+
+                <div style="${styles.divider}"></div>
+                
+                <div style="margin-bottom: 10px;">
+                    <p style="font-weight: bold; font-size: 11px; margin-bottom: 5px;">MÉTODOS DE PAGO:</p>
+                    ${saleData.paymentDetails ? saleData.paymentDetails.map(detail => `
+                        <div style="${styles.row}">
+                            <span>${getMethodName(detail.method)}</span>
+                            <span>Bs ${(detail.amount * (detail.currency === 'USD' ? this.exchangeRate : 1)).toFixed(2)}</span>
+                        </div>
+                    `).join('') : '<p style="font-size:10px;">Detalles de pago no disponibles</p>'}
+                </div>
+
+                <div style="${styles.footer}">
+                    <p>¡GRACIAS POR SU COMPRA!</p>
+                    <p>Por favor conserve este recibo</p>
+                    <p style="margin-top: 5px;">Powered by American POS</p>
+                </div>
             </div>
         `;
-
-        ui.toggleModal('sale-details-modal', true);
     }
 
     filterSales(query) {
