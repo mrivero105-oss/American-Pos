@@ -16,7 +16,7 @@ export class POS {
 
         // Pagination State
         this.currentPage = 1;
-        this.itemsPerPage = 30;
+        this.itemsPerPage = 48;
         this.currentFilteredProducts = [];
         this.customerSearchHighlightIndex = -1; // Track highlighted result
 
