@@ -2696,10 +2696,11 @@ export class POS {
             return;
         }
 
-        const isClosed = cartContainer.classList.contains('translate-x-full');
-        console.log('POS: syncMainContentMargin', { isClosed, innerWidth: window.innerWidth });
+        // Robust check for open state
+        const isOpen = !cartContainer.classList.contains('translate-x-full') || cartContainer.classList.contains('md:translate-x-0');
+        console.log('POS: syncMainContentMargin', { isOpen, innerWidth: window.innerWidth });
 
-        if (isClosed) {
+        if (!isOpen) {
             // Cart is closed, remove margin
             mainContent.style.setProperty('margin-right', '0px', 'important');
         } else {
@@ -2718,9 +2719,9 @@ export class POS {
 
         if (!cartContainer || !icon) return;
 
-        const isHidden = cartContainer.classList.contains('translate-x-full');
+        const isOpen = !cartContainer.classList.contains('translate-x-full') || cartContainer.classList.contains('md:translate-x-0');
 
-        if (isHidden) {
+        if (!isOpen) {
             // Cart is CLOSED (off screen)
             // Icon should point LEFT (to open)
             icon.style.transform = 'rotate(0deg)';
