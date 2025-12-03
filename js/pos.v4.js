@@ -96,6 +96,8 @@ export class POS {
             closeHeldDrawerBtn: document.getElementById('close-held-drawer-btn'),
             mobileCartCount: document.getElementById('mobile-cart-count'),
             mobileCartItems: document.getElementById('mobile-cart-items-container'),
+            desktopCartToggle: document.getElementById('desktop-cart-toggle'),
+            cartToggleIcon: document.getElementById('cart-toggle-icon'),
 
             // Mobile Menu
             mobileMenuBtn: document.getElementById('mobile-menu-btn'),
@@ -553,6 +555,17 @@ export class POS {
             if (weightForm) {
                 weightForm.addEventListener('submit', (e) => this.confirmWeightItem(e));
             }
+
+            if (this.dom.desktopCartToggle) {
+                this.dom.desktopCartToggle.addEventListener('click', () => this.toggleCartSidebar());
+            }
+
+            // Handle window resize to reset cart state if needed
+            window.addEventListener('resize', () => {
+                if (window.innerWidth >= 768) {
+                    this.updateCartToggleState();
+                }
+            });
         } catch (error) {
             console.error('Error binding events:', error);
         }
@@ -2694,6 +2707,55 @@ export class POS {
                 element.style.transform = '';
             }
         });
+    }
+
+    toggleCartSidebar() {
+        const cartSidebar = document.getElementById('cart-sidebar');
+        const btn = this.dom.desktopCartToggle;
+
+        if (!cartSidebar || !btn) return;
+
+        const isHidden = cartSidebar.classList.contains('hidden');
+
+        if (isHidden) {
+            // Show Cart
+            cartSidebar.classList.remove('hidden');
+            cartSidebar.classList.add('md:flex');
+            this.updateCartToggleState(true);
+        } else {
+            // Hide Cart
+            cartSidebar.classList.add('hidden');
+            cartSidebar.classList.remove('md:flex');
+            this.updateCartToggleState(false);
+        }
+    }
+
+    updateCartToggleState(isVisible = null) {
+        const cartSidebar = document.getElementById('cart-sidebar');
+        const btn = this.dom.desktopCartToggle;
+        const icon = this.dom.cartToggleIcon;
+
+        if (!cartSidebar || !btn || !icon) return;
+
+        if (isVisible === null) {
+            isVisible = !cartSidebar.classList.contains('hidden');
+        }
+
+        if (isVisible) {
+            // Cart is OPEN
+            if (window.innerWidth >= 1024) { // lg
+                btn.style.right = '24rem';
+            } else { // md
+                btn.style.right = '20rem';
+            }
+            // Icon should point RIGHT (to close)
+            icon.style.transform = 'rotate(180deg)';
+        } else {
+            // Cart is CLOSED
+            btn.style.right = '0';
+            // Icon should point LEFT (to open)
+            icon.style.transform = 'rotate(0deg)';
+        }
     }
 
     enableSwipeToOpen(element, onOpen) {
