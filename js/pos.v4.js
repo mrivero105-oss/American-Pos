@@ -2670,23 +2670,23 @@ export class POS {
     }
 
     toggleCartSidebar() {
-        const cartSidebar = document.getElementById('cart-sidebar');
-        if (!cartSidebar) return;
+        const cartContainer = document.getElementById('cart-container');
+        if (!cartContainer) return;
 
         // Toggle translate-x-full to show/hide
-        cartSidebar.classList.toggle('translate-x-full');
-        cartSidebar.classList.toggle('md:translate-x-0'); // Toggle the desktop reset class too
+        cartContainer.classList.toggle('translate-x-full');
+        cartContainer.classList.toggle('md:translate-x-0'); // Toggle the desktop reset class too
 
         this.updateCartToggleState();
     }
 
     updateCartToggleState() {
-        const cartSidebar = document.getElementById('cart-sidebar');
+        const cartContainer = document.getElementById('cart-container');
         const icon = this.dom.cartToggleIcon;
 
-        if (!cartSidebar || !icon) return;
+        if (!cartContainer || !icon) return;
 
-        const isHidden = cartSidebar.classList.contains('translate-x-full');
+        const isHidden = cartContainer.classList.contains('translate-x-full');
 
         if (isHidden) {
             // Cart is CLOSED (off screen)
