@@ -756,25 +756,34 @@ export class POS {
             }
 
             return `
-                <div class="product-card bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 group cursor-pointer ring-1 ring-slate-900/5 ${!isAvailable ? 'opacity-75' : ''}" data-id="${product.id}">
+                <div class="product-card bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 group cursor-pointer relative" data-id="${product.id}">
+                    
+                    <!-- Image Container with Floating Actions -->
                     <div class="aspect-square overflow-hidden bg-gray-50 dark:bg-slate-700 relative">
                         <img src="${imageUri}" alt="${product.name}" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                        
                         ${availabilityBadge}
+
+                        <!-- Floating Add Button (Bottom Right of Image) -->
+                        <button class="add-to-cart-btn absolute bottom-2 right-2 w-8 h-8 bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 rounded-full hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-500 dark:hover:text-white transition-all flex items-center justify-center shadow-lg border border-slate-100 dark:border-slate-600 z-10 active:scale-90"
+                            ${!isAvailable ? 'disabled' : ''}>
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path>
+                            </svg>
+                        </button>
+
+                        <!-- ID Badge (Top Left) -->
+                        <span class="absolute top-1 left-1 bg-black/50 text-white text-[9px] px-1.5 py-0.5 rounded backdrop-blur-sm font-mono opacity-0 group-hover:opacity-100 transition-opacity">#${product.id}</span>
+                        
+                        <!-- Disp Badge (Top Right) -->
+                         ${isAvailable ? '<span class="absolute top-1 right-1 bg-green-500/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded backdrop-blur-sm shadow-sm">DISP</span>' : ''}
                     </div>
-                    <div class="p-1.5">
-                        <div class="mb-0.5 flex justify-between items-start">
-                            <span class="text-[9px] text-slate-500 dark:text-slate-400 font-mono">#${product.id}</span>
-                            ${dispBadge}
-                        </div>
-                        <h3 class="font-bold text-slate-800 dark:text-slate-100 mb-0.5 text-[10px] md:text-[11px] line-clamp-2 leading-tight h-7">${product.name}</h3>
-                        <div class="flex justify-between items-center mt-auto pt-1 border-t border-slate-100 dark:border-slate-700/50">
-                            <span class="text-xs md:text-sm font-extrabold text-slate-900 dark:text-white">$${parseFloat(product.price).toFixed(2)}</span>
-                            <button class="add-to-cart-btn w-5 h-5 md:w-6 md:h-6 bg-slate-900 dark:bg-blue-600 text-white rounded-full hover:bg-blue-600 dark:hover:bg-blue-500 hover:scale-110 transition-all flex items-center justify-center shadow-md shadow-slate-900/20"
-                                ${!isAvailable ? 'disabled' : ''}>
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                                </svg>
-                            </button>
+
+                    <!-- Minimal Content Area -->
+                    <div class="p-2 flex flex-col gap-0.5">
+                        <h3 class="font-bold text-slate-800 dark:text-slate-100 text-[11px] leading-tight line-clamp-2 h-7" title="${product.name}">${product.name}</h3>
+                        <div class="flex items-baseline gap-1">
+                            <span class="text-sm font-extrabold text-indigo-600 dark:text-indigo-400">$${parseFloat(product.price).toFixed(2)}</span>
                         </div>
                     </div>
                 </div>
