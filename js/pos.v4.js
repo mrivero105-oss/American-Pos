@@ -2726,6 +2726,38 @@ export class POS {
             }
         });
     }
+
+    enableSwipeToOpen() {
+        // Add swipe listener to the document body or a specific edge area
+        let startX = 0;
+        let startY = 0;
+
+        document.addEventListener('touchstart', (e) => {
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+        }, { passive: true });
+
+        document.addEventListener('touchend', (e) => {
+            // Only trigger if starting near the right edge (e.g., last 30px)
+            if (window.innerWidth - startX > 30) return;
+
+            const endX = e.changedTouches[0].clientX;
+            const endY = e.changedTouches[0].clientY;
+            const deltaX = endX - startX;
+            const deltaY = endY - startY;
+
+            // Check if horizontal swipe is dominant
+            if (Math.abs(deltaX) > Math.abs(deltaY)) {
+                // Swipe Left (negative deltaX) to open
+                if (deltaX < -50) {
+                    const cartContainer = document.getElementById('cart-container');
+                    if (cartContainer && cartContainer.classList.contains('translate-x-full')) {
+                        this.toggleCartSidebar();
+                    }
+                }
+            }
+        });
+    }
 }
 
 // Global Functions for HTML access
