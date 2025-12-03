@@ -2668,93 +2668,34 @@ export class POS {
             this.dom.customerSearchInput.focus();
         }
     }
-    enableSwipeToClose(element, onClose) {
-        let startX = 0;
-        let currentX = 0;
-        let isDragging = false;
-
-        element.addEventListener('touchstart', (e) => {
-            startX = e.touches[0].clientX;
-            isDragging = true;
-            element.style.transition = 'none'; // Disable transition for direct follow
-        }, { passive: true });
-
-        element.addEventListener('touchmove', (e) => {
-            if (!isDragging) return;
-            currentX = e.touches[0].clientX;
-            const deltaX = currentX - startX;
-
-            // Only allow dragging to the right (positive delta)
-            if (deltaX > 0) {
-                element.style.transform = `translateX(${deltaX}px)`;
-            }
-        }, { passive: true });
-
-        element.addEventListener('touchend', (e) => {
-            if (!isDragging) return;
-            isDragging = false;
-            element.style.transition = ''; // Re-enable transition
-
-            const deltaX = currentX - startX;
-            const threshold = 100; // px to trigger close
-
-            if (deltaX > threshold) {
-                // Trigger close
-                element.style.transform = ''; // Clear inline style so class takes over
-                onClose();
-            } else {
-                // Reset
-                element.style.transform = '';
-            }
-        });
-    }
 
     toggleCartSidebar() {
         const cartSidebar = document.getElementById('cart-sidebar');
-        const btn = this.dom.desktopCartToggle;
+        if (!cartSidebar) return;
 
-        if (!cartSidebar || !btn) return;
+        // Toggle translate-x-full to show/hide
+        cartSidebar.classList.toggle('translate-x-full');
+        cartSidebar.classList.toggle('md:translate-x-0');
 
-        const isHidden = cartSidebar.classList.contains('hidden');
-
-        if (isHidden) {
-            // Show Cart
-            cartSidebar.classList.remove('hidden');
-            cartSidebar.classList.add('md:flex');
-            this.updateCartToggleState(true);
-        } else {
-            // Hide Cart
-            cartSidebar.classList.add('hidden');
-            cartSidebar.classList.remove('md:flex');
-            this.updateCartToggleState(false);
-        }
+        this.updateCartToggleState();
     }
 
-    updateCartToggleState(isVisible = null) {
+    updateCartToggleState() {
         const cartSidebar = document.getElementById('cart-sidebar');
-        const btn = this.dom.desktopCartToggle;
         const icon = this.dom.cartToggleIcon;
 
-        if (!cartSidebar || !btn || !icon) return;
+        if (!cartSidebar || !icon) return;
 
-        if (isVisible === null) {
-            isVisible = !cartSidebar.classList.contains('hidden');
-        }
+        const isHidden = cartSidebar.classList.contains('translate-x-full');
 
-        if (isVisible) {
-            // Cart is OPEN
-            if (window.innerWidth >= 1024) { // lg
-                btn.style.right = '24rem';
-            } else { // md
-                btn.style.right = '20rem';
-            }
-            // Icon should point RIGHT (to close)
-            icon.style.transform = 'rotate(180deg)';
-        } else {
-            // Cart is CLOSED
-            btn.style.right = '0';
+        if (isHidden) {
+            // Cart is CLOSED (off screen)
             // Icon should point LEFT (to open)
             icon.style.transform = 'rotate(0deg)';
+        } else {
+            // Cart is OPEN
+            // Icon should point RIGHT (to close)
+            icon.style.transform = 'rotate(180deg)';
         }
     }
 
@@ -2793,7 +2734,7 @@ window.toggleMobileMenu = function () {
 };
 
 window.toggleMobileCart = function () {
-    const cart = document.getElementById('mobile-cart-drawer'); // Note: ID might be cart-sidebar in HTML
+    const cart = document.getElementById('mobile-cart-drawer');
     const overlay = document.getElementById('mobile-overlay');
     // Fallback if ID mismatch
     const realCart = document.getElementById('cart-sidebar') || cart;
@@ -2818,4 +2759,5 @@ window.closeMobileCart = function () {
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
+    // Init is called in constructor
 });
