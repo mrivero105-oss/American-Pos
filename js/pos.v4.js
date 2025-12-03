@@ -2746,38 +2746,39 @@ export class POS {
             });
         }
     }
+}
 
 // Global Functions for HTML access
 window.toggleMobileMenu = function () {
-        const menu = document.getElementById('mobile-menu');
-        if (menu) {
-            menu.classList.toggle('hidden');
-        }
-    };
+    const menu = document.getElementById('mobile-menu');
+    if (menu) {
+        menu.classList.toggle('hidden');
+    }
+};
 
 window.toggleMobileCart = function () {
-        const cart = document.getElementById('mobile-cart-drawer');
-        const overlay = document.getElementById('mobile-overlay');
-        // Fallback if ID mismatch
-        const realCart = document.getElementById('cart-sidebar') || cart;
+    const cart = document.getElementById('mobile-cart-drawer');
+    const overlay = document.getElementById('mobile-overlay');
+    // Fallback if ID mismatch
+    const realCart = document.getElementById('cart-sidebar') || cart;
 
-        if (realCart && overlay) {
-            realCart.classList.toggle('translate-x-full');
-            overlay.classList.toggle('hidden');
-        }
-    };
+    if (realCart && overlay) {
+        realCart.classList.toggle('translate-x-full');
+        overlay.classList.toggle('hidden');
+    }
+};
 
 window.closeMobileCart = function () {
-        const cart = document.getElementById('mobile-cart-drawer');
-        const overlay = document.getElementById('mobile-overlay');
-        // Fallback
-        const realCart = document.getElementById('cart-sidebar') || cart;
+    const cart = document.getElementById('mobile-cart-drawer');
+    const overlay = document.getElementById('mobile-overlay');
+    // Fallback
+    const realCart = document.getElementById('cart-sidebar') || cart;
 
-        if (realCart && overlay) {
-            realCart.classList.add('translate-x-full');
-            overlay.classList.add('hidden');
-        }
-    };
+    if (realCart && overlay) {
+        realCart.classList.add('translate-x-full');
+        overlay.classList.add('hidden');
+    }
+};
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
