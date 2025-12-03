@@ -2681,20 +2681,18 @@ export class POS {
 
         // Toggle margin on main content to push it
         if (mainContent) {
-            // Check if we are opening or closing based on the cart container state
-            // If cartContainer has translate-x-full, it is CLOSED (hidden)
-            // If it does NOT have translate-x-full, it is OPEN (visible)
-
             const isClosed = cartContainer.classList.contains('translate-x-full');
 
             if (isClosed) {
                 // Cart is closed, remove margin
-                mainContent.classList.remove('md:mr-80', 'lg:mr-96');
-                mainContent.classList.add('mr-0');
+                mainContent.style.marginRight = '0px';
             } else {
-                // Cart is open, add margin
-                mainContent.classList.remove('mr-0');
-                mainContent.classList.add('md:mr-80', 'lg:mr-96');
+                // Cart is open, add margin based on screen size
+                if (window.innerWidth >= 1024) {
+                    mainContent.style.marginRight = '24rem'; // 384px (w-96)
+                } else {
+                    mainContent.style.marginRight = '20rem'; // 320px (w-80)
+                }
             }
         }
 
