@@ -2670,14 +2670,59 @@ export class POS {
     }
 
     toggleCartSidebar() {
+        const cartSidebar = document.getElementById('cart-sidebar');
+        if (!cartSidebar) return;
+
+        // Toggle translate-x-full to show/hide
+        cartSidebar.classList.toggle('translate-x-full');
+        cartSidebar.classList.toggle('md:translate-x-0'); // Toggle the desktop reset class too
+
+        this.updateCartToggleState();
+    }
+
+    updateCartToggleState() {
+        const cartSidebar = document.getElementById('cart-sidebar');
+        const icon = this.dom.cartToggleIcon;
+
+        if (!cartSidebar || !icon) return;
+
+        const isHidden = cartSidebar.classList.contains('translate-x-full');
+
+        if (isHidden) {
+            // Cart is CLOSED (off screen)
+            // Icon should point LEFT (to open)
+            icon.style.transform = 'rotate(0deg)';
+        } else {
+            // Cart is OPEN
+            // Icon should point RIGHT (to close)
+            icon.style.transform = 'rotate(180deg)';
+        }
+
+        // Ensure button is positioned correctly
+        const toggleBtn = this.dom.desktopCartToggle;
+        if (toggleBtn) {
+            if (isHidden) {
+                toggleBtn.style.right = '0';
+            } else {
+                const sidebarWidth = cartSidebar.offsetWidth;
+                toggleBtn.style.right = `${sidebarWidth}px`;
+            }
+        }
+    }
+
+    enableSwipeToClose() {
+        const cartSidebar = document.getElementById('cart-sidebar');
+        if (!cartSidebar) return;
+
+        let startX = 0;
         let startY = 0;
 
-        element.addEventListener('touchstart', (e) => {
+        cartSidebar.addEventListener('touchstart', (e) => {
             startX = e.touches[0].clientX;
             startY = e.touches[0].clientY;
         }, { passive: true });
 
-        element.addEventListener('touchend', (e) => {
+        cartSidebar.addEventListener('touchend', (e) => {
             const endX = e.changedTouches[0].clientX;
             const endY = e.changedTouches[0].clientY;
             const deltaX = endX - startX;
@@ -2685,9 +2730,9 @@ export class POS {
 
             // Check if horizontal swipe is dominant
             if (Math.abs(deltaX) > Math.abs(deltaY)) {
-                // Swipe Left (negative deltaX)
-                if (deltaX < -100) {
-                    onOpen();
+                // Swipe Right (positive deltaX) to close
+                if (deltaX > 50) {
+                    this.toggleCartSidebar();
                 }
             }
         });
