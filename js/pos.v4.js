@@ -2704,7 +2704,18 @@ export class POS {
             if (isHidden) {
                 toggleBtn.style.right = '0';
             } else {
-                const sidebarWidth = cartSidebar.offsetWidth;
+                // Get width or fallback to standard Tailwind widths (w-80 = 320px, w-96 = 384px)
+                let sidebarWidth = cartSidebar.offsetWidth;
+
+                if (sidebarWidth === 0) {
+                    // Fallback based on screen width
+                    if (window.innerWidth >= 1024) { // lg
+                        sidebarWidth = 384; // w-96
+                    } else {
+                        sidebarWidth = 320; // w-80
+                    }
+                }
+
                 toggleBtn.style.right = `${sidebarWidth}px`;
             }
         }
