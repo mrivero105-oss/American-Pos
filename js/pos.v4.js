@@ -2689,7 +2689,7 @@ export class POS {
 
     syncMainContentMargin() {
         const cartContainer = document.getElementById('cart-container');
-        const mainContent = document.getElementById('main-content-area');
+        const mainContent = document.getElementById('pos-content-wrapper');
 
         if (!cartContainer || !mainContent) {
             console.warn('POS: syncMainContentMargin - Elements not found', { cartContainer, mainContent });
