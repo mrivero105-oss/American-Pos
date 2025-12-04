@@ -116,8 +116,13 @@ export class SalesManager {
         const heldSales = JSON.parse(localStorage.getItem('held_sales') || '[]');
         this.renderHeldSalesList(heldSales);
         if (this.pos.dom.heldSalesDrawer) {
-            this.pos.dom.heldSalesDrawer.classList.remove('translate-x-full');
-            if (this.pos.dom.mobileOverlay) this.pos.dom.mobileOverlay.classList.remove('hidden');
+            this.pos.dom.heldSalesDrawer.style.display = 'flex';
+            // Small delay to allow display:flex to apply before transition
+            requestAnimationFrame(() => {
+                this.pos.dom.heldSalesDrawer.classList.remove('translate-x-full');
+                this.pos.dom.heldSalesDrawer.style.transform = '';
+                if (this.pos.dom.mobileOverlay) this.pos.dom.mobileOverlay.classList.remove('hidden');
+            });
         }
     }
 
@@ -126,6 +131,9 @@ export class SalesManager {
         if (this.pos.dom.heldSalesDrawer) {
             this.pos.dom.heldSalesDrawer.classList.add('translate-x-full');
             if (this.pos.dom.mobileOverlay) this.pos.dom.mobileOverlay.classList.add('hidden');
+            setTimeout(() => {
+                this.pos.dom.heldSalesDrawer.style.display = 'none';
+            }, 300);
         }
     }
 

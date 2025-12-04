@@ -1,4 +1,4 @@
-const CACHE_NAME = 'american-pos-v246';
+const CACHE_NAME = 'american-pos-v247';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
