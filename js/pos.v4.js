@@ -1,6 +1,15 @@
 import { api } from './api.js';
 import { ui } from './ui.js';
 import { debounce } from './utils.js';
+import { CartManager } from './modules/pos/CartManager.js';
+import { ProductManager } from './modules/pos/ProductManager.js';
+import { CustomerManager } from './modules/pos/CustomerManager.js';
+import { SalesManager } from './modules/pos/SalesManager.js';
+import { CheckoutManager } from './modules/pos/CheckoutManager.js';
+import { ReceiptManager } from './modules/pos/ReceiptManager.js';
+import { WeightModal } from './modules/pos/WeightModal.js';
+import { Scanner } from './modules/pos/Scanner.js';
+import { CashControlManager } from './modules/pos/CashControlManager.js';
 
 export class POS {
     constructor() {
@@ -14,10 +23,22 @@ export class POS {
         this.businessInfo = {};
         this.paymentMethods = [];
 
-        // Pagination State
-        this.currentPage = 1;
-        this.itemsPerPage = 48;
-        this.currentFilteredProducts = [];
+        // Initialize Managers
+        this.cartManager = new CartManager(this);
+        this.productManager = new ProductManager(this);
+        this.customerManager = new CustomerManager(this);
+        this.salesManager = new SalesManager(this);
+        this.checkoutManager = new CheckoutManager(this);
+        this.receiptManager = new ReceiptManager(this);
+        this.weightModal = new WeightModal(this);
+        this.scanner = new Scanner(this);
+        this.cashControlManager = new CashControlManager(this);
+
+        // Pagination State (Delegated to ProductManager)
+        // this.currentPage = 1; // Now in productManager
+        // this.itemsPerPage = 48; // Now in productManager
+        // this.currentFilteredProducts = []; // Now in productManager
+
         this.customerSearchHighlightIndex = -1; // Track highlighted result
 
         console.log('POS: Calling init()');
@@ -43,7 +64,8 @@ export class POS {
             await Promise.all([
                 this.loadSettings(),
                 this.loadProducts(),
-                this.loadCustomers()
+                this.loadCustomers(),
+                this.cashControlManager.init()
             ]);
             console.timeEnd('POS Initialization');
             console.log('POS: Data loading finished');
@@ -70,12 +92,18 @@ export class POS {
 
     showLoading() {
         const overlay = document.getElementById('pos-loading-overlay');
-        if (overlay) overlay.classList.remove('hidden');
+        if (overlay) {
+            overlay.classList.remove('hidden');
+            overlay.style.display = 'flex';
+        }
     }
 
     hideLoading() {
         const overlay = document.getElementById('pos-loading-overlay');
-        if (overlay) overlay.classList.add('hidden');
+        if (overlay) {
+            overlay.classList.add('hidden');
+            overlay.style.display = 'none';
+        }
     }
 
     cacheDOM() {
@@ -104,7 +132,8 @@ export class POS {
             sidebar: document.getElementById('sidebar'),
             mobileOverlay: document.getElementById('mobile-overlay'),
             mobileCartBtn: document.getElementById('mobile-cart-btn'),
-            cartSidebar: document.getElementById('cart-sidebar'),
+            cartSidebar: document.getElementById('cart-sidebar'), // Desktop
+            mobileCartSidebar: document.getElementById('mobile-cart-sidebar'), // Mobile
             closeCartBtn: document.getElementById('close-cart-btn'),
 
             paymentReceivedVes: document.getElementById('payment-received-ves'),
@@ -246,11 +275,22 @@ export class POS {
             if (btnScan) btnScan.addEventListener('click', () => this.startScanner());
             if (btnCloseScan) btnCloseScan.addEventListener('click', () => this.stopScanner());
 
+            // Mobile Menu Toggle
+            if (this.dom.mobileMenuBtn) {
+                this.dom.mobileMenuBtn.addEventListener('click', () => {
+                    if (this.dom.sidebar) {
+                        this.dom.sidebar.classList.remove('-translate-x-full');
+                        if (this.dom.mobileOverlay) this.dom.mobileOverlay.classList.remove('hidden');
+                    }
+                });
+            }
+
             // Mobile Cart Toggles
             if (this.dom.mobileCartBtn) {
                 this.dom.mobileCartBtn.addEventListener('click', () => {
-                    if (this.dom.cartSidebar) {
-                        this.dom.cartSidebar.classList.remove('translate-x-full');
+                    if (this.dom.mobileCartSidebar) {
+                        this.dom.mobileCartSidebar.style.transform = ''; // Clear inline style to allow class to work
+                        this.dom.mobileCartSidebar.classList.remove('translate-x-full');
                         if (this.dom.mobileOverlay) this.dom.mobileOverlay.classList.remove('hidden');
                     }
                 });
@@ -258,8 +298,10 @@ export class POS {
 
             if (this.dom.closeCartBtn) {
                 this.dom.closeCartBtn.addEventListener('click', () => {
-                    if (this.dom.cartSidebar) {
-                        this.dom.cartSidebar.classList.add('translate-x-full');
+                    if (this.dom.mobileCartSidebar) {
+                        this.dom.mobileCartSidebar.classList.add('translate-x-full');
+                        // Optional: restore inline style after transition, but class should suffice if it works.
+                        // For safety, we can leave it cleared as the class takes over.
                         if (this.dom.mobileOverlay) this.dom.mobileOverlay.classList.add('hidden');
                     }
                 });
@@ -268,8 +310,8 @@ export class POS {
             // Mobile Overlay Click
             if (this.dom.mobileOverlay) {
                 this.dom.mobileOverlay.addEventListener('click', () => {
-                    // Close Cart
-                    if (this.dom.cartSidebar) this.dom.cartSidebar.classList.add('translate-x-full');
+                    // Close Mobile Cart
+                    if (this.dom.mobileCartSidebar) this.dom.mobileCartSidebar.classList.add('translate-x-full');
                     // Close Sidebar
                     if (this.dom.sidebar) this.dom.sidebar.classList.add('-translate-x-full');
                     // Close Held Sales
@@ -285,36 +327,6 @@ export class POS {
             // Cart Actions
             if (this.dom.clearCartBtn) this.dom.clearCartBtn.addEventListener('click', () => this.clearCart());
             if (this.dom.holdSaleBtn) this.dom.holdSaleBtn.addEventListener('click', () => this.holdSale());
-            if (this.dom.viewHeldSalesBtn) this.dom.viewHeldSalesBtn.addEventListener('click', () => this.showHeldSales());
-            if (this.dom.checkoutBtn) this.dom.checkoutBtn.addEventListener('click', () => this.showPaymentModal());
-            if (this.dom.closeHeldDrawerBtn) this.dom.closeHeldDrawerBtn.addEventListener('click', () => this.closeHeldSalesDrawer());
-
-            // Swipe to Close (Mobile)
-            if (this.dom.cartSidebar) this.enableSwipeToClose(this.dom.cartSidebar, () => {
-                this.dom.cartSidebar.classList.add('translate-x-full');
-                if (this.dom.mobileOverlay) this.dom.mobileOverlay.classList.add('hidden');
-            });
-
-            if (this.dom.heldSalesDrawer) this.enableSwipeToClose(this.dom.heldSalesDrawer, () => {
-                this.closeHeldSalesDrawer();
-            });
-
-            // Swipe to Open Cart (Global)
-            this.enableSwipeToOpen(document.body, () => {
-                // Check if any drawer is already open
-                const isCartOpen = this.dom.cartSidebar && !this.dom.cartSidebar.classList.contains('translate-x-full');
-                const isHeldOpen = this.dom.heldSalesDrawer && !this.dom.heldSalesDrawer.classList.contains('translate-x-full');
-                const isMenuOpen = this.dom.sidebar && !this.dom.sidebar.classList.contains('-translate-x-full');
-
-                if (!isCartOpen && !isHeldOpen && !isMenuOpen) {
-                    if (this.dom.cartSidebar) {
-                        this.dom.cartSidebar.classList.remove('translate-x-full');
-                        if (this.dom.mobileOverlay) this.dom.mobileOverlay.classList.remove('hidden');
-                    }
-                }
-            });
-
-            // Cart Item Delegation (Remove, Increase, Decrease, Input)
             const handleCartAction = (e) => {
                 const target = e.target;
                 const cartItem = target.closest('.cart-item');
@@ -577,77 +589,15 @@ export class POS {
     }
 
     async startScanner() {
-        if (typeof Html5Qrcode === 'undefined') {
-            ui.showNotification('Error: Librería de escáner no cargada', 'error');
-            return;
-        }
-
-        const modal = document.getElementById('pos-scanner-modal');
-        if (modal) modal.classList.remove('hidden');
-
-        // Give a small delay for the modal to render
-        await new Promise(resolve => setTimeout(resolve, 100));
-
-        if (!this.html5QrCode) {
-            // @ts-ignore
-            this.html5QrCode = new Html5Qrcode("pos-reader");
-        }
-
-        try {
-            await this.html5QrCode.start(
-                { facingMode: "environment" },
-                {
-                    fps: 10,
-                    qrbox: { width: 250, height: 250 }
-                },
-                (decodedText, decodedResult) => {
-                    // Handle success
-                    console.log(`Scan result: ${decodedText}`, decodedResult);
-                    this.handleScan(decodedText);
-                },
-                (errorMessage) => {
-                    // parse error, ignore it.
-                }
-            );
-        } catch (err) {
-            console.error("Error starting scanner", err);
-            ui.showNotification("Error al iniciar cámara. Verifique permisos.", "error");
-            this.stopScanner();
-        }
+        this.scanner.startScanner();
     }
 
     async stopScanner() {
-        if (this.html5QrCode) {
-            try {
-                await this.html5QrCode.stop();
-                this.html5QrCode = null;
-            } catch (err) {
-                console.error('Failed to stop scanner', err);
-            }
-        }
-        const modal = document.getElementById('pos-scanner-modal');
-        if (modal) modal.classList.add('hidden');
+        this.scanner.stopScanner();
     }
 
     handleScan(barcode) {
-        const now = Date.now();
-        if (now - this.lastScanTime < 3000) {
-            return; // Ignore repetitive scans (3 seconds delay)
-        }
-        this.lastScanTime = now;
-
-        const product = this.products.find(p => p.barcode === barcode);
-
-        if (product) {
-            this.addToCart(product);
-            const feedback = document.getElementById('scan-feedback');
-            if (feedback) {
-                feedback.classList.remove('opacity-0');
-                setTimeout(() => feedback.classList.add('opacity-0'), 1500);
-            }
-        } else {
-            ui.showNotification(`Producto no encontrado: ${barcode}`, 'warning');
-        }
+        this.scanner.handleScan(barcode);
     }
 
     async loadSettings() {
@@ -666,406 +616,56 @@ export class POS {
     }
 
     async loadProducts() {
-        // 1. Try to load from cache first
-        const cachedProducts = localStorage.getItem('cached_products');
-        if (cachedProducts) {
-            try {
-                this.products = JSON.parse(cachedProducts);
-                this.renderCategories();
-                this.renderProducts();
-                console.log('POS: Loaded products from cache');
-            } catch (e) {
-                console.error('Error parsing cached products', e);
-            }
-        }
-
-        // 2. Fetch fresh data in background (Stale-While-Revalidate)
-        try {
-            const freshProducts = await api.products.getAll();
-            this.products = freshProducts;
-            localStorage.setItem('cached_products', JSON.stringify(freshProducts));
-            this.renderCategories();
-            this.renderProducts();
-            console.log('POS: Updated products from API');
-        } catch (error) {
-            console.error('Error loading products', error);
-            if (!this.products.length) {
-                ui.showNotification('Error al cargar productos', 'error');
-            }
-        }
+        await this.productManager.loadProducts();
     }
 
     async loadCustomers() {
-        console.log('POS: Loading customers...');
-        // 1. Try to load from cache first
-        const cachedCustomers = localStorage.getItem('cached_customers');
-        if (cachedCustomers) {
-            try {
-                this.customers = JSON.parse(cachedCustomers);
-                console.log('POS: Loaded customers from cache. Count:', this.customers.length);
-            } catch (e) {
-                console.error('Error parsing cached customers', e);
-            }
-        }
-
-        // 2. Fetch fresh data in background
-        try {
-            console.log('POS: Fetching fresh customers from API...');
-            const freshCustomers = await api.customers.getAll();
-            console.log('POS: API Response:', freshCustomers);
-
-            if (Array.isArray(freshCustomers)) {
-                this.customers = freshCustomers;
-                localStorage.setItem('cached_customers', JSON.stringify(freshCustomers));
-                console.log('POS: Updated customers from API. Count:', this.customers.length);
-
-                // If modal is open, refresh list
-                if (this.dom.customerSelectionModal && !this.dom.customerSelectionModal.classList.contains('hidden')) {
-                    this.renderCustomerList(this.customers);
-                }
-            } else {
-                console.error('POS: API returned non-array for customers:', freshCustomers);
-            }
-        } catch (error) {
-            console.error('Error loading customers:', error);
-            if (!this.customers || this.customers.length === 0) {
-                ui.showNotification('Error al cargar clientes', 'error');
-            }
-        }
+        await this.customerManager.loadCustomers();
     }
 
     renderProducts(products = null) {
-        this.currentFilteredProducts = products || this.products;
-
-        const totalPages = Math.ceil(this.currentFilteredProducts.length / this.itemsPerPage);
-
-        if (this.currentPage > totalPages) this.currentPage = 1;
-
-        const startIndex = (this.currentPage - 1) * this.itemsPerPage;
-        const endIndex = startIndex + this.itemsPerPage;
-        const productsToShow = this.currentFilteredProducts.slice(startIndex, endIndex);
-
-        if (!this.dom.productGrid) {
-            console.error('CRITICAL ERROR: product-grid element not found!');
-            return;
-        }
-
-        // Reset styles
-        this.dom.productGrid.style.display = '';
-        this.dom.productGrid.style.minHeight = '';
-        this.dom.productGrid.style.border = '';
-        this.dom.productGrid.style.opacity = '';
-        this.dom.productGrid.style.visibility = '';
-
-        // Render Products
-        this.dom.productGrid.innerHTML = productsToShow.map(product => {
-            const stock = parseInt(product.stock || 0);
-            const isAvailable = stock > 0;
-            const imageUri = product.imageUri || 'https://via.placeholder.com/150?text=No+Image';
-
-            let availabilityBadge = '';
-            if (!isAvailable) {
-                availabilityBadge = '<div class="absolute inset-0 bg-white/50 dark:bg-black/50 flex items-center justify-center"><span class="bg-red-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-sm">AGOTADO</span></div>';
-            }
-
-            let dispBadge = '';
-            if (isAvailable) {
-                dispBadge = '<span class="absolute top-1 right-1 bg-green-500/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded backdrop-blur-sm shadow-sm">DISP</span>';
-            }
-
-            return `
-                <div class="product-card bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 group cursor-pointer relative" data-id="${product.id}">
-                    
-                    <!-- Image Container with Floating Actions -->
-                    <div class="aspect-square overflow-hidden bg-gray-50 dark:bg-slate-700 relative">
-                        <img src="${imageUri}" alt="${product.name}" loading="lazy" class="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform duration-500">
-                        
-                        ${availabilityBadge}
-
-                        <!-- Floating Add Button (Bottom Right of Image) -->
-                        <button class="add-to-cart-btn absolute bottom-2 right-2 w-8 h-8 bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 rounded-full hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-500 dark:hover:text-white transition-all flex items-center justify-center shadow-lg border border-slate-100 dark:border-slate-600 z-10 active:scale-90"
-                            ${!isAvailable ? 'disabled' : ''}>
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path>
-                            </svg>
-                        </button>
-
-                        <!-- ID Badge (Top Left) -->
-                        <span class="absolute top-1 left-1 bg-black/50 text-white text-[9px] px-1.5 py-0.5 rounded backdrop-blur-sm font-mono opacity-0 group-hover:opacity-100 transition-opacity">#${product.id}</span>
-                        
-                        <!-- Disp Badge (Top Right) -->
-                         ${dispBadge}
-                    </div>
-
-                    <!-- Minimal Content Area -->
-                    <div class="p-2 flex flex-col gap-0.5">
-                        <h3 class="font-bold text-slate-800 dark:text-slate-100 text-[11px] leading-tight line-clamp-2 h-7" title="${product.name}">${product.name}</h3>
-                        <div class="flex items-baseline gap-1">
-                            <span class="text-sm font-extrabold text-indigo-600 dark:text-indigo-400">$${parseFloat(product.price).toFixed(2)}</span>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }).join('');
-
-        // Render Pagination Controls
-        if (totalPages > 1) {
-            const paginationHtml = `
-                <div class="col-span-full flex justify-center items-center gap-4 mt-6 py-4">
-                    <button id="prev-page-btn" class="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors" ${this.currentPage === 1 ? 'disabled' : ''}>
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
-                        </svg>
-                    </button>
-                    <span class="text-slate-600 dark:text-slate-300 font-medium">
-                        Página ${this.currentPage} de ${totalPages}
-                    </span>
-                    <button id="next-page-btn" class="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors" ${this.currentPage === totalPages ? 'disabled' : ''}>
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                        </svg>
-                    </button>
-                </div>
-            `;
-            this.dom.productGrid.insertAdjacentHTML('beforeend', paginationHtml);
-
-            // Bind Pagination Events
-            const prevBtn = document.getElementById('prev-page-btn');
-            if (prevBtn) {
-                prevBtn.addEventListener('click', (e) => {
-                    e.stopPropagation(); // Prevent grid click
-                    this.changePage(this.currentPage - 1);
-                });
-            }
-            const nextBtn = document.getElementById('next-page-btn');
-            if (nextBtn) {
-                nextBtn.addEventListener('click', (e) => {
-                    e.stopPropagation(); // Prevent grid click
-                    this.changePage(this.currentPage + 1);
-                });
-            }
-        }
+        this.productManager.renderProducts(products);
     }
 
     changePage(newPage) {
-        this.currentPage = newPage;
-        this.renderProducts(); // Re-render with current filtered list
-        // Scroll to top of grid
-        this.dom.productGrid.parentElement.scrollTop = 0;
+        this.productManager.changePage(newPage);
     }
 
     renderCategories() {
-        if (!this.dom.categoryFilters) return;
-
-        // Clear existing
-        this.dom.categoryFilters.innerHTML = '';
-
-        // Get unique categories and sort them
-        const rawCategories = this.products.map(p => p.category || 'Sin Categoría');
-        const uniqueCategories = [...new Set(rawCategories)].sort();
-        const categories = ['Todas', ...uniqueCategories];
-
-        // Helper to get count
-        const getCount = (cat) => cat === 'Todas' ? this.products.length : this.products.filter(p => (p.category || 'Sin Categoría') === cat).length;
-
-        categories.forEach(cat => {
-            const count = getCount(cat);
-            const label = cat === 'Todas' ? 'Todas' : (cat.charAt(0).toUpperCase() + cat.slice(1));
-
-            const btn = document.createElement('button');
-
-            // Initial class
-            const baseClass = "category-btn px-3 py-1.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap flex items-center gap-1.5 shrink-0";
-            const activeClass = "bg-slate-900 text-white dark:bg-blue-600";
-            const inactiveClass = "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700";
-
-            btn.className = `${baseClass} ${cat === 'Todas' ? activeClass : inactiveClass}`;
-            btn.dataset.category = cat;
-
-            btn.innerHTML = `
-                <span>${label}</span>
-                <span class="bg-white/20 px-1.5 py-0.5 rounded-full text-xs opacity-80">${count}</span>
-            `;
-
-            btn.addEventListener('click', () => {
-                this.filterByCategory(cat);
-
-                // Update classes
-                this.dom.categoryFilters.querySelectorAll('.category-btn').forEach(b => {
-                    const bCat = b.dataset.category;
-                    b.className = `${baseClass} ${bCat === cat ? activeClass : inactiveClass}`;
-                });
-            });
-
-            this.dom.categoryFilters.appendChild(btn);
-        });
-
-        // Ensure toggle button state is correct on load
-        this.updateCartToggleState();
+        this.productManager.renderCategories();
     }
 
 
     filterByCategory(category) {
-        if (category === 'Todas') {
-            this.renderProducts(this.products);
-        } else {
-            const filtered = this.products.filter(p => (p.category || 'Sin Categoría') === category);
-            this.renderProducts(filtered);
-        }
+        this.productManager.filterByCategory(category);
     }
 
     filterProducts(query) {
-        const filtered = this.products.filter(p =>
-            p.name.toLowerCase().includes(query.toLowerCase()) ||
-            (p.description && p.description.toLowerCase().includes(query.toLowerCase()))
-        );
-        this.renderProducts(filtered);
+        this.productManager.filterProducts(query);
     }
 
     handleGridClick(e) {
-        const card = e.target.closest('.product-card');
-        if (!card) return;
-
-        const id = card.dataset.id;
-        const product = this.products.find(p => String(p.id) === String(id));
-
-        if (product && product.stock > 0) {
-            this.addToCart(product);
-        }
+        this.productManager.handleGridClick(e);
     }
 
     addToCart(productOrId, quantity = 1) {
-        let product = productOrId;
-        if (typeof productOrId === 'string' || typeof productOrId === 'number') {
-            product = this.products.find(p => String(p.id) === String(productOrId));
-        }
-
-        if (!product) {
-            console.error('Product not found for cart addition:', productOrId);
-            ui.showNotification('Error: Producto no encontrado para agregar al carrito', 'error');
-            return;
-        }
-
-        // Check for weighted product
-        // isSoldByWeight comes from DB (0 or 1)
-        const isWeighted = product.isSoldByWeight === 1 || product.isSoldByWeight === true;
-
-        // If it's weighted and no specific quantity was passed (meaning it came from a click), open modal
-        if (isWeighted && quantity === 1 && arguments.length === 1) {
-            this.openWeightModal(product);
-            return;
-        }
-
-        const existingItem = this.cart.find(item => item.id === product.id);
-        if (existingItem) {
-            const newQty = existingItem.quantity + quantity;
-            // For weighted items, we might want to allow more precision or just check stock
-            if (newQty <= product.stock) {
-                existingItem.quantity = newQty;
-            } else {
-                ui.showNotification(`Stock máximo alcanzado(${product.stock})`, 'warning');
-            }
-        } else {
-            this.cart.push({ ...product, quantity: quantity, isWeighted: isWeighted });
-        }
-        this.renderCart();
+        this.cartManager.addToCart(productOrId, quantity);
     }
 
     openWeightModal(product) {
-        this.selectedWeightProduct = product;
-
-        if (!this.dom.weightModal || !this.dom.weightModalTitle || !this.dom.weightModalUnitPrice || !this.dom.weightInput || !this.dom.weightPriceUsd) {
-            console.error('Weight modal elements not found in DOM cache');
-            return;
-        }
-
-        this.dom.weightModalTitle.textContent = product.name;
-        this.dom.weightModalUnitPrice.textContent = `$${parseFloat(product.price).toFixed(2)} / Kg`;
-
-        this.dom.weightInput.value = '';
-        this.dom.weightPriceUsd.value = '';
-        if (this.dom.weightPriceBs) this.dom.weightPriceBs.value = '';
-
-        // Focus weight input by default
-        setTimeout(() => this.dom.weightInput.focus(), 100);
-
-        this.dom.weightModal.classList.remove('hidden');
+        this.weightModal.openWeightModal(product);
     }
 
     closeWeightModal() {
-        if (this.dom.weightModal) this.dom.weightModal.classList.add('hidden');
-        this.selectedWeightProduct = null;
+        this.weightModal.closeWeightModal();
     }
 
     calculateWeightValues(source) {
-        if (!this.selectedWeightProduct) return;
-
-        const pricePerKg = parseFloat(this.selectedWeightProduct.price);
-        const exchangeRate = this.exchangeRate;
-
-        console.log(`Calculating weight values. Source: ${source}, Price/Kg: ${pricePerKg}, Rate: ${exchangeRate}`);
-
-        if (source === 'weight') {
-            const weight = parseFloat(this.dom.weightInput.value);
-            console.log('Weight input:', weight);
-            if (!isNaN(weight)) {
-                const totalPrice = weight * pricePerKg;
-                const totalBs = totalPrice * exchangeRate;
-                console.log('Calculated Total USD:', totalPrice);
-                this.dom.weightPriceUsd.value = totalPrice.toFixed(2);
-                if (this.dom.weightPriceBs) this.dom.weightPriceBs.value = totalBs.toFixed(2);
-            } else {
-                this.dom.weightPriceUsd.value = '';
-                if (this.dom.weightPriceBs) this.dom.weightPriceBs.value = '';
-            }
-        } else if (source === 'usd') {
-            const price = parseFloat(this.dom.weightPriceUsd.value);
-            console.log('USD input:', price);
-            if (!isNaN(price) && pricePerKg > 0) {
-                const weight = price / pricePerKg;
-                const totalBs = price * exchangeRate;
-                console.log('Calculated Weight:', weight);
-                this.dom.weightInput.value = weight.toFixed(3);
-                if (this.dom.weightPriceBs) this.dom.weightPriceBs.value = totalBs.toFixed(2);
-            } else {
-                this.dom.weightInput.value = '';
-                if (this.dom.weightPriceBs) this.dom.weightPriceBs.value = '';
-            }
-        } else if (source === 'bs') {
-            const priceBs = parseFloat(this.dom.weightPriceBs.value);
-            console.log('Bs input:', priceBs);
-            if (!isNaN(priceBs) && exchangeRate > 0 && pricePerKg > 0) {
-                const priceUsd = priceBs / exchangeRate;
-                const weight = priceUsd / pricePerKg;
-                console.log('Calculated USD:', priceUsd, 'Weight:', weight);
-                this.dom.weightPriceUsd.value = priceUsd.toFixed(2);
-                this.dom.weightInput.value = weight.toFixed(3);
-            } else {
-                this.dom.weightPriceUsd.value = '';
-                this.dom.weightInput.value = '';
-            }
-        }
+        this.weightModal.calculateWeightValues(source);
     }
 
     confirmWeightItem() {
-        if (!this.selectedWeightProduct) return;
-
-        const weight = parseFloat(this.dom.weightInput.value);
-
-        if (isNaN(weight) || weight <= 0) {
-            ui.showNotification('Ingrese un peso válido', 'warning');
-            return;
-        }
-
-        // Add to cart with specific quantity (weight)
-        // We pass the weight as quantity
-        try {
-            this.addToCart(this.selectedWeightProduct, weight);
-            this.closeWeightModal();
-        } catch (error) {
-            console.error('Error adding weighted item:', error);
-            ui.showNotification('Error al agregar producto', 'error');
-        }
+        this.weightModal.confirmWeightItem();
     }
 
     searchCustomers(query) {
@@ -1154,382 +754,52 @@ export class POS {
     }
 
     renderCart() {
-        // Calculate Totals
-        const total = this.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-        const totalBs = total * this.exchangeRate;
-        const itemCount = this.cart.reduce((sum, item) => sum + item.quantity, 0);
-
-        // Update UI Totals
-        if (this.dom.cartTotal) this.dom.cartTotal.textContent = `$${total.toFixed(2)} `;
-        if (this.dom.cartTotalBs) this.dom.cartTotalBs.textContent = `Bs ${totalBs.toFixed(2)} `;
-        if (this.dom.mobileCartCount) this.dom.mobileCartCount.textContent = itemCount;
-
-        // Render Desktop Cart
-        if (this.dom.cartItems) {
-            if (this.cart.length === 0) {
-                this.dom.cartItems.innerHTML = '<div class="text-center text-slate-400 py-8">Carrito vacío</div>';
-            } else {
-                this.dom.cartItems.innerHTML = this.cart.map(item => this.renderCartItem(item)).join('');
-            }
-        }
-
-        // Render Mobile Cart
-        if (this.dom.mobileCartItems) {
-            if (this.cart.length === 0) {
-                this.dom.mobileCartItems.innerHTML = '<div class="text-center text-slate-400 py-8">Carrito vacío</div>';
-            } else {
-                this.dom.mobileCartItems.innerHTML = this.cart.map(item => this.renderCartItem(item)).join('');
-            }
-        } else {
-            // Try to find it again dynamically
-            const mobileContainer = document.getElementById('mobile-cart-items-container');
-            if (mobileContainer) {
-                this.dom.mobileCartItems = mobileContainer;
-                this.dom.mobileCartItems.innerHTML = this.cart.map(item => this.renderCartItem(item)).join('');
-            }
-        }
-
-        // Update Button States
-        const isCartEmpty = this.cart.length === 0;
-        if (this.dom.checkoutBtn) {
-            this.dom.checkoutBtn.disabled = isCartEmpty;
-            if (isCartEmpty) {
-                this.dom.checkoutBtn.classList.add('opacity-50', 'cursor-not-allowed');
-            } else {
-                this.dom.checkoutBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-            }
-        }
-        if (this.dom.clearCartBtn) {
-            this.dom.clearCartBtn.disabled = isCartEmpty;
-            if (isCartEmpty) {
-                this.dom.clearCartBtn.classList.add('opacity-50', 'cursor-not-allowed');
-            } else {
-                this.dom.clearCartBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-            }
-        }
-
-        // Update Mobile Cart Button Badge visibility
-        // Update Mobile Cart Button Badge visibility
-        if (this.dom.mobileCartCount) {
-            if (itemCount > 0) {
-                this.dom.mobileCartCount.classList.remove('hidden');
-            } else {
-                this.dom.mobileCartCount.classList.add('hidden');
-            }
-        }
+        this.cartManager.renderCart();
     }
 
     renderCartItem(item) {
-        const isWeighted = item.isWeighted || item.measurement === 'kg';
-        const step = isWeighted ? '0.001' : '1';
-        const quantityDisplay = isWeighted ? parseFloat(item.quantity).toFixed(3) : item.quantity;
-        const weightTag = isWeighted ? '<span class="text-xs bg-blue-100 text-blue-800 px-1 rounded ml-1">Peso</span>' : '';
-        const imageUri = item.imageUri || 'https://via.placeholder.com/150?text=No+Image';
-        const priceBs = (item.price * this.exchangeRate).toFixed(2);
-
-        return `
-        <div class="cart-item flex flex-col p-3 mb-2 bg-slate-50 dark:bg-slate-700/50 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-500 transition-colors" data-id="${item.id}">
-            <!-- Name Row -->
-            <div class="w-full mb-2 border-b border-slate-200 dark:border-slate-600 pb-2">
-                 <h4 class="font-medium text-slate-900 dark:text-white text-base break-words">${item.name} ${weightTag}</h4>
-            </div>
-            
-            <!-- Content Row -->
-            <div class="flex justify-between items-center w-full">
-                <div class="flex items-center gap-3 flex-1">
-                    <img src="${imageUri}" alt="${item.name}" class="w-16 h-16 object-cover rounded-md border border-slate-200 dark:border-slate-600">
-                    <div class="flex-1">
-                        <div class="text-base text-slate-500 dark:text-slate-400 flex flex-col gap-1">
-                            <span class="flex items-center">
-                                <span class="font-bold text-slate-700 dark:text-slate-200 text-lg">$${parseFloat(item.price).toFixed(2)}</span>
-                                <span class="mx-2">x</span>
-                                <input type="number" class="qty-input w-16 px-1 py-1 text-center border rounded bg-white dark:bg-slate-600 dark:text-white text-lg font-medium" 
-                                    value="${quantityDisplay}" step="${step}" min="${step}">
-                            </span>
-                            <span class="text-blue-600 dark:text-blue-400 font-bold text-lg">Bs ${priceBs} c/u</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="text-right pl-2">
-                    <p class="font-bold text-slate-900 dark:text-white text-xl">$${(item.price * item.quantity).toFixed(2)}</p>
-                    <div class="flex items-center justify-end gap-1 mt-2">
-                        <button class="decrease-qty p-1.5 text-slate-400 hover:text-red-500 transition-colors">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
-                        </button>
-                        <button class="increase-qty p-1.5 text-slate-400 hover:text-green-500 transition-colors">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                        </button>
-                        <button class="remove-item p-1.5 text-slate-400 hover:text-red-500 transition-colors ml-1">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
+        return this.cartManager.renderCartItem(item);
     }
 
     handleCartClick(e) {
-        const btn = e.target.closest('.increase-qty, .decrease-qty, .remove-item');
-        if (!btn) return;
-
-        const cartItem = btn.closest('.cart-item');
-        if (!cartItem) return;
-
-        const id = cartItem.dataset.id;
-        const item = this.cart.find(i => String(i.id) === String(id));
-        if (!item) return;
-
-        if (btn.classList.contains('increase-qty')) {
-            if (item.quantity < item.stock) {
-                item.quantity++;
-            } else {
-                ui.showNotification(`Stock máximo alcanzado(${item.stock})`, 'warning');
-            }
-        } else if (btn.classList.contains('decrease-qty')) {
-            if (item.quantity > 1) {
-                item.quantity--;
-            } else {
-                this.cart = this.cart.filter(i => String(i.id) !== String(id));
-            }
-        } else if (btn.classList.contains('remove-item')) {
-            this.cart = this.cart.filter(i => String(i.id) !== String(id));
-        }
-
-        this.renderCart();
+        this.cartManager.handleCartClick(e);
     }
 
     handleCartInput(e) {
-        if (!e.target.classList.contains('qty-input')) return;
-
-        const cartItem = e.target.closest('.cart-item');
-        if (!cartItem) return;
-
-        const id = cartItem.dataset.id;
-        const item = this.cart.find(i => String(i.id) === String(id));
-        if (!item) return;
-
-        let newQty = parseFloat(e.target.value);
-
-        if (isNaN(newQty) || newQty < 1) {
-            newQty = 1;
-        }
-
-        if (newQty > item.stock) {
-            newQty = item.stock;
-            ui.showNotification(`Stock máximo alcanzado(${item.stock})`, 'warning');
-        }
-
-        item.quantity = newQty;
-        this.renderCart();
+        this.cartManager.handleCartInput(e);
     }
 
     checkHeldSale() {
-        this.updateHeldSalesCount();
+        this.salesManager.checkHeldSale();
     }
 
     updateHeldSalesCount() {
-        const heldSales = JSON.parse(localStorage.getItem('held_sales') || '[]');
-        const count = heldSales.length;
-
-        if (this.dom.heldCountBadge) {
-            this.dom.heldCountBadge.textContent = count;
-            if (count > 0) {
-                this.dom.heldCountBadge.classList.remove('hidden');
-            } else {
-                this.dom.heldCountBadge.classList.add('hidden');
-            }
-        }
+        this.salesManager.updateHeldSalesCount();
     }
 
     initiateHoldSale() {
-        if (this.cart.length === 0) {
-            ui.showNotification('El carrito está vacío', 'warning');
-            return;
-        }
-
-        // Always prompt for customer as requested
-        this.showConfirmationModal(
-            '¿Asignar Cliente?',
-            '¿Desea asignar un cliente a esta venta en espera? Si selecciona "No", se guardará como anónima.',
-            () => {
-                this.pendingHold = true;
-                this.showCustomerSelection();
-            },
-            'Sí, Asignar',
-            () => {
-                this.holdSale();
-            },
-            'No, Guardar Anónima'
-        );
+        this.salesManager.initiateHoldSale();
     }
 
     holdSale() {
-        if (this.cart.length === 0) {
-            ui.showNotification('El carrito está vacío', 'warning');
-            return;
-        }
-
-        if (this.processingHold) return;
-        this.processingHold = true;
-
-        console.log('DEBUG: holdSale called');
-
-        const heldSales = JSON.parse(localStorage.getItem('held_sales') || '[]');
-        let existingSaleIndex = -1;
-
-        // If we have a customer, check if they already have a held sale
-        if (this.selectedCustomer) {
-            existingSaleIndex = heldSales.findIndex(s => s.customer && s.customer.id === this.selectedCustomer.id);
-        }
-
-        if (existingSaleIndex !== -1) {
-            // Merge with existing sale
-            const existingSale = heldSales[existingSaleIndex];
-
-            this.cart.forEach(cartItem => {
-                const existingItem = existingSale.items.find(i => i.id === cartItem.id);
-                if (existingItem) {
-                    existingItem.quantity += cartItem.quantity;
-                } else {
-                    existingSale.items.push(cartItem);
-                }
-            });
-
-            // Recalculate total
-            existingSale.total = existingSale.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-            ui.showNotification(`Venta actualizada para ${this.selectedCustomer.name} `, 'success');
-        } else {
-            // Create new held sale
-            // Helper to save sale
-            const saveSale = (customer) => {
-                const sale = {
-                    id: Date.now().toString(),
-                    items: [...this.cart],
-                    customer: customer,
-                    total: this.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0),
-                    timestamp: new Date().toISOString()
-                };
-                heldSales.push(sale);
-                localStorage.setItem('held_sales', JSON.stringify(heldSales));
-                this.cart = [];
-                this.selectedCustomer = null;
-                this.renderCart();
-                this.renderCart();
-                this.updateHeldSalesCount();
-                this.closeHeldSalesDrawer();
-            }
-
-            if (!this.selectedCustomer) {
-                const customer = { id: 'ref-' + Date.now(), name: 'Cliente Casual', email: '', phone: '' };
-                saveSale(customer);
-            } else {
-                saveSale(this.selectedCustomer);
-            }
-        }
-
-        setTimeout(() => { this.processingHold = false; }, 1000);
+        this.salesManager.holdSale();
     }
 
     showHeldSales() {
-        const heldSales = JSON.parse(localStorage.getItem('held_sales') || '[]');
-        this.renderHeldSalesList(heldSales);
-        if (this.dom.heldSalesDrawer) {
-            this.dom.heldSalesDrawer.classList.remove('translate-x-full');
-            if (this.dom.mobileOverlay) this.dom.mobileOverlay.classList.remove('hidden');
-        }
+        this.salesManager.showHeldSales();
     }
 
 
     closeHeldSalesDrawer() {
-        if (this.dom.heldSalesDrawer) {
-            this.dom.heldSalesDrawer.classList.add('translate-x-full');
-            if (this.dom.mobileOverlay) this.dom.mobileOverlay.classList.add('hidden');
-        }
+        this.salesManager.closeHeldSalesDrawer();
     }
 
     renderHeldSalesList(heldSales) {
-        if (!this.dom.heldSalesList) return;
-
-        if (heldSales.length === 0) {
-            this.dom.heldSalesList.innerHTML = '<p class="text-center text-slate-400 py-8">No hay ventas en espera</p>';
-            return;
-        }
-
-        this.dom.heldSalesList.innerHTML = heldSales.map(sale => {
-            const date = new Date(sale.timestamp);
-            const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            const dateStr = date.toLocaleDateString();
-            const itemCount = sale.items.reduce((sum, item) => sum + item.quantity, 0);
-            const customerName = sale.customer
-                ? `<div class="text-sm font-bold text-blue-600 dark:text-blue-400 mb-1 flex items-center gap-1">
-                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
-                    ${sale.customer.name}
-                   </div>`
-                : `<div class="text-sm font-medium text-slate-400 dark:text-slate-500 mb-1 italic">Sin cliente asignado</div>`;
-
-            return `
-                <div class="bg-slate-50 dark:bg-slate-700/50 p-4 rounded-xl border border-slate-200 dark:border-slate-600 hover:border-yellow-400 dark:hover:border-yellow-500/50 transition-colors group mb-3">
-                    <div class="flex justify-between items-start mb-2">
-                        <div>
-                            ${customerName}
-                            <p class="font-bold text-slate-800 dark:text-white text-lg">$${sale.total.toFixed(2)}</p>
-                            <p class="text-xs text-slate-500 dark:text-slate-400">${dateStr} - ${timeStr}</p>
-                        </div>
-                        <span class="bg-slate-200 dark:bg-slate-600 text-slate-600 dark:text-slate-300 text-xs px-2 py-1 rounded-lg font-medium">
-                            ${itemCount} items
-                        </span>
-                    </div>
-                    <div class="flex gap-2 mt-3">
-                        <button class="restore-held-btn flex-1 bg-yellow-100 hover:bg-yellow-200 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 dark:hover:bg-yellow-900/50 py-2 px-3 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-1" data-id="${sale.id}">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                            Recuperar
-                        </button>
-                        <button class="delete-held-btn bg-red-100 hover:bg-red-200 text-red-600 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40 p-2 rounded-lg transition-all group/delete" data-id="${sale.id}" title="Eliminar">
-                            <svg class="w-5 h-5 overflow-visible" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path class="origin-bottom transition-transform duration-300 group-hover/delete:-rotate-12 group-hover/delete:-translate-y-1" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6"></path>
-                                <path class="origin-center transition-transform duration-300 group-hover/delete:-translate-y-2 group-hover/delete:rotate-12" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-            `;
-        }).join('');
+        this.salesManager.renderHeldSalesList(heldSales);
     }
 
     restoreSale(id) {
-        const heldSales = JSON.parse(localStorage.getItem('held_sales') || '[]');
-        const saleIndex = heldSales.findIndex(s => s.id === id);
-
-        if (saleIndex === -1) return;
-
-        const sale = heldSales[saleIndex];
-
-        const doRestore = () => {
-            this.cart = sale.items;
-            this.selectedCustomer = sale.customer;
-
-            // Remove from held sales
-            heldSales.splice(saleIndex, 1);
-            localStorage.setItem('held_sales', JSON.stringify(heldSales));
-
-            this.renderCart();
-            this.updateHeldSalesCount();
-            this.closeHeldSalesDrawer();
-            ui.showNotification('Venta recuperada', 'success');
-        };
-
-        // Confirm if cart is not empty
-        if (this.cart.length > 0) {
-            this.showConfirmationModal(
-                '¿Reemplazar carrito?',
-                'Hay productos en el carrito actual. ¿Desea reemplazarlos por la venta en espera?',
-                () => doRestore(),
-                'Sí, Reemplazar'
-            );
-        } else {
-            doRestore();
-        }
+        this.salesManager.restoreSale(id);
     }
 
     deleteHeldSale(id) {
@@ -1538,178 +808,71 @@ export class POS {
             '¿Eliminar venta en espera?',
             '¿Está seguro de eliminar esta venta en espera? Esta acción no se puede deshacer.',
             () => {
-                const heldSales = JSON.parse(localStorage.getItem('held_sales') || '[]');
-                const newHeldSales = heldSales.filter(s => s.id !== id);
-
-                localStorage.setItem('held_sales', JSON.stringify(newHeldSales));
-
-                this.renderHeldSalesList(newHeldSales);
-                this.updateHeldSalesCount();
-                ui.showNotification('Venta eliminada', 'success');
+                this.salesManager.deleteHeldSale(id);
             },
             'Sí, Eliminar'
         );
     }
 
     openHeldSalesDrawer() {
-        const heldSales = JSON.parse(localStorage.getItem('held_sales') || '[]');
-
-        if (heldSales.length === 0) {
-            ui.showNotification('No hay ventas en espera', 'info');
-            return;
-        }
-
-        this.renderHeldSalesList(heldSales);
-        this.dom.heldSalesDrawer.classList.remove('translate-x-full');
+        this.salesManager.showHeldSales();
     }
 
     async showCustomerSelection() {
-        await this.loadCustomers();
+        await this.customerManager.loadCustomers();
         if (!this.customers || this.customers.length === 0) {
             this.processCheckout(null);
             return;
         }
-        this.renderCustomerList(this.customers);
-        if (this.dom.customerSelectionModal) this.dom.customerSelectionModal.classList.remove('hidden');
+        this.customerManager.renderCustomerList(this.customers);
+        if (this.dom.customerSelectionModal) {
+            this.dom.customerSelectionModal.classList.remove('hidden');
+            this.dom.customerSelectionModal.style.display = 'flex';
+        }
         setTimeout(() => {
             if (this.dom.searchCustomerCheckout) this.dom.searchCustomerCheckout.focus();
         }, 100);
     }
 
     hideCustomerSelection() {
-        if (this.dom.customerSelectionModal) this.dom.customerSelectionModal.classList.add('hidden');
+        if (this.dom.customerSelectionModal) {
+            this.dom.customerSelectionModal.classList.add('hidden');
+            this.dom.customerSelectionModal.style.display = 'none';
+        }
         if (this.dom.searchCustomerCheckout) this.dom.searchCustomerCheckout.value = '';
     }
 
     renderCustomerList(customers) {
-        console.log('Rendering customer list:', customers ? customers.length : 'null');
-        if (!this.dom.customerListCheckout) {
-            console.error('Customer list container not found!');
-            return;
-        }
-        if (!customers || customers.length === 0) {
-            this.dom.customerListCheckout.innerHTML = '<p class="text-gray-400 text-center py-4">No hay clientes</p>';
-            return;
-        }
-        this.dom.customerListCheckout.innerHTML = customers.map(customer => `
-            <div class="customer-item p-3 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer transition-colors bg-white dark:bg-slate-800" data-id="${customer.id}">
-                <div class="font-medium text-slate-800 dark:text-white">${customer.name}</div>
-                <div class="text-sm text-slate-500 dark:text-slate-400">
-                    ${customer.idDocument ? `<span class="mr-2 font-mono bg-slate-100 dark:bg-slate-900 px-1 rounded text-xs">${customer.idDocument}</span>` : ''}
-                    ${customer.phone}
-                    ${customer.email ? ' • ' + customer.email : ''}
-                </div>
-            </div>
-        `).join('');
+        this.customerManager.renderCustomerList(customers);
     }
 
     filterCustomers(query) {
-        console.log('Filtering customers with query:', query);
-        if (!this.customers) {
-            console.error('this.customers is undefined or null');
-            return;
-        }
-
-        if (!query) {
-            this.renderCustomerList(this.customers);
-            return;
-        }
-        const lowerQuery = query.toLowerCase();
-        const filtered = this.customers.filter(c =>
-            (c.name && c.name.toLowerCase().includes(lowerQuery)) ||
-            (c.phone && c.phone.includes(query)) ||
-            (c.email && c.email.toLowerCase().includes(lowerQuery)) ||
-            (c.idDocument && c.idDocument.toLowerCase().includes(lowerQuery))
-        );
-        console.log('Filtered count:', filtered.length);
-        this.renderCustomerList(filtered);
+        this.customerManager.searchCustomers(query);
     }
 
     handleCustomerSelect(e) {
-        const item = e.target.closest('.customer-item');
-        if (!item) return;
-        const id = item.dataset.id;
-        const customer = this.customers.find(c => String(c.id) === String(id));
-        if (customer) {
-            this.selectedCustomer = customer;
-            this.hideCustomerSelection();
-            if (this.pendingHold) {
-                this.holdSale();
-                this.pendingHold = false;
-            }
-        }
+        this.customerManager.selectCustomer(e);
     }
 
     handleCustomerSearch(query) {
-        if (!query) {
-            if (this.dom.customerSearchResults) this.dom.customerSearchResults.classList.add('hidden');
-            return;
-        }
-
-        const lowerQuery = query.toLowerCase();
-        const filtered = this.customers.filter(c =>
-            (c.name && c.name.toLowerCase().includes(lowerQuery)) ||
-            (c.phone && c.phone.includes(query)) ||
-            (c.email && c.email.toLowerCase().includes(lowerQuery)) ||
-            (c.idDocument && c.idDocument.toLowerCase().includes(lowerQuery))
-        );
-
-        this.renderCustomerSearchResults(filtered);
+        this.customerManager.searchCustomers(query);
     }
 
     renderCustomerSearchResults(customers) {
-        if (!this.dom.customerSearchResults) return;
-
-        if (customers.length === 0) {
-            this.dom.customerSearchResults.innerHTML = '<div class="p-3 text-sm text-slate-500 text-center">No se encontraron clientes</div>';
-            this.dom.customerSearchResults.classList.remove('hidden');
-            return;
-        }
-
-        this.dom.customerSearchResults.innerHTML = customers.map((c, index) => `
-            <div class="p-3 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer border-b border-slate-100 dark:border-slate-700 last:border-0"
-                 onclick="window.pos.selectCustomerById('${c.id}')">
-                <div class="font-bold text-slate-800 dark:text-white text-sm">${c.name}</div>
-                <div class="text-xs text-slate-500 dark:text-slate-400 flex gap-2">
-                    ${c.idDocument ? `<span>${c.idDocument}</span>` : ''}
-                    ${c.phone ? `<span>${c.phone}</span>` : ''}
-                </div>
-            </div>
-        `).join('');
-
-        this.dom.customerSearchResults.classList.remove('hidden');
-        this.customerSearchHighlightIndex = -1;
+        this.customerManager.renderCustomerSearchResults(customers);
     }
 
     selectCustomerById(id) {
         const customer = this.customers.find(c => String(c.id) === String(id));
-        if (customer) this.selectCustomer(customer);
+        if (customer) this.customerManager.selectCustomer(customer);
     }
 
     selectCustomer(customer) {
-        this.selectedCustomer = customer;
-
-        // Update Sidebar UI
-        if (this.dom.selectedCustomerName) this.dom.selectedCustomerName.textContent = customer.name;
-        if (this.dom.selectedCustomerDoc) this.dom.selectedCustomerDoc.textContent = customer.idDocument || 'Sin Documento';
-
-        if (this.dom.customerSearchContainer) this.dom.customerSearchContainer.classList.add('hidden');
-        if (this.dom.posSelectedCustomer) this.dom.posSelectedCustomer.classList.remove('hidden');
-        if (this.dom.customerSearchResults) this.dom.customerSearchResults.classList.add('hidden');
-        if (this.dom.customerSearchInput) this.dom.customerSearchInput.value = '';
-
-        ui.showNotification(`Cliente seleccionado: ${customer.name}`, 'success');
+        this.customerManager.selectCustomer(customer);
     }
 
     deselectCustomer() {
-        this.selectedCustomer = null;
-
-        if (this.dom.customerSearchContainer) this.dom.customerSearchContainer.classList.remove('hidden');
-        if (this.dom.posSelectedCustomer) this.dom.posSelectedCustomer.classList.add('hidden');
-        if (this.dom.customerSearchInput) {
-            this.dom.customerSearchInput.value = '';
-            this.dom.customerSearchInput.focus();
-        }
+        this.customerManager.deselectCustomer();
     }
 
     async refreshData() {
@@ -1901,12 +1064,18 @@ export class POS {
     }
 
     openCustomItemModal() {
-        if (this.dom.customItemModal) this.dom.customItemModal.classList.remove('hidden');
+        if (this.dom.customItemModal) {
+            this.dom.customItemModal.classList.remove('hidden');
+            this.dom.customItemModal.style.display = 'flex';
+        }
         if (this.dom.customItemName) this.dom.customItemName.focus();
     }
 
     closeCustomItemModal() {
-        if (this.dom.customItemModal) this.dom.customItemModal.classList.add('hidden');
+        if (this.dom.customItemModal) {
+            this.dom.customItemModal.classList.add('hidden');
+            this.dom.customItemModal.style.display = 'none';
+        }
         if (this.dom.customItemForm) this.dom.customItemForm.reset();
     }
 
@@ -1938,538 +1107,65 @@ export class POS {
 
 
     processCheckout(customer) {
-        this.selectedCustomer = customer;
-        this.customerSelectionSkipped = !customer; // Set flag if skipped
-        this.hideCustomerSelection();
-
-        if (this.pendingHold) {
-            this.holdSale();
-            this.pendingHold = false;
-            return;
-        }
-
-        this.showPaymentModal();
+        this.checkoutManager.processCheckout(customer);
     }
 
     showPaymentModal() {
-        if (this.dom.paymentModal) this.dom.paymentModal.classList.remove('hidden');
-
-        // Ensure methods are populated
-        this.populatePaymentMethods();
-
-        // Calculate totals
-        const total = this.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-        const totalBs = total * this.exchangeRate;
-
-        // Update Total Display
-        if (this.dom.paymentTotalUsd) this.dom.paymentTotalUsd.textContent = `$${total.toFixed(2)} `;
-        if (this.dom.paymentTotalVes) this.dom.paymentTotalVes.textContent = `Bs ${totalBs.toFixed(2)} `;
-
-        // Select default method (Cash)
-        this.handlePaymentMethodClick('cash');
-
-        // Auto-fill amount for Cash USD
-        // Auto-fill amount for Cash USD
-        const cashUsdInput = this.dom.paymentFields.querySelector('input[data-id="cash_usd"]');
-        if (cashUsdInput) {
-            cashUsdInput.value = total.toFixed(2);
-            this.calculateChange();
-        }
-
-        // Show payment form, hide receipt
-        if (this.dom.paymentFormContent) this.dom.paymentFormContent.classList.remove('hidden');
-        if (this.dom.receiptModalContent) this.dom.receiptModalContent.classList.add('hidden');
+        this.checkoutManager.showPaymentModal();
     }
 
     hidePaymentModal() {
-        if (this.dom.paymentModal) this.dom.paymentModal.classList.add('hidden');
+        this.checkoutManager.hidePaymentModal();
     }
 
     populatePaymentMethods() {
-        if (!this.dom.paymentMethodOptions) return;
-        this.dom.paymentMethodOptions.innerHTML = '';
-
-        // Ensure Cash exists
-        if (!this.paymentMethods.some(m => m.id === 'cash')) {
-            this.paymentMethods.unshift({ id: 'cash', name: 'Efectivo (USD/VES)', currency: 'MIXED' });
-        }
-
-        // Render Buttons
-        this.paymentMethods.forEach(method => {
-            // Skip individual cash entries if they exist in the list (legacy)
-            if (method.id === 'cash_usd' || method.id === 'cash_bs') return;
-
-            const button = document.createElement('button');
-            button.type = 'button';
-            button.className = `payment-method-btn w-full py-3 px-4 rounded-lg border text-sm font-medium transition-all duration-200 ${method.id === this.selectedPaymentMethodId
-                ? 'bg-slate-900 text-white border-slate-900 dark:bg-blue-600 dark:border-blue-600 dark:text-white shadow-md'
-                : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-600'
-                } `;
-            button.textContent = method.name;
-            button.dataset.id = method.id;
-            button.addEventListener('click', () => this.handlePaymentMethodClick(method.id));
-            this.dom.paymentMethodOptions.appendChild(button);
-        });
-
-        // Add Combined Option explicitly
-        const combinedButton = document.createElement('button');
-        combinedButton.type = 'button';
-        combinedButton.className = `payment-method-btn w-full py-3 px-4 rounded-lg border text-sm font-medium transition-all duration-200 ${this.selectedPaymentMethodId === 'combined'
-            ? 'bg-slate-900 text-white border-slate-900 dark:bg-blue-600 dark:border-blue-600 dark:text-white shadow-md'
-            : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-600'
-            } `;
-        combinedButton.textContent = 'Combinado (Múltiples)';
-        combinedButton.dataset.id = 'combined';
-        combinedButton.addEventListener('click', () => this.handlePaymentMethodClick('combined'));
-        this.dom.paymentMethodOptions.appendChild(combinedButton);
-
-        this.onPaymentMethodChange();
+        this.checkoutManager.populatePaymentMethods();
     }
 
     handlePaymentMethodClick(methodId) {
-        this.selectedPaymentMethodId = methodId;
-
-        // Update UI
-        const buttons = this.dom.paymentMethodOptions.querySelectorAll('.payment-method-btn');
-        buttons.forEach(btn => {
-            if (btn.dataset.id === methodId) {
-                btn.className = 'payment-method-btn w-full py-3 px-4 rounded-lg border text-sm font-medium transition-all duration-200 bg-slate-900 text-white border-slate-900 dark:bg-blue-600 dark:border-blue-600 dark:text-white shadow-md';
-            } else {
-                btn.className = 'payment-method-btn w-full py-3 px-4 rounded-lg border text-sm font-medium transition-all duration-200 bg-white text-slate-700 border-slate-300 hover:bg-slate-50 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-600';
-            }
-        });
-
-        this.onPaymentMethodChange();
+        this.checkoutManager.handlePaymentMethodClick(methodId);
     }
 
     onPaymentMethodChange() {
-        const methodId = this.selectedPaymentMethodId;
-        this.dom.paymentFields.innerHTML = '';
-
-        let inputsToRender = [];
-
-        if (methodId === 'cash') {
-            inputsToRender.push(
-                { id: 'cash_usd', name: 'Efectivo USD', currency: 'USD', placeholder: 'Monto $' },
-                { id: 'cash_ves', name: 'Efectivo VES', currency: 'VES', placeholder: 'Monto Bs' }
-            );
-        } else if (methodId === 'combined') {
-            // Cash first
-            inputsToRender.push(
-                { id: 'cash_usd', name: 'Efectivo USD', currency: 'USD', placeholder: 'Monto $' },
-                { id: 'cash_ves', name: 'Efectivo VES', currency: 'VES', placeholder: 'Monto Bs' }
-            );
-            // Then all others
-            this.paymentMethods.forEach(m => {
-                if (m.id !== 'cash' && m.id !== 'combined' && m.id !== 'cash_usd' && m.id !== 'cash_bs') {
-                    inputsToRender.push({
-                        id: m.id,
-                        name: m.name,
-                        currency: m.currency || 'VES',
-                        placeholder: `Monto ${m.currency || 'VES'} `,
-                        requiresReference: m.requiresReference // Keep this if needed
-                    });
-                }
-            });
-        } else {
-            // Single specific method
-            const method = this.paymentMethods.find(m => m.id === methodId);
-            if (method) {
-                inputsToRender.push({
-                    id: method.id,
-                    name: method.name,
-                    currency: method.currency || 'VES',
-                    placeholder: `Monto ${method.currency || 'VES'} `,
-                    requiresReference: method.requiresReference
-                });
-            }
-        }
-
-        // Generate HTML
-        let html = '<div class="space-y-3 mb-4 max-h-60 overflow-y-auto pr-2">';
-        inputsToRender.forEach(input => {
-            const showRef = input.requiresReference || input.id === 'pago_movil' || input.name.toLowerCase().includes('pago movil');
-
-            html += `
-                <div class="grid grid-cols-12 gap-2 items-end payment-row">
-                    <div class="col-span-12">
-                        <label class="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">${input.name}</label>
-                    </div>
-                    <div class="${showRef ? 'col-span-7' : 'col-span-12'}">
-                        <input type="number" 
-                            data-id="${input.id}" 
-                            data-currency="${input.currency}" 
-                            class="payment-input w-full rounded-md border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500" 
-                            step="0.01" min="0" placeholder="${input.placeholder}">
-                    </div>
-                    ${showRef ? `
-                    <div class="col-span-5">
-                        <input type="text" 
-                            data-ref-for="${input.id}"
-                            class="payment-ref w-full rounded-md border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500" 
-                            placeholder="Ref.">
-                    </div>
-                    ` : ''
-                }
-                </div>
-            `;
-        });
-        html += '</div>';
-        this.dom.paymentFields.innerHTML = html;
-
-        // Bind events
-        this.dom.paymentFields.querySelectorAll('.payment-input').forEach(input => {
-            input.addEventListener('input', () => this.calculateChange());
-        });
-
-        // Reset change display
-        this.calculateChange();
+        this.checkoutManager.onPaymentMethodChange();
     }
 
 
 
     calculateChange() {
-        const total = this.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-        let paidUsd = 0;
-        let paidBs = 0;
-
-        // Unified calculation: Iterate over ALL visible payment inputs
-        const inputs = this.dom.paymentFields.querySelectorAll('.payment-input');
-        inputs.forEach(input => {
-            const val = parseFloat(input.value || 0);
-            const currency = input.dataset.currency;
-            if (currency === 'USD') {
-                paidUsd += val;
-            } else {
-                paidBs += val;
-            }
-        });
-
-        const paidTotalInUsd = paidUsd + (paidBs / (this.exchangeRate || 1));
-        const changeUsd = paidTotalInUsd - total;
-        const changeBs = changeUsd * this.exchangeRate;
-
-        if (changeUsd >= -0.01) { // Tolerance for float errors
-            this.dom.paymentChange.innerHTML = `
-                <div class="flex flex-col items-center justify-center">
-                    <span class="text-sm text-slate-500 dark:text-slate-400">Su Vuelto</span>
-                    <div class="text-xl font-bold text-green-600 dark:text-green-400">
-                        $${Math.max(0, changeUsd).toFixed(2)}
-                    </div>
-                    <div class="text-sm font-medium text-green-600 dark:text-green-400">
-                        Bs ${Math.max(0, changeBs).toFixed(2)}
-                    </div>
-                </div>
-            `;
-        } else {
-            const missing = Math.abs(changeUsd);
-            const missingBs = missing * this.exchangeRate;
-            this.dom.paymentChange.innerHTML = `
-                <div class="flex flex-col items-center justify-center">
-                    <span class="text-sm text-red-500 dark:text-red-400 font-medium">Faltan</span>
-                    <div class="text-xl font-bold text-red-600 dark:text-red-400">
-                        $${missing.toFixed(2)}
-                    </div>
-                    <div class="text-sm font-medium text-red-600 dark:text-red-400">
-                        Bs ${missingBs.toFixed(2)}
-                    </div>
-                </div>
-            `;
-        }
+        this.checkoutManager.calculateChange();
     }
 
     async confirmPayment() {
-        const total = this.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-        let paidUsd = 0;
-        let paidBs = 0;
-
-        const inputs = this.dom.paymentFields.querySelectorAll('.payment-input');
-        inputs.forEach(input => {
-            const val = parseFloat(input.value || 0);
-            const currency = input.dataset.currency;
-            if (currency === 'USD') {
-                paidUsd += val;
-            } else {
-                paidBs += val;
-            }
-        });
-
-        const paidTotalInUsd = paidUsd + (paidBs / (this.exchangeRate || 1));
-
-        if (paidTotalInUsd < total - 0.01) {
-            ui.showNotification('Monto insuficiente', 'warning');
-            return;
-        }
-
-        let paymentDetails = [];
-        inputs.forEach(input => {
-            const val = parseFloat(input.value || 0);
-            if (val > 0) {
-                const id = input.dataset.id;
-                const currency = input.dataset.currency;
-                const refInput = this.dom.paymentFields.querySelector(`[data-ref-for="${id}"]`);
-                const reference = refInput ? refInput.value : '';
-
-                paymentDetails.push({
-                    method: id,
-                    amount: val,
-                    currency: currency,
-                    reference: reference
-                });
-            }
-        });
-
-        if (paymentDetails.length === 0) {
-            ui.showNotification('Por favor ingrese un monto de pago', 'warning');
-            return;
-        }
-
-        const saleData = {
-            items: this.cart,
-            total: total,
-            paymentDetails: paymentDetails,
-            date: new Date().toISOString(),
-            customer: this.selectedCustomer || { name: 'Cliente General' },
-            exchangeRate: this.exchangeRate
-        };
-
-        try {
-            const createdSale = await api.sales.create(saleData);
-            this.lastSale = createdSale;
-            this.cart = [];
-            this.selectedCustomer = null;
-            this.customerSelectionSkipped = false;
-            this.renderCart();
-            // this.hidePaymentModal(); // Keep modal open for receipt
-            this.showReceipt(createdSale);
-            ui.showNotification('Venta procesada correctamente');
-        } catch (error) {
-            console.error('Error processing sale:', error);
-            ui.showNotification('Error al procesar la venta: ' + error.message, 'error');
-        }
+        this.checkoutManager.confirmPayment();
     }
 
     showReceipt(saleData) {
-        this.lastSale = saleData;
-        if (this.dom.paymentModal) this.dom.paymentModal.classList.remove('hidden');
-        if (this.dom.paymentFormContent) this.dom.paymentFormContent.classList.add('hidden');
-        if (this.dom.receiptModalContent) this.dom.receiptModalContent.classList.remove('hidden');
-
-        if (this.dom.receiptContent) {
-            this.dom.receiptContent.innerHTML = this.generateReceiptHtml(saleData);
-        }
+        this.receiptManager.showReceipt(saleData);
     }
 
     generateReceiptHtml(saleData) {
-        // Premium Receipt Design
-        const styles = {
-            container: "font-family: 'Courier New', Courier, monospace; max-width: 380px; margin: 0 auto; background-color: #fff; color: #000000; padding: 20px; border: 1px solid #eee;",
-            header: "text-align: center; margin-bottom: 20px; border-bottom: 2px dashed #000; padding-bottom: 15px;",
-            title: "font-size: 24px; font-weight: bold; margin: 0 0 5px 0; text-transform: uppercase; color: #000000;",
-            subtitle: "font-size: 12px; color: #555; margin: 2px 0;",
-            info: "font-size: 12px; margin-bottom: 15px; color: #000000;",
-            row: "display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 12px; color: #000000;",
-            itemRow: "display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 12px; color: #000000;",
-            divider: "border-top: 1px dashed #000; margin: 10px 0;",
-            totalRow: "display: flex; justify-content: space-between; font-size: 16px; font-weight: bold; margin-top: 5px; color: #000000;",
-            footer: "text-align: center; margin-top: 20px; font-size: 10px; color: #555; border-top: 1px dashed #000; padding-top: 10px;"
-        };
-
-        const dateStr = saleData.date ? new Date(saleData.date).toLocaleString('es-VE') : new Date().toLocaleString('es-VE');
-        const saleIdShort = saleData.id ? saleData.id.slice(0, 8).toUpperCase() : 'N/A';
-
-        // Helper to get method name
-        const getMethodName = (id) => {
-            const method = this.paymentMethods.find(m => m.id === id);
-            return method ? method.name : (id === 'cash' ? 'Efectivo' : id);
-        };
-
-        return `
-            <div style="${styles.container}">
-                <div style="${styles.header}">
-                    <h1 style="${styles.title}">${this.businessInfo?.name || 'AMERICAN POS'}</h1>
-                    ${this.businessInfo?.address ? `<p style="${styles.subtitle}">${this.businessInfo.address}</p>` : ''}
-                    ${this.businessInfo?.phone ? `<p style="${styles.subtitle}">Tel: ${this.businessInfo.phone}</p>` : ''}
-                    ${this.businessInfo?.taxId ? `<p style="${styles.subtitle}">RIF: ${this.businessInfo.taxId}</p>` : ''}
-                </div>
-
-                <div style="${styles.info}">
-                    <div style="${styles.row}"><span>Fecha:</span> <span>${dateStr}</span></div>
-                    <div style="${styles.row}"><span>Orden #:</span> <span>${saleIdShort}</span></div>
-                    ${saleData.customer ? `
-                        <div style="${styles.divider}"></div>
-                        <div style="${styles.row}"><span>Cliente:</span> <span>${saleData.customer.name}</span></div>
-                        ${saleData.customer.idDocument ? `<div style="${styles.row}"><span>CI/RIF:</span> <span>${saleData.customer.idDocument}</span></div>` : ''}
-                    ` : ''}
-                </div>
-
-                <div style="${styles.divider}"></div>
-                <div style="margin-bottom: 10px;">
-                    <div style="${styles.row}; font-weight: bold; margin-bottom: 8px;">
-                        <span>CANT / DESCRIPCION</span>
-                        <span>TOTAL</span>
-                    </div>
-                    ${saleData.items.map(item => `
-                        <div style="${styles.itemRow}">
-                            <span style="flex: 1;">${item.quantity} x ${item.name}</span>
-                            <span>Bs ${(item.price * item.quantity * this.exchangeRate).toFixed(2)}</span>
-                        </div>
-                    `).join('')}
-                </div>
-
-                <div style="${styles.divider}"></div>
-                
-                <div style="${styles.totalRow}">
-                    <span>TOTAL PAGADO</span>
-                    <span>Bs ${(saleData.total * this.exchangeRate).toFixed(2)}</span>
-                </div>
-
-                <div style="${styles.divider}"></div>
-                
-                <div style="margin-bottom: 10px;">
-                    <p style="font-weight: bold; font-size: 11px; margin-bottom: 5px;">MÉTODOS DE PAGO:</p>
-                    ${saleData.paymentDetails.map(detail => `
-                        <div style="${styles.row}">
-                            <span>${getMethodName(detail.method)}</span>
-                            <span>Bs ${(detail.amount * (detail.currency === 'USD' ? this.exchangeRate : 1)).toFixed(2)}</span>
-                        </div>
-                    `).join('')}
-                </div>
-
-                <div style="${styles.footer}">
-                    <p>¡GRACIAS POR SU COMPRA!</p>
-                    <p>Por favor conserve este recibo</p>
-                    <p style="margin-top: 5px;">Powered by American POS</p>
-                </div>
-            </div>
-        `;
+        return this.receiptManager.generateReceiptHtml(saleData);
     }
 
     hideReceipt() {
-        this.hidePaymentModal();
-        // Reset modal state for next time
-        if (this.dom.paymentFormContent) this.dom.paymentFormContent.classList.remove('hidden');
-        if (this.dom.receiptModalContent) this.dom.receiptModalContent.classList.add('hidden');
+        this.receiptManager.hideReceipt();
     }
 
     async emailReceipt() {
-        if (!this.lastSale) return;
-
-        let email = this.lastSale.customer?.email;
-
-        if (!email) {
-            this.showEmailInputModal((enteredEmail) => {
-                if (enteredEmail) {
-                    this.sendEmailInBackground(enteredEmail);
-                }
-            });
-        } else {
-            this.sendEmailInBackground(email);
-        }
+        this.receiptManager.emailReceipt();
     }
 
     sendEmailInBackground(email) {
-        ui.showNotification('Enviando recibo en segundo plano...', 'info');
-        const html = this.generateReceiptHtml(this.lastSale);
-
-        // Fire and forget (but handle errors)
-        api.sales.emailReceipt(this.lastSale.id, email, html)
-            .then(() => {
-                ui.showNotification(`Recibo enviado a ${email}`, 'success');
-            })
-            .catch(error => {
-                console.error('Error sending email:', error);
-                ui.showNotification('Error al enviar correo: ' + error.message, 'error');
-            });
+        this.receiptManager.sendEmailInBackground(email);
     }
 
     showEmailInputModal(callback) {
-        const modal = document.getElementById('email-input-modal');
-        const input = document.getElementById('email-input-field');
-        const confirmBtn = document.getElementById('confirm-email-btn');
-        const cancelBtn = document.getElementById('cancel-email-btn');
-
-        if (!modal || !input || !confirmBtn || !cancelBtn) {
-            console.error('Email modal elements not found');
-            return;
-        }
-
-        input.value = '';
-        modal.classList.remove('hidden');
-        input.focus();
-
-        const close = () => {
-            modal.classList.add('hidden');
-            confirmBtn.onclick = null;
-            cancelBtn.onclick = null;
-            input.onkeydown = null;
-        };
-
-        const confirm = () => {
-            const email = input.value.trim();
-            if (email && email.includes('@')) {
-                close();
-                callback(email);
-            } else {
-                ui.showNotification('Por favor ingrese un correo válido', 'warning');
-                input.focus();
-            }
-        };
-
-        confirmBtn.onclick = confirm;
-        cancelBtn.onclick = close;
-
-        input.onkeydown = (e) => {
-            if (e.key === 'Enter') confirm();
-            if (e.key === 'Escape') close();
-        };
+        this.receiptManager.showEmailInputModal(callback);
     }
 
     printReceipt() {
-        // Create a hidden iframe for printing
-        const iframe = document.createElement('iframe');
-        iframe.style.position = 'absolute';
-        iframe.style.width = '0px';
-        iframe.style.height = '0px';
-        iframe.style.left = '-9999px';
-        iframe.style.top = '-9999px';
-        document.body.appendChild(iframe);
-
-        const doc = iframe.contentWindow.document;
-        // Get the receipt HTML
-        const receiptHtml = this.dom.receiptContent.innerHTML;
-
-        doc.open();
-        doc.write(`
-            <html>
-                <head>
-                    <title>Recibo de Venta</title>
-                    <style>
-                        body { margin: 0; padding: 0; background-color: white; }
-                        @media print {
-                            @page { margin: 0; size: auto; }
-                            body { -webkit-print-color-adjust: exact; }
-                        }
-                    </style>
-                </head>
-                <body>
-                    ${receiptHtml}
-                    <script>
-                        window.onload = function() {
-                            window.print();
-                            // Optional: Close/remove iframe after printing is initiated
-                            // We use a timeout in the parent to remove the iframe
-                        }
-                    </script>
-                </body>
-            </html>
-        `);
-        doc.close();
-
-        // Remove the iframe after a delay to ensure print dialog has opened
-        setTimeout(() => {
-            document.body.removeChild(iframe);
-        }, 2000);
+        this.receiptManager.printReceipt();
     }
 
     // Price Check Logic
@@ -2484,6 +1180,7 @@ export class POS {
     openPriceCheck() {
         if (this.dom.priceCheckModal) {
             this.dom.priceCheckModal.classList.remove('hidden');
+            this.dom.priceCheckModal.style.display = 'flex';
             this.resetPriceCheckUI();
             if (this.dom.priceCheckInput) this.dom.priceCheckInput.focus();
         }
@@ -2492,6 +1189,7 @@ export class POS {
     closePriceCheck() {
         if (this.dom.priceCheckModal) {
             this.dom.priceCheckModal.classList.add('hidden');
+            this.dom.priceCheckModal.style.display = 'none';
         }
     }
 
@@ -2789,16 +1487,11 @@ export class POS {
             const deltaX = endX - startX;
             const deltaY = endY - startY;
 
-            // Check if horizontal swipe is dominant
-            if (Math.abs(deltaX) > Math.abs(deltaY)) {
-                // Swipe Left (negative deltaX) to open
-                if (deltaX < -50) {
-                    const cartContainer = document.getElementById('cart-container');
-                    if (cartContainer && cartContainer.classList.contains('translate-x-full')) {
-                        this.toggleCartSidebar();
-                    }
-                }
-            }
+            // Legacy Swipe Handler - REMOVED to prevent mobile overlay issues
+            /*
+            document.addEventListener('touchstart', (e) => { ... });
+            document.addEventListener('touchend', (e) => { ... });
+            */
         });
     }
 }
@@ -2812,30 +1505,46 @@ window.toggleMobileMenu = function () {
 };
 
 window.toggleMobileCart = function () {
-    const cart = document.getElementById('mobile-cart-drawer');
+    const cart = document.getElementById('mobile-cart-sidebar');
     const overlay = document.getElementById('mobile-overlay');
-    // Fallback if ID mismatch
-    const realCart = document.getElementById('cart-sidebar') || cart;
 
-    if (realCart && overlay) {
-        realCart.classList.toggle('translate-x-full');
-        overlay.classList.toggle('hidden');
+    if (cart && overlay) {
+        const isClosed = cart.classList.contains('translate-x-full');
+        if (isClosed) {
+            // Open
+            cart.style.display = 'flex';
+            // Small delay to allow display:flex to apply before transition
+            requestAnimationFrame(() => {
+                cart.classList.remove('translate-x-full');
+                cart.style.transform = ''; // Clear inline transform
+                overlay.classList.remove('hidden');
+            });
+        } else {
+            // Close
+            cart.classList.add('translate-x-full');
+            overlay.classList.add('hidden');
+            // Wait for transition then hide
+            setTimeout(() => {
+                cart.style.display = 'none';
+            }, 300);
+        }
     }
 };
 
 window.closeMobileCart = function () {
-    const cart = document.getElementById('mobile-cart-drawer');
+    const cart = document.getElementById('mobile-cart-sidebar');
     const overlay = document.getElementById('mobile-overlay');
-    // Fallback
-    const realCart = document.getElementById('cart-sidebar') || cart;
 
-    if (realCart && overlay) {
-        realCart.classList.add('translate-x-full');
+    if (cart && overlay) {
+        cart.classList.add('translate-x-full');
         overlay.classList.add('hidden');
+        setTimeout(() => {
+            cart.style.display = 'none';
+        }, 300);
     }
 };
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
-    // Init is called in constructor
+    window.pos = new POS();
 });

@@ -5,6 +5,13 @@ export const formatCurrency = (amount) => {
     }).format(amount);
 };
 
+export const formatBs = (amount) => {
+    return new Intl.NumberFormat('es-VE', {
+        style: 'currency',
+        currency: 'VES'
+    }).format(amount);
+};
+
 export const formatDate = (dateInput) => {
     if (!dateInput) return '';
 

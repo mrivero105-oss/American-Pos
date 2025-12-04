@@ -1,5 +1,5 @@
 import { api } from './api.js';
-import { formatCurrency } from './utils.js';
+import { formatCurrency, formatBs } from './utils.js';
 import { ui } from './ui.js';
 
 export class Dashboard {
@@ -11,6 +11,7 @@ export class Dashboard {
         };
         this.currentRange = 'day'; // hour, day, week, month
         this.salesData = [];
+        this.currentExchangeRate = 1;
         this.init();
     }
 
@@ -28,6 +29,8 @@ export class Dashboard {
             trendCanvas: document.getElementById('sales-trend-chart'),
             topProductsCanvas: document.getElementById('top-products-chart'),
             paymentMethodsCanvas: document.getElementById('payment-methods-chart'),
+            categoryCanvas: document.getElementById('category-sales-chart'),
+            exportBtn: document.getElementById('export-report-btn'),
             filterBtns: document.querySelectorAll('.dashboard-filter-btn')
         };
     }
@@ -39,6 +42,10 @@ export class Dashboard {
                 this.setRange(range);
             });
         });
+
+        if (this.dom.exportBtn) {
+            this.dom.exportBtn.addEventListener('click', () => this.exportToExcel());
+        }
 
         // Listen for theme changes to update charts
         const observer = new MutationObserver((mutations) => {
@@ -68,8 +75,11 @@ export class Dashboard {
 
     async loadData() {
         try {
+            // Fetch business info for exchange rate
+            const businessInfo = await api.business.getInfo();
+            this.currentExchangeRate = businessInfo.exchangeRate || 1;
+
             // Fetch all sales for client-side processing
-            // In a real large-scale app, we would request aggregated data from backend
             const sales = await api.sales.getAll();
             this.salesData = sales;
 
@@ -100,6 +110,12 @@ export class Dashboard {
         `).join('');
     }
 
+    getSaleAmountBs(sale) {
+        // Use stored exchange rate if available, otherwise current
+        const rate = sale.exchangeRate || this.currentExchangeRate;
+        return sale.total * rate;
+    }
+
     processAndRender() {
         if (!this.salesData) return;
 
@@ -123,7 +139,7 @@ export class Dashboard {
                 filteredSales.forEach(s => {
                     const d = s.timestamp.toDate ? s.timestamp.toDate() : new Date(s.timestamp);
                     const hour = d.getHours();
-                    trendData[hour] += s.total;
+                    trendData[hour] += this.getSaleAmountBs(s);
                 });
                 break;
 
@@ -148,7 +164,7 @@ export class Dashboard {
                             const sd = s.timestamp.toDate ? s.timestamp.toDate() : new Date(s.timestamp);
                             return sd.toDateString() === d.toDateString();
                         })
-                        .reduce((sum, s) => sum + s.total, 0);
+                        .reduce((sum, s) => sum + this.getSaleAmountBs(s), 0);
                     trendData.push(dayTotal);
                 }
                 break;
@@ -167,7 +183,7 @@ export class Dashboard {
                 filteredSales.forEach(s => {
                     const d = s.timestamp.toDate ? s.timestamp.toDate() : new Date(s.timestamp);
                     const week = Math.floor((d.getDate() - 1) / 7);
-                    if (week < 5) trendData[week] += s.total;
+                    if (week < 5) trendData[week] += this.getSaleAmountBs(s);
                 });
                 break;
 
@@ -184,19 +200,19 @@ export class Dashboard {
 
                 filteredSales.forEach(s => {
                     const d = s.timestamp.toDate ? s.timestamp.toDate() : new Date(s.timestamp);
-                    trendData[d.getMonth()] += s.total;
+                    trendData[d.getMonth()] += this.getSaleAmountBs(s);
                 });
                 break;
         }
 
         // 2. Calculate Stats
-        const totalRevenue = filteredSales.reduce((sum, s) => sum + s.total, 0);
+        const totalRevenue = filteredSales.reduce((sum, s) => sum + this.getSaleAmountBs(s), 0);
         const totalSalesCount = filteredSales.length;
         const avgTicket = totalSalesCount > 0 ? totalRevenue / totalSalesCount : 0;
 
-        if (this.dom.totalRevenue) this.dom.totalRevenue.textContent = formatCurrency(totalRevenue);
+        if (this.dom.totalRevenue) this.dom.totalRevenue.textContent = formatBs(totalRevenue);
         if (this.dom.totalSales) this.dom.totalSales.textContent = totalSalesCount;
-        if (this.dom.avgTicket) this.dom.avgTicket.textContent = formatCurrency(avgTicket);
+        if (this.dom.avgTicket) this.dom.avgTicket.textContent = formatBs(avgTicket);
 
         // 3. Top Products
         const productMap = {};
@@ -215,8 +231,22 @@ export class Dashboard {
         filteredSales.forEach(s => {
             const method = s.paymentMethod || 'cash'; // Default to cash if missing
             if (!paymentMap[method]) paymentMap[method] = 0;
-            paymentMap[method] += s.total;
+            paymentMap[method] += this.getSaleAmountBs(s);
         });
+
+        // 5. Categories (Client-side aggregation for now)
+        const categoryMap = {};
+        filteredSales.forEach(s => {
+            const rate = s.exchangeRate || this.currentExchangeRate;
+            s.items.forEach(item => {
+                // We need to look up category from products list if not in item
+                // Assuming item has category or we default to 'Otros'
+                const cat = item.category || 'Otros';
+                if (!categoryMap[cat]) categoryMap[cat] = 0;
+                categoryMap[cat] += (item.price * item.quantity * rate);
+            });
+        });
+        const sortedCategories = Object.entries(categoryMap).sort((a, b) => b[1] - a[1]);
 
         // Map method IDs to readable names (simplified)
         const methodLabels = Object.keys(paymentMap).map(k => {
@@ -232,6 +262,86 @@ export class Dashboard {
         this.renderTrendChart(labels, trendData);
         this.renderTopProductsChart(sortedProducts.map(p => p[0]), sortedProducts.map(p => p[1]));
         this.renderPaymentMethodsChart(methodLabels, methodData);
+        this.renderCategoryChart(sortedCategories.map(c => c[0]), sortedCategories.map(c => c[1]));
+    }
+
+    renderCategoryChart(labels, data) {
+        if (!this.dom.categoryCanvas) return;
+        const ctx = this.dom.categoryCanvas.getContext('2d');
+        const colors = this.getThemeColors();
+
+        if (this.charts.category) this.charts.category.destroy();
+
+        this.charts.category = new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: data,
+                    backgroundColor: [
+                        '#ec4899', '#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444'
+                    ],
+                    borderWidth: 0,
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: {
+                            color: colors.textColor,
+                            usePointStyle: true,
+                            padding: 20
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: colors.tooltipBg,
+                        titleColor: colors.tooltipText,
+                        bodyColor: colors.tooltipText,
+                        padding: 10,
+                        cornerRadius: 8,
+                        callbacks: {
+                            label: (context) => {
+                                const value = context.raw;
+                                const total = context.chart._metasets[context.datasetIndex].total;
+                                const percentage = ((value / total) * 100).toFixed(1) + '%';
+                                return `${context.label}: ${formatBs(value)} (${percentage})`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    exportToExcel() {
+        if (!this.salesData || this.salesData.length === 0) {
+            ui.showNotification('No hay datos para exportar', 'warning');
+            return;
+        }
+
+        // Prepare data for Excel
+        const data = this.salesData.map(s => ({
+            ID: s.id,
+            Fecha: new Date(s.timestamp).toLocaleString(),
+            Cliente: s.customer ? s.customer.name : 'Casual',
+            Documento: s.customer ? s.customer.idDocument : '',
+            TotalBs: this.getSaleAmountBs(s),
+            TotalUSD: s.total,
+            Tasa: s.exchangeRate || this.currentExchangeRate,
+            MetodoPago: s.paymentMethod,
+            Items: s.items.map(i => `${i.quantity}x ${i.name}`).join(', ')
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Ventas");
+
+        XLSX.writeFile(wb, `Reporte_Ventas_${new Date().toISOString().split('T')[0]}.xlsx`);
+        ui.showNotification('Reporte exportado exitosamente');
     }
 
     getThemeColors() {
@@ -248,7 +358,7 @@ export class Dashboard {
     updateChartsTheme() {
         const colors = this.getThemeColors();
 
-        [this.charts.trend, this.charts.topProducts, this.charts.paymentMethods].forEach(chart => {
+        [this.charts.trend, this.charts.topProducts, this.charts.paymentMethods, this.charts.category].forEach(chart => {
             if (chart) {
                 if (chart.options.scales && chart.options.scales.x) {
                     chart.options.scales.x.ticks.color = colors.textColor;
@@ -283,7 +393,7 @@ export class Dashboard {
             data: {
                 labels: labels,
                 datasets: [{
-                    label: 'Ventas',
+                    label: 'Ventas (Bs)',
                     data: data,
                     borderColor: '#3b82f6',
                     backgroundColor: (context) => {
@@ -316,7 +426,7 @@ export class Dashboard {
                         cornerRadius: 8,
                         displayColors: false,
                         callbacks: {
-                            label: (context) => formatCurrency(context.raw)
+                            label: (context) => formatBs(context.raw)
                         }
                     }
                 },
@@ -324,7 +434,7 @@ export class Dashboard {
                     y: {
                         beginAtZero: true,
                         grid: { color: colors.gridColor, borderDash: [5, 5] },
-                        ticks: { color: colors.textColor, callback: (value) => '$' + value }
+                        ticks: { color: colors.textColor, callback: (value) => 'Bs ' + value }
                     },
                     x: {
                         grid: { display: false },
@@ -428,12 +538,45 @@ export class Dashboard {
                                 const value = context.raw;
                                 const total = context.chart._metasets[context.datasetIndex].total;
                                 const percentage = ((value / total) * 100).toFixed(1) + '%';
-                                return `${context.label}: ${formatCurrency(value)} (${percentage})`;
+                                return context.label + ': ' + formatBs(value) + ' (' + percentage + ')';
                             }
                         }
                     }
+                }
+            }
+        });
+    }
+
+    getThemeColors() {
+        const isDark = document.documentElement.classList.contains('dark');
+        return {
+            textColor: isDark ? '#e2e8f0' : '#1e293b',
+            gridColor: isDark ? '#334155' : '#e2e8f0',
+            tooltipBg: isDark ? '#1e293b' : '#ffffff',
+            tooltipText: isDark ? '#f8fafc' : '#1e293b'
+        };
+    }
+}
+
+// Initialize Dashboard if on dashboard page
+document.addEventListener('DOMContentLoaded', () => {
+    if (document.getElementById('dashboard-view')) {
+        window.dashboard = new Dashboard();
+    }
+});
+tooltip: {
+    callbacks: {
+        label: function(context) {
+            const value = context.raw;
+            const total = context.chart._metasets[context.datasetIndex].total;
+            const percentage = ((value / total) * 100).toFixed(1) + '%';
+            return `${context.label}: ${formatBs(value)} (${percentage})`;
+        }
+    }
+}
+                    }
                 },
-                cutout: '70%'
+cutout: '70%'
             }
         });
     }

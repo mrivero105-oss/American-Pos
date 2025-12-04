@@ -327,11 +327,13 @@ export const Products = {
         }
 
         this.dom.modal.classList.remove('hidden');
+        this.dom.modal.style.display = 'flex';
     },
 
     closeModal() {
         this.stopScanner(); // Ensure scanner stops when closing modal
         this.dom.modal.classList.add('hidden');
+        this.dom.modal.style.display = 'none';
     },
 
     async handleFormSubmit(e) {
@@ -426,11 +428,17 @@ export const Products = {
         if (this.dom.bulkPreviewTable) this.dom.bulkPreviewTable.innerHTML = '';
         if (this.dom.bulkSummary) this.dom.bulkSummary.innerHTML = '';
         if (this.dom.bulkErrors) this.dom.bulkErrors.innerHTML = '';
-        this.dom.bulkModal?.classList.remove('hidden');
+        if (this.dom.bulkModal) {
+            this.dom.bulkModal.classList.remove('hidden');
+            this.dom.bulkModal.style.display = 'flex';
+        }
     },
 
     closeBulkUploadModal() {
-        this.dom.bulkModal?.classList.add('hidden');
+        if (this.dom.bulkModal) {
+            this.dom.bulkModal.classList.add('hidden');
+            this.dom.bulkModal.style.display = 'none';
+        }
         this.bulkData = [];
     },
 

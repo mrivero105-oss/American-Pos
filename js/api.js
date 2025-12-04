@@ -246,5 +246,56 @@ export const api = {
             if (!res.ok) throw new Error('Error al restaurar copia de seguridad');
             return res.json();
         }
+    },
+    cash: {
+        getCurrentShift: async () => {
+            const res = await fetch(`${API_BASE_URL}/cash/current`, {
+                headers: await getAuthHeaders()
+            });
+            handleAuthError(res);
+            // 404 or null means no open shift, but our backend returns null with 200 if no shift
+            if (!res.ok) throw new Error('Error al obtener turno actual');
+            return res.json();
+        },
+        openShift: async (amount, userId) => {
+            const res = await fetch(`${API_BASE_URL}/cash/open`, {
+                method: 'POST',
+                headers: await getAuthHeaders(),
+                body: JSON.stringify({ amount, userId })
+            });
+            handleAuthError(res);
+            if (!res.ok) throw new Error('Error al abrir caja');
+            return res.json();
+        },
+        closeShift: async (actualCash) => {
+            const res = await fetch(`${API_BASE_URL}/cash/close`, {
+                method: 'POST',
+                headers: await getAuthHeaders(),
+                body: JSON.stringify({ actualCash })
+            });
+            handleAuthError(res);
+            if (!res.ok) throw new Error('Error al cerrar caja');
+            return res.json();
+        },
+        addMovement: async (type, amount, reason) => {
+            const res = await fetch(`${API_BASE_URL}/cash/movement`, {
+                method: 'POST',
+                headers: await getAuthHeaders(),
+                body: JSON.stringify({ type, amount, reason })
+            });
+            handleAuthError(res);
+            if (!res.ok) throw new Error('Error al registrar movimiento');
+            return res.json();
+        },
+        getDailyReport: async (date) => {
+            let url = `${API_BASE_URL}/reports/daily`;
+            if (date) url += `?date=${date}`;
+            const res = await fetch(url, {
+                headers: await getAuthHeaders()
+            });
+            handleAuthError(res);
+            if (!res.ok) throw new Error('Error al obtener reporte diario');
+            return res.json();
+        }
     }
 };

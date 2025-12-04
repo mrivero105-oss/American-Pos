@@ -34,8 +34,10 @@ export const ui = {
         if (modal) {
             if (show) {
                 modal.classList.remove('hidden');
+                modal.style.display = 'flex';
             } else {
                 modal.classList.add('hidden');
+                modal.style.display = 'none';
             }
         }
     }
