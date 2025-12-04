@@ -127,7 +127,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
     <!-- Main Script -->
-    <script type="module" src="js/pos.v4.js?v=247"></script>
+    <script type="module" src="js/pos.v4.js?v=248"></script>
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -1326,7 +1326,7 @@
             }
         </script>
         <!-- CUSTOMER FORM MODAL -->
-        <div id="customer-form-modal"
+        <div id="customer-form-modal" style="display: none;"
             class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center backdrop-blur-sm p-4">
             <div
                 class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all">
@@ -1386,7 +1386,7 @@
         </div>
 
         <!-- POS SCANNER MODAL -->
-        <div id="pos-scanner-modal"
+        <div id="pos-scanner-modal" style="display: none;"
             class="fixed inset-0 bg-black bg-opacity-90 hidden z-50 flex items-center justify-center backdrop-blur-sm p-4">
             <div
                 class="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all relative">
@@ -1626,7 +1626,7 @@
             </div>
         </div>
         <!-- INPUT MODAL -->
-        <div id="input-modal"
+        <div id="input-modal" style="display: none;"
             class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center backdrop-blur-sm p-4">
             <div
                 class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all">
@@ -1653,7 +1653,7 @@
         <!-- CONFIRMATION MODAL -->
 
         <!-- SALE DETAILS MODAL -->
-        <div id="sale-details-modal"
+        <div id="sale-details-modal" style="display: none;"
             class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center backdrop-blur-sm p-4">
             <div
                 class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all">
@@ -1726,7 +1726,7 @@
             </div>
         </div>
         <!-- Main App Logic -->
-        <script type="module" src="js/app.js?v=247"></script>
+        <script type="module" src="js/app.js?v=248"></script>
 
         <!-- CUSTOMER SELECTION MODAL -->
         <div id="customer-selection-modal" style="display: none;"
@@ -1908,7 +1908,7 @@
         </div>
 
         <!-- Cash Movement Modal -->
-        <div id="cash-movement-modal"
+        <div id="cash-movement-modal" style="display: none;"
             class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center backdrop-blur-sm p-4">
             <div
                 class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all">
@@ -1954,42 +1954,10 @@
                 </div>
             </div>
         </div>
-        <div id="confirmation-modal"
-            class="fixed inset-0 bg-black bg-opacity-50 hidden z-[60] flex items-center justify-center backdrop-blur-sm p-4">
-            <div
-                class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all">
-                <div class="p-6 text-center">
-                    <div
-                        class="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 text-red-500 dark:text-red-400 flex items-center justify-center mx-auto mb-4">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z">
-                            </path>
-                        </svg>
-                    </div>
-                    <h3 id="confirm-modal-title" class="text-lg font-bold text-slate-900 dark:text-white mb-2">¿Vaciar
-                        Carrito?</h3>
-                    <p id="confirm-modal-message" class="text-sm text-slate-600 dark:text-slate-300 mb-6">¿Estás seguro
-                        de que deseas eliminar
-                        todos los productos del
-                        carrito? Esta acción no se puede deshacer.</p>
-                    <div class="flex gap-3 justify-center">
-                        <button id="cancel-confirm-btn"
-                            class="px-4 py-2 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors font-medium">
-                            Cancelar
-                        </button>
-                        <button id="confirm-action-btn"
-                            class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors shadow-lg font-medium">
-                            Confirmar
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-        </div>
+
 
         <!-- EMAIL INPUT MODAL -->
-        <div id="email-input-modal"
+        <div id="email-input-modal" style="display: none;"
             class="fixed inset-0 bg-black bg-opacity-50 hidden z-[70] flex items-center justify-center backdrop-blur-sm p-4">
             <div
                 class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all">

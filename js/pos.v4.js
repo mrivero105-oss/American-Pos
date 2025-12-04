@@ -281,7 +281,10 @@ export class POS {
                 this.dom.mobileMenuBtn.addEventListener('click', () => {
                     if (this.dom.sidebar) {
                         this.dom.sidebar.classList.remove('-translate-x-full');
-                        if (this.dom.mobileOverlay) this.dom.mobileOverlay.classList.remove('hidden');
+                        if (this.dom.mobileOverlay) {
+                            this.dom.mobileOverlay.classList.remove('hidden');
+                            this.dom.mobileOverlay.style.display = 'block';
+                        }
                     }
                 });
             }
@@ -290,9 +293,16 @@ export class POS {
             if (this.dom.mobileCartBtn) {
                 this.dom.mobileCartBtn.addEventListener('click', () => {
                     if (this.dom.mobileCartSidebar) {
-                        this.dom.mobileCartSidebar.style.transform = ''; // Clear inline style to allow class to work
-                        this.dom.mobileCartSidebar.classList.remove('translate-x-full');
-                        if (this.dom.mobileOverlay) this.dom.mobileOverlay.classList.remove('hidden');
+                        this.dom.mobileCartSidebar.style.display = 'flex';
+                        // Small delay to ensure display:flex applies before transform
+                        requestAnimationFrame(() => {
+                            this.dom.mobileCartSidebar.style.transform = ''; // Clear inline style to allow class to work
+                            this.dom.mobileCartSidebar.classList.remove('translate-x-full');
+                            if (this.dom.mobileOverlay) {
+                                this.dom.mobileOverlay.classList.remove('hidden');
+                                this.dom.mobileOverlay.style.display = 'block';
+                            }
+                        });
                     }
                 });
             }
