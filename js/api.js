@@ -17,33 +17,42 @@ function handleAuthError(response) {
         throw new Error('Unauthorized');
     }
 }
+// Helper for fetch with timeout
+async function fetchWithTimeout(url, options = {}) {
+    const { timeout = 10000, ...fetchOptions } = options;
+
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeout);
+
+    try {
+        const response = await fetch(url, {
+            ...fetchOptions,
+            signal: controller.signal
+        });
+        clearTimeout(id);
+        return response;
+    } catch (error) {
+        clearTimeout(id);
+        if (error.name === 'AbortError') {
+            throw new Error(`Request timed out after ${timeout}ms`);
+        }
+        throw error;
+    }
+}
+
 export const api = {
     products: {
         getAll: async () => {
             const url = `${API_BASE_URL}/products`;
-            // console.log(`DEBUG: Fetching products from ${url}`);
-
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
-
-            try {
-                const response = await fetch(url, {
-                    headers: await getAuthHeaders(),
-                    signal: controller.signal
-                });
-                clearTimeout(timeoutId);
-                handleAuthError(response);
-                if (!response.ok) throw new Error(`Error fetching products: ${response.status} ${response.statusText}`);
-                return response.json();
-            } catch (error) {
-                if (error.name === 'AbortError') {
-                    throw new Error('Request timed out after 10s');
-                }
-                throw error;
-            }
+            const response = await fetchWithTimeout(url, {
+                headers: await getAuthHeaders()
+            });
+            handleAuthError(response);
+            if (!response.ok) throw new Error(`Error fetching products: ${response.status} ${response.statusText}`);
+            return response.json();
         },
         create: async (product) => {
-            const response = await fetch(`${API_BASE_URL}/products`, {
+            const response = await fetchWithTimeout(`${API_BASE_URL}/products`, {
                 method: 'POST',
                 headers: await getAuthHeaders(),
                 body: JSON.stringify(product)
@@ -53,7 +62,7 @@ export const api = {
             return response.json();
         },
         update: async (id, product) => {
-            const response = await fetch(`${API_BASE_URL}/products/${id}`, {
+            const response = await fetchWithTimeout(`${API_BASE_URL}/products/${id}`, {
                 method: 'PUT',
                 headers: await getAuthHeaders(),
                 body: JSON.stringify(product)
@@ -63,7 +72,7 @@ export const api = {
             return response.json();
         },
         delete: async (id) => {
-            const response = await fetch(`${API_BASE_URL}/products/${id}`, {
+            const response = await fetchWithTimeout(`${API_BASE_URL}/products/${id}`, {
                 method: 'DELETE',
                 headers: await getAuthHeaders()
             });
@@ -74,7 +83,7 @@ export const api = {
     },
     sales: {
         create: async (saleData) => {
-            const response = await fetch(`${API_BASE_URL}/sales`, {
+            const response = await fetchWithTimeout(`${API_BASE_URL}/sales`, {
                 method: 'POST',
                 headers: await getAuthHeaders(),
                 body: JSON.stringify(saleData)
@@ -86,7 +95,7 @@ export const api = {
         getAll: async (date = null) => {
             let url = `${API_BASE_URL}/sales`;
             if (date) url += `?date=${date}`;
-            const response = await fetch(url, {
+            const response = await fetchWithTimeout(url, {
                 headers: await getAuthHeaders()
             });
             handleAuthError(response);
@@ -94,7 +103,7 @@ export const api = {
             return response.json();
         },
         emailReceipt: async (saleId, email, receiptHtml) => {
-            const response = await fetch(`${API_BASE_URL}/sales/${saleId}/email`, {
+            const response = await fetchWithTimeout(`${API_BASE_URL}/sales/${saleId}/email`, {
                 method: 'POST',
                 headers: await getAuthHeaders(),
                 body: JSON.stringify({ email, receiptHtml })
@@ -108,7 +117,7 @@ export const api = {
         getSummary: async (date = null) => {
             let url = `${API_BASE_URL}/dashboard-summary`;
             if (date) url += `?date=${date}`;
-            const response = await fetch(url, {
+            const response = await fetchWithTimeout(url, {
                 headers: await getAuthHeaders()
             });
             handleAuthError(response);
@@ -118,7 +127,7 @@ export const api = {
     },
     settings: {
         getRate: async () => {
-            const response = await fetch(`${API_BASE_URL}/settings/rate`, {
+            const response = await fetchWithTimeout(`${API_BASE_URL}/settings/rate`, {
                 headers: await getAuthHeaders()
             });
             handleAuthError(response);
@@ -126,7 +135,7 @@ export const api = {
             return response.json();
         },
         updateRate: async (rate) => {
-            const response = await fetch(`${API_BASE_URL}/settings/rate`, {
+            const response = await fetchWithTimeout(`${API_BASE_URL}/settings/rate`, {
                 method: 'POST',
                 headers: await getAuthHeaders(),
                 body: JSON.stringify({ rate })
@@ -137,14 +146,14 @@ export const api = {
         },
         getBusinessInfo: async () => {
             const headers = await getAuthHeaders();
-            const response = await fetch(`${API_BASE_URL}/settings/business`, { headers });
+            const response = await fetchWithTimeout(`${API_BASE_URL}/settings/business`, { headers });
             handleAuthError(response);
             if (!response.ok) throw new Error('Failed to fetch business info');
             return response.json();
         },
         updateBusinessInfo: async (info) => {
             const headers = await getAuthHeaders();
-            const response = await fetch(`${API_BASE_URL}/settings/business`, {
+            const response = await fetchWithTimeout(`${API_BASE_URL}/settings/business`, {
                 method: 'POST',
                 headers,
                 body: JSON.stringify(info)
@@ -154,7 +163,7 @@ export const api = {
             return response.json();
         },
         getPaymentMethods: async () => {
-            const res = await fetch(`${API_BASE_URL}/settings/payment-methods`, {
+            const res = await fetchWithTimeout(`${API_BASE_URL}/settings/payment-methods`, {
                 headers: await getAuthHeaders()
             });
             handleAuthError(res);
@@ -162,7 +171,7 @@ export const api = {
             return res.json();
         },
         updatePaymentMethods: async (paymentMethods) => {
-            const res = await fetch(`${API_BASE_URL}/settings/payment-methods`, {
+            const res = await fetchWithTimeout(`${API_BASE_URL}/settings/payment-methods`, {
                 method: 'POST',
                 headers: await getAuthHeaders(),
                 body: JSON.stringify({ paymentMethods })
@@ -174,7 +183,7 @@ export const api = {
     },
     customers: {
         getAll: async () => {
-            const res = await fetch(`${API_BASE_URL}/customers`, {
+            const res = await fetchWithTimeout(`${API_BASE_URL}/customers`, {
                 headers: await getAuthHeaders()
             });
             handleAuthError(res);
@@ -182,7 +191,7 @@ export const api = {
             return res.json();
         },
         getById: async (id) => {
-            const res = await fetch(`${API_BASE_URL}/customers/${id}`, {
+            const res = await fetchWithTimeout(`${API_BASE_URL}/customers/${id}`, {
                 headers: await getAuthHeaders()
             });
             handleAuthError(res);
@@ -190,7 +199,7 @@ export const api = {
             return res.json();
         },
         create: async (customerData) => {
-            const res = await fetch(`${API_BASE_URL}/customers`, {
+            const res = await fetchWithTimeout(`${API_BASE_URL}/customers`, {
                 method: 'POST',
                 headers: await getAuthHeaders(),
                 body: JSON.stringify(customerData)
@@ -200,7 +209,7 @@ export const api = {
             return res.json();
         },
         update: async (id, customerData) => {
-            const res = await fetch(`${API_BASE_URL}/customers/${id}`, {
+            const res = await fetchWithTimeout(`${API_BASE_URL}/customers/${id}`, {
                 method: 'PUT',
                 headers: await getAuthHeaders(),
                 body: JSON.stringify(customerData)
@@ -210,7 +219,7 @@ export const api = {
             return res.json();
         },
         delete: async (id) => {
-            const res = await fetch(`${API_BASE_URL}/customers/${id}`, {
+            const res = await fetchWithTimeout(`${API_BASE_URL}/customers/${id}`, {
                 method: 'DELETE',
                 headers: await getAuthHeaders()
             });
@@ -219,7 +228,7 @@ export const api = {
             return res.json();
         },
         getSales: async (id) => {
-            const res = await fetch(`${API_BASE_URL}/customers/${id}/sales`, {
+            const res = await fetchWithTimeout(`${API_BASE_URL}/customers/${id}/sales`, {
                 headers: await getAuthHeaders()
             });
             handleAuthError(res);
@@ -229,7 +238,7 @@ export const api = {
     },
     backup: {
         create: async () => {
-            const res = await fetch(`${API_BASE_URL}/backup`, {
+            const res = await fetchWithTimeout(`${API_BASE_URL}/backup`, {
                 headers: await getAuthHeaders()
             });
             handleAuthError(res);
@@ -237,7 +246,7 @@ export const api = {
             return res.json();
         },
         restore: async (backupData) => {
-            const res = await fetch(`${API_BASE_URL}/restore`, {
+            const res = await fetchWithTimeout(`${API_BASE_URL}/restore`, {
                 method: 'POST',
                 headers: await getAuthHeaders(),
                 body: JSON.stringify(backupData)
@@ -249,7 +258,7 @@ export const api = {
     },
     cash: {
         getCurrentShift: async () => {
-            const res = await fetch(`${API_BASE_URL}/cash/current`, {
+            const res = await fetchWithTimeout(`${API_BASE_URL}/cash/current`, {
                 headers: await getAuthHeaders()
             });
             handleAuthError(res);
@@ -258,7 +267,7 @@ export const api = {
             return res.json();
         },
         openShift: async (amount, userId) => {
-            const res = await fetch(`${API_BASE_URL}/cash/open`, {
+            const res = await fetchWithTimeout(`${API_BASE_URL}/cash/open`, {
                 method: 'POST',
                 headers: await getAuthHeaders(),
                 body: JSON.stringify({ amount, userId })
@@ -268,7 +277,7 @@ export const api = {
             return res.json();
         },
         closeShift: async (actualCash) => {
-            const res = await fetch(`${API_BASE_URL}/cash/close`, {
+            const res = await fetchWithTimeout(`${API_BASE_URL}/cash/close`, {
                 method: 'POST',
                 headers: await getAuthHeaders(),
                 body: JSON.stringify({ actualCash })
@@ -278,7 +287,7 @@ export const api = {
             return res.json();
         },
         addMovement: async (type, amount, reason) => {
-            const res = await fetch(`${API_BASE_URL}/cash/movement`, {
+            const res = await fetchWithTimeout(`${API_BASE_URL}/cash/movement`, {
                 method: 'POST',
                 headers: await getAuthHeaders(),
                 body: JSON.stringify({ type, amount, reason })
@@ -290,7 +299,7 @@ export const api = {
         getDailyReport: async (date) => {
             let url = `${API_BASE_URL}/reports/daily`;
             if (date) url += `?date=${date}`;
-            const res = await fetch(url, {
+            const res = await fetchWithTimeout(url, {
                 headers: await getAuthHeaders()
             });
             handleAuthError(res);
