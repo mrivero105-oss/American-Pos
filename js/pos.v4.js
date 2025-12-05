@@ -313,7 +313,10 @@ export class POS {
                         this.dom.mobileCartSidebar.classList.add('translate-x-full');
                         // Optional: restore inline style after transition, but class should suffice if it works.
                         // For safety, we can leave it cleared as the class takes over.
-                        if (this.dom.mobileOverlay) this.dom.mobileOverlay.classList.add('hidden');
+                        if (this.dom.mobileOverlay) {
+                            this.dom.mobileOverlay.classList.add('hidden');
+                            this.dom.mobileOverlay.style.display = 'none';
+                        }
                     }
                 });
             }
@@ -329,6 +332,7 @@ export class POS {
                     this.closeHeldSalesDrawer();
 
                     this.dom.mobileOverlay.classList.add('hidden');
+                    this.dom.mobileOverlay.style.display = 'none';
                 });
             }
 
@@ -1518,11 +1522,13 @@ window.toggleMobileCart = function () {
                 cart.classList.remove('translate-x-full');
                 cart.style.transform = ''; // Clear inline transform
                 overlay.classList.remove('hidden');
+                overlay.style.display = 'block';
             });
         } else {
             // Close
             cart.classList.add('translate-x-full');
             overlay.classList.add('hidden');
+            overlay.style.display = 'none';
             // Wait for transition then hide
             setTimeout(() => {
                 cart.style.display = 'none';
@@ -1538,6 +1544,7 @@ window.closeMobileCart = function () {
     if (cart && overlay) {
         cart.classList.add('translate-x-full');
         overlay.classList.add('hidden');
+        overlay.style.display = 'none';
         setTimeout(() => {
             cart.style.display = 'none';
         }, 300);

@@ -121,7 +121,10 @@ export class SalesManager {
             requestAnimationFrame(() => {
                 this.pos.dom.heldSalesDrawer.classList.remove('translate-x-full');
                 this.pos.dom.heldSalesDrawer.style.transform = '';
-                if (this.pos.dom.mobileOverlay) this.pos.dom.mobileOverlay.classList.remove('hidden');
+                if (this.pos.dom.mobileOverlay) {
+                    this.pos.dom.mobileOverlay.classList.remove('hidden');
+                    this.pos.dom.mobileOverlay.style.display = 'block';
+                }
             });
         }
     }
@@ -130,7 +133,10 @@ export class SalesManager {
     closeHeldSalesDrawer() {
         if (this.pos.dom.heldSalesDrawer) {
             this.pos.dom.heldSalesDrawer.classList.add('translate-x-full');
-            if (this.pos.dom.mobileOverlay) this.pos.dom.mobileOverlay.classList.add('hidden');
+            if (this.pos.dom.mobileOverlay) {
+                this.pos.dom.mobileOverlay.classList.add('hidden');
+                this.pos.dom.mobileOverlay.style.display = 'none';
+            }
             setTimeout(() => {
                 this.pos.dom.heldSalesDrawer.style.display = 'none';
             }, 300);
