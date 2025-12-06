@@ -95,10 +95,10 @@ export class POS {
                 this.dom.heldSalesDrawer.style.display = 'none';
                 this.dom.heldSalesDrawer.classList.add('translate-x-full');
             }
-            // Ensure desktop cart is hidden on mobile
-            const cartContainer = document.getElementById('cart-container');
+            // Ensure desktop cart is removed on mobile
+            const cartContainer = document.getElementById('desktop-cart-container');
             if (cartContainer && window.innerWidth < 768) {
-                cartContainer.style.display = 'none';
+                cartContainer.remove();
             }
 
             // Initial Focus
@@ -1402,7 +1402,7 @@ export class POS {
     }
 
     toggleCartSidebar() {
-        const cartContainer = document.getElementById('cart-container');
+        const cartContainer = document.getElementById('desktop-cart-container');
 
         if (!cartContainer) return;
 
@@ -1425,11 +1425,14 @@ export class POS {
     }
 
     syncMainContentMargin() {
-        const cartContainer = document.getElementById('cart-container');
+        const cartContainer = document.getElementById('desktop-cart-container');
         const mainContent = document.getElementById('pos-content-wrapper');
 
-        if (!cartContainer || !mainContent) {
-            console.warn('POS: syncMainContentMargin - Elements not found', { cartContainer, mainContent });
+        if (!mainContent) return;
+
+        // If cart container doesn't exist (e.g. removed on mobile), margin should be 0
+        if (!cartContainer) {
+            mainContent.style.setProperty('margin-right', '0px', 'important');
             return;
         }
 
@@ -1451,7 +1454,7 @@ export class POS {
     }
 
     updateCartToggleState() {
-        const cartContainer = document.getElementById('cart-container');
+        const cartContainer = document.getElementById('desktop-cart-container');
         const icon = this.dom.cartToggleIcon;
 
         if (!cartContainer || !icon) return;
