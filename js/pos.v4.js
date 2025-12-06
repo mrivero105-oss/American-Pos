@@ -1412,11 +1412,11 @@ export class POS {
         const isOpen = !cartContainer.classList.contains('translate-x-full') || cartContainer.classList.contains('md:translate-x-0');
         console.log('POS: syncMainContentMargin', { isOpen, innerWidth: window.innerWidth });
 
-        if (!isOpen) {
-            // Cart is closed, remove margin
+        if (!isOpen || window.innerWidth < 768) {
+            // Cart is closed OR mobile, remove margin
             mainContent.style.setProperty('margin-right', '0px', 'important');
         } else {
-            // Cart is open, add margin based on screen size
+            // Cart is open AND desktop, add margin based on screen size
             if (window.innerWidth >= 1024) {
                 mainContent.style.setProperty('margin-right', '24rem', 'important'); // 384px
             } else {
