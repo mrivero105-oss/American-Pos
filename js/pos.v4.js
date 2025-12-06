@@ -81,6 +81,15 @@ export class POS {
                 this.dom.mobileCartSidebar.style.display = 'none';
                 this.dom.mobileCartSidebar.classList.add('translate-x-full');
             }
+            // Force hide left sidebar on mobile init
+            if (this.dom.sidebar && window.innerWidth < 768) {
+                this.dom.sidebar.classList.add('-translate-x-full');
+                // Ensure overlay is hidden if it was somehow triggered
+                if (this.dom.mobileOverlay) {
+                    this.dom.mobileOverlay.style.display = 'none';
+                    this.dom.mobileOverlay.classList.add('hidden');
+                }
+            }
             if (this.dom.heldSalesDrawer) {
                 this.dom.heldSalesDrawer.style.display = 'none';
                 this.dom.heldSalesDrawer.classList.add('translate-x-full');
