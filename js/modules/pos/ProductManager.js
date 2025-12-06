@@ -80,11 +80,11 @@ export class ProductManager {
             }
 
             return `
-                <div class="product-card bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 group cursor-pointer relative" data-id="${product.id}">
+                <div class="product-card group cursor-pointer relative" data-id="${product.id}">
                     
                     <!-- Image Container with Floating Actions -->
-                    <div class="aspect-square overflow-hidden bg-gray-50 dark:bg-slate-700 relative">
-                        <img src="${imageUri}" alt="${product.name}" loading="lazy" class="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform duration-500">
+                    <div class="aspect-square overflow-hidden bg-transparent relative rounded-xl">
+                        <img src="${imageUri}" alt="${product.name}" loading="lazy" class="w-full h-full object-contain p-1 group-hover:scale-105 transition-transform duration-500">
                         
                         ${availabilityBadge}
 
@@ -104,7 +104,7 @@ export class ProductManager {
                     </div>
 
                     <!-- Minimal Content Area -->
-                    <div class="p-2 flex flex-col gap-0.5">
+                    <div class="p-1 flex flex-col gap-0.5">
                         <h3 class="font-bold text-slate-800 dark:text-slate-100 text-[11px] leading-tight line-clamp-2 h-7" title="${product.name}">${product.name}</h3>
                         <div class="flex items-baseline gap-1">
                             <span class="text-sm font-extrabold text-indigo-600 dark:text-indigo-400">${formatBs(product.price * this.pos.exchangeRate)}</span>
