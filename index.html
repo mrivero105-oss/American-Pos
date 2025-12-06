@@ -13,6 +13,30 @@
     <!-- Tailwind CSS -->
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com?v=1"></script>
+    <style>
+        /* CRITICAL: Force fix for mobile right-side obstruction */
+        @media (max-width: 768px) {
+            #desktop-cart-container {
+                display: none !important;
+            }
+
+            body,
+            html {
+                overflow-x: hidden !important;
+                width: 100% !important;
+            }
+
+            #pos-content-wrapper {
+                margin-right: 0 !important;
+            }
+
+            /* Ensure drawers start hidden */
+            #held-sales-drawer:not([style*="display: flex"]),
+            #held-sales-drawer:not([style*="display: block"]) {
+                display: none !important;
+            }
+        }
+    </style>
     <script>
         console.log('Configuring Tailwind...');
         tailwind.config = {
@@ -127,7 +151,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
     <!-- Main Script -->
-    <script type="module" src="js/pos.v4.js?v=257"></script>
+    <script type="module" src="js/pos.v4.js?v=258"></script>
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -1726,7 +1750,7 @@
             </div>
         </div>
         <!-- Main App Logic -->
-        <script type="module" src="js/app.js?v=257"></script>
+        <script type="module" src="js/app.js?v=258"></script>
 
         <!-- CUSTOMER SELECTION MODAL -->
         <div id="customer-selection-modal" style="display: none;"
