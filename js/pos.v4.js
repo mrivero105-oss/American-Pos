@@ -84,6 +84,7 @@ export class POS {
             // Force hide left sidebar on mobile init
             if (this.dom.sidebar && window.innerWidth < 768) {
                 this.dom.sidebar.classList.add('-translate-x-full');
+                this.dom.sidebar.style.display = 'none';
                 // Ensure overlay is hidden if it was somehow triggered
                 if (this.dom.mobileOverlay) {
                     this.dom.mobileOverlay.style.display = 'none';

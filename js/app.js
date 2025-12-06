@@ -117,15 +117,37 @@ class App {
         const overlay = document.getElementById('mobile-overlay');
 
         if (show) {
-            sidebar.classList.remove('-translate-x-full');
-            overlay.classList.remove('hidden');
+            sidebar.style.display = 'flex';
+            // Use RAF to ensure display:flex applies before transform transition
+            requestAnimationFrame(() => {
+                sidebar.classList.remove('-translate-x-full');
+                if (overlay) {
+                    overlay.classList.remove('hidden');
+                    overlay.style.display = 'block';
+                }
+            });
         } else {
             sidebar.classList.add('-translate-x-full');
-            // Only hide overlay if cart is also closed
-            const cartSidebar = document.getElementById('cart-sidebar');
-            if (cartSidebar.classList.contains('translate-x-full')) {
-                overlay.classList.add('hidden');
+            if (overlay) {
+                // Only hide overlay if cart is also closed
+                const cartSidebar = document.getElementById('cart-sidebar');
+                // Check mobile cart as well
+                const mobileCart = document.getElementById('mobile-cart-sidebar');
+
+                const cartClosed = (!cartSidebar || cartSidebar.classList.contains('translate-x-full')) &&
+                    (!mobileCart || mobileCart.classList.contains('translate-x-full'));
+
+                if (cartClosed) {
+                    overlay.classList.add('hidden');
+                    overlay.style.display = 'none';
+                }
             }
+            // Hide sidebar after transition
+            setTimeout(() => {
+                if (window.innerWidth < 768) {
+                    sidebar.style.display = 'none';
+                }
+            }, 300);
         }
     }
 
