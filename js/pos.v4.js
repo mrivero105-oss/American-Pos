@@ -76,6 +76,21 @@ export class POS {
             this.checkHeldSale();
             this.renderCart();
 
+            // Force hide sidebars on init to prevent ghost overlays
+            if (this.dom.mobileCartSidebar) {
+                this.dom.mobileCartSidebar.style.display = 'none';
+                this.dom.mobileCartSidebar.classList.add('translate-x-full');
+            }
+            if (this.dom.heldSalesDrawer) {
+                this.dom.heldSalesDrawer.style.display = 'none';
+                this.dom.heldSalesDrawer.classList.add('translate-x-full');
+            }
+            // Ensure desktop cart is hidden on mobile
+            const cartContainer = document.getElementById('cart-container');
+            if (cartContainer && window.innerWidth < 768) {
+                cartContainer.style.display = 'none';
+            }
+
             // Initial Focus
             if (this.dom.customerSearchInput) {
                 this.dom.customerSearchInput.focus();
