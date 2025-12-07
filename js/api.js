@@ -362,5 +362,22 @@ export const api = {
             if (!res.ok) throw new Error('Error al obtener reporte diario');
             return res.json();
         }
+    },
+    dashboard: {
+        getSummary: async () => {
+            // Client-side calculation to avoid backend dependency for now
+            try {
+                const products = await api.products.getAll();
+                const lowStockItems = products.filter(p => {
+                    const stock = parseFloat(p.stock || 0);
+                    const minStock = parseFloat(p.min_stock || 0); // Assuming min_stock field exists
+                    return stock <= minStock && p.track_inventory;
+                });
+                return { lowStockItems };
+            } catch (error) {
+                console.warn('Error calculating dashboard summary:', error);
+                return { lowStockItems: [] };
+            }
+        }
     }
 };

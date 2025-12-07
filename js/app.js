@@ -109,7 +109,7 @@ class App {
 
         // Theme Toggle (Delegation)
         document.addEventListener('click', (e) => {
-            const btn = e.target.closest('#theme-toggle');
+            const btn = e.target.closest('#theme-toggle, #mobile-theme-toggle');
             if (btn) {
                 console.log('Theme toggle clicked');
                 try {
@@ -243,6 +243,18 @@ class App {
         } else {
             if (cartSidebar) cartSidebar.classList.add('hidden');
             if (mobileCartBtn) mobileCartBtn.classList.add('hidden');
+        }
+
+        // Manage Mobile Header Controls (Search, Scan, Price, Theme)
+        const mobilePosControls = document.getElementById('mobile-pos-controls');
+        if (mobilePosControls) {
+            if (viewName === 'pos') {
+                mobilePosControls.style.display = 'flex'; // Ensure flex layout is restored
+                mobilePosControls.classList.remove('hidden');
+            } else {
+                mobilePosControls.style.display = 'none';
+                mobilePosControls.classList.add('hidden');
+            }
         }
     }
 

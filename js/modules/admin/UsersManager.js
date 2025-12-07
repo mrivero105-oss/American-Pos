@@ -95,6 +95,9 @@ export class UsersManager {
                     try {
                         if (!u.businessInfo) return 'Default';
                         const info = typeof u.businessInfo === 'string' ? JSON.parse(u.businessInfo) : u.businessInfo;
+                        if (info.currencies && Array.isArray(info.currencies)) {
+                            return info.currencies.join(', ');
+                        }
                         return info.currency || 'Default';
                     } catch (e) { return 'Error'; }
                 })()}
@@ -192,7 +195,19 @@ export class UsersManager {
                     if (user.businessInfo) {
                         try {
                             const info = typeof user.businessInfo === 'string' ? JSON.parse(user.businessInfo) : user.businessInfo;
-                            document.getElementById('user-currency').value = info.currency || 'USD';
+                            // Clear first
+                            document.querySelectorAll('input[name="user_currency"]').forEach(cb => cb.checked = false);
+
+                            if (info.currencies && Array.isArray(info.currencies)) {
+                                info.currencies.forEach(curr => {
+                                    const cb = document.querySelector(`input[name="user_currency"][value="${curr}"]`);
+                                    if (cb) cb.checked = true;
+                                });
+                            } else if (info.currency) {
+                                // Legacy fallback
+                                const cb = document.querySelector(`input[name="user_currency"][value="${info.currency}"]`);
+                                if (cb) cb.checked = true;
+                            }
                         } catch (e) {
                             console.warn('Error parsing businessInfo', e);
                         }
@@ -291,12 +306,21 @@ export class UsersManager {
         const email = document.getElementById('user-email').value;
         const password = document.getElementById('user-password').value;
         const role = document.getElementById('user-role').value;
-        const currency = document.getElementById('user-currency').value;
+
+        // Multi-currency handling
+        const currencies = Array.from(document.querySelectorAll('input[name="user_currency"]:checked')).map(cb => cb.value);
+        if (currencies.length === 0) {
+            ui.showNotification('Seleccione al menos una moneda', 'warning');
+            return;
+        }
 
         const data = {
             email,
             role,
-            businessInfo: { currency } // Send as object
+            businessInfo: {
+                currencies: currencies,
+                currency: currencies[0] // Backwards compatibility
+            }
         };
 
         if (password) data.password = password;

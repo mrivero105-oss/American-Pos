@@ -43,6 +43,39 @@ export class ProductManager {
             } else if (e.key === 'Escape') {
                 this.highlightedIndex = -1;
                 this.renderProducts(this.currentFilteredProducts);
+            } else if (['+', '=', 'NumpadAdd'].includes(e.key)) { // + or Shift+=
+                // Increase Quantity
+                if (this.highlightedIndex !== -1) {
+                    e.preventDefault();
+                    // Just call selectHighlightedProduct which handles adding and visual feedback.
+                    // Previously we were calling addToCart AND selectHighlightedProduct, causing duplication.
+                    this.selectHighlightedProduct();
+                }
+            } else if (['-', '_', 'NumpadSubtract'].includes(e.key)) { // - or Shift+_
+                // Decrease Quantity
+                if (this.highlightedIndex !== -1) {
+                    e.preventDefault();
+                    const product = this.currentFilteredProducts[this.highlightedIndex];
+                    if (product) {
+                        const existingItem = this.pos.cart.find(item => item.id === product.id);
+                        if (existingItem) {
+                            if (existingItem.quantity > 1) {
+                                existingItem.quantity--;
+                                this.pos.cartManager.renderCart();
+                            } else {
+                                // Remove if quantity is 1
+                                this.pos.cart = this.pos.cart.filter(item => item.id !== product.id);
+                                this.pos.cartManager.renderCart();
+                            }
+                            // Visual feedback
+                            const el = document.getElementById(`product-card-${this.highlightedIndex}`);
+                            if (el) {
+                                el.classList.add('ring-red-500', 'scale-95');
+                                setTimeout(() => el && el.classList.remove('ring-red-500', 'scale-95'), 200);
+                            }
+                        }
+                    }
+                }
             }
         };
 

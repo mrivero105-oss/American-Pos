@@ -772,6 +772,17 @@ export class POS {
         this.scanner.handleScan(barcode);
     }
 
+    updateCustomerSearchHighlight(items) {
+        items.forEach((item, index) => {
+            if (index === this.customerSearchHighlightIndex) {
+                item.classList.add('bg-slate-100', 'dark:bg-slate-700');
+                item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            } else {
+                item.classList.remove('bg-slate-100', 'dark:bg-slate-700');
+            }
+        });
+    }
+
     async loadSettings() {
         try {
             const [rateData, businessData, paymentMethods] = await Promise.all([

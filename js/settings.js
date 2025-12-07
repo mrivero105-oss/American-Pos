@@ -68,14 +68,24 @@ export class Settings {
 
     async loadSettings() {
         try {
-            const [rateData, businessData, paymentMethods] = await Promise.all([
+            // Use allSettled to prevent one failure from blocking everything
+            const results = await Promise.allSettled([
                 api.settings.getRate(),
                 api.settings.getBusinessInfo(),
                 api.settings.getPaymentMethods()
             ]);
 
+            const rateData = results[0].status === 'fulfilled' ? results[0].value : { rate: 1 };
+            const businessData = results[1].status === 'fulfilled' ? results[1].value : {};
+            const paymentMethods = results[2].status === 'fulfilled' ? results[2].value : [];
+
+            if (results[0].status === 'rejected') console.warn('Failed to load exchange rate', results[0].reason);
+            if (results[1].status === 'rejected') console.warn('Failed to load business info', results[1].reason);
+            if (results[2].status === 'rejected') console.warn('Failed to load payment methods', results[2].reason);
+
+            // Populate UI
             if (this.dom.rateInput) {
-                this.dom.rateInput.value = rateData.rate;
+                this.dom.rateInput.value = rateData.rate || 1;
             }
 
             if (this.dom.businessName) {
