@@ -133,14 +133,14 @@ export class CheckoutManager {
 
         if (methodId === 'cash') {
             inputsToRender.push(
-                { id: 'cash_usd', name: 'Efectivo USD', currency: 'USD', placeholder: 'Monto $' },
-                { id: 'cash_ves', name: 'Efectivo VES', currency: 'VES', placeholder: 'Monto Bs' }
+                { id: 'cash_usd', name: 'Efectivo USD', currency: 'USD', placeholder: '0.00' },
+                { id: 'cash_ves', name: 'Efectivo VES', currency: 'VES', placeholder: '0.00' }
             );
         } else if (methodId === 'combined') {
             // Cash first
             inputsToRender.push(
-                { id: 'cash_usd', name: 'Efectivo USD', currency: 'USD', placeholder: 'Monto $' },
-                { id: 'cash_ves', name: 'Efectivo VES', currency: 'VES', placeholder: 'Monto Bs' }
+                { id: 'cash_usd', name: 'Efectivo USD', currency: 'USD', placeholder: '0.00' },
+                { id: 'cash_ves', name: 'Efectivo VES', currency: 'VES', placeholder: '0.00' }
             );
             // Then all others
             this.pos.paymentMethods.forEach(m => {
@@ -149,8 +149,8 @@ export class CheckoutManager {
                         id: m.id,
                         name: m.name,
                         currency: m.currency || 'VES',
-                        placeholder: `Monto ${m.currency || 'VES'} `,
-                        requiresReference: m.requiresReference // Keep this if needed
+                        placeholder: '0.00',
+                        requiresReference: m.requiresReference
                     });
                 }
             });
@@ -162,38 +162,58 @@ export class CheckoutManager {
                     id: method.id,
                     name: method.name,
                     currency: method.currency || 'VES',
-                    placeholder: `Monto ${method.currency || 'VES'} `,
+                    placeholder: '0.00',
                     requiresReference: method.requiresReference
                 });
             }
         }
 
+        // Determine Layout Class
+        const layoutClass = methodId === 'combined'
+            ? 'grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2'
+            : 'space-y-3 mb-4';
+
         // Generate HTML
-        let html = '<div class="space-y-3 mb-4 max-h-60 overflow-y-auto pr-2">';
+        let html = `<div class="${layoutClass}">`;
+
         inputsToRender.forEach(input => {
             const showRef = input.requiresReference || input.id === 'pago_movil' || input.name.toLowerCase().includes('pago movil');
+            const isUsd = input.currency === 'USD';
+            const icon = isUsd ? '$' : 'Bs';
+            const borderColor = isUsd ? 'focus-within:border-green-500' : 'focus-within:border-blue-500';
+            const iconBg = isUsd ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400';
 
             html += `
-                <div class="grid grid-cols-12 gap-2 items-end payment-row">
-                    <div class="col-span-12">
-                        <label class="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">${input.name}</label>
+                <div class="payment-input-group bg-slate-50 dark:bg-slate-700/30 p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 transition-colors ${borderColor}">
+                    <div class="flex justify-between items-center mb-1.5 ">
+                        <label class="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wide truncate pr-2" title="${input.name}">${input.name}</label>
+                        <span class="text-[10px] px-1.5 py-0.5 rounded font-bold ${iconBg}">${input.currency}</span>
                     </div>
-                    <div class="${showRef ? 'col-span-7' : 'col-span-12'}">
-                        <input type="number" 
-                            data-id="${input.id}" 
-                            data-currency="${input.currency}" 
-                            class="payment-input w-full rounded-md border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500" 
-                            step="0.01" min="0" placeholder="${input.placeholder}">
+                    
+                    <div class="space-y-2">
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <span class="text-slate-400 dark:text-slate-500 font-bold sm:text-sm text-xs">${icon}</span>
+                            </div>
+                            <input type="number" 
+                                data-id="${input.id}" 
+                                data-currency="${input.currency}" 
+                                class="payment-input w-full pl-8 pr-3 py-1.5 text-sm sm:text-base font-medium rounded-md border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm focus:outline-none focus:ring-0 border-0 ring-1 ring-inset ring-slate-300 dark:ring-slate-600 focus:ring-2 focus:ring-inset focus:ring-indigo-500" 
+                                step="0.01" min="0" placeholder="${input.placeholder}">
+                        </div>
+
+                        ${showRef ? `
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <span class="text-slate-400 dark:text-slate-500 text-xs">#</span>
+                            </div>
+                            <input type="text" 
+                                data-ref-for="${input.id}"
+                                class="payment-ref w-full pl-8 pr-3 py-1.5 text-xs sm:text-sm rounded-md border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm focus:outline-none focus:ring-0 border-0 ring-1 ring-inset ring-slate-300 dark:ring-slate-600 focus:ring-2 focus:ring-inset focus:ring-indigo-500" 
+                                placeholder="Referencia">
+                        </div>
+                        ` : ''}
                     </div>
-                    ${showRef ? `
-                    <div class="col-span-5">
-                        <input type="text" 
-                            data-ref-for="${input.id}"
-                            class="payment-ref w-full rounded-md border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500" 
-                            placeholder="Ref.">
-                    </div>
-                    ` : ''
-                }
                 </div>
             `;
         });
@@ -203,6 +223,14 @@ export class CheckoutManager {
         // Bind events
         this.pos.dom.paymentFields.querySelectorAll('.payment-input').forEach(input => {
             input.addEventListener('input', () => this.calculateChange());
+
+            // Add focus effect to parent group
+            input.addEventListener('focus', function () {
+                this.closest('.payment-input-group').classList.add('ring-2', 'ring-indigo-500/20', 'border-indigo-400');
+            });
+            input.addEventListener('blur', function () {
+                this.closest('.payment-input-group').classList.remove('ring-2', 'ring-indigo-500/20', 'border-indigo-400');
+            });
         });
 
         // Reset change display
@@ -305,7 +333,8 @@ export class CheckoutManager {
                 name: item.name,
                 price: item.price,
                 quantity: item.quantity,
-                isWeighted: item.isWeighted
+                isWeighted: item.isWeighted,
+                category: item.category || 'Otros'
             })),
             total: total,
             customer: this.pos.selectedCustomer, // Can be null

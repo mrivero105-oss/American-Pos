@@ -236,6 +236,62 @@ export const api = {
             return res.json();
         }
     },
+    users: {
+        getAll: async () => {
+            const token = localStorage.getItem('authToken');
+            const res = await fetch(`${API_BASE_URL}/users`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!res.ok) throw new Error('Error loading users');
+            return res.json();
+        },
+        create: async (data) => {
+            const token = localStorage.getItem('authToken');
+            const res = await fetch(`${API_BASE_URL}/users`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(data)
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || 'Error creating user');
+            }
+            return res.json();
+        },
+        delete: async (id) => {
+            const token = localStorage.getItem('authToken');
+            const res = await fetch(`${API_BASE_URL}/users/${id}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || 'Error deleting user');
+            }
+            return res.json();
+        },
+        update: async (id, data) => {
+            const token = localStorage.getItem('authToken');
+            const res = await fetch(`${API_BASE_URL}/users/${id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(data)
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || 'Error updating user');
+            }
+            return res.json();
+        }
+    },
     backup: {
         create: async () => {
             const res = await fetchWithTimeout(`${API_BASE_URL}/backup`, {

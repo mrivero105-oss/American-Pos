@@ -2,12 +2,52 @@ import { api } from '../../api.js';
 import { formatBs } from '../../utils.js';
 import { ui } from '../../ui.js';
 
+// Module-level variable to enforce singleton listener
+let globalKeyDownHandler = null;
+
 export class ProductManager {
     constructor(pos) {
         this.pos = pos;
         this.currentPage = 1;
         this.itemsPerPage = 48;
         this.currentFilteredProducts = [];
+        this.highlightedIndex = -1;
+        this.bindEvents();
+    }
+
+    bindEvents() {
+        // Remove existing listener if any (handles re-instantiation or hot-reload)
+        if (globalKeyDownHandler) {
+            document.removeEventListener('keydown', globalKeyDownHandler);
+        }
+
+        // Define the handler
+        globalKeyDownHandler = (e) => {
+            // Ignore if user is typing in an input
+            if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) return;
+
+            // Ignore if NOT in POS view
+            const posView = document.getElementById('view-pos');
+            if (!posView || posView.classList.contains('hidden')) return;
+
+            if (e.key.startsWith('Arrow')) {
+                e.preventDefault();
+                e.stopPropagation(); // Stop bubbling
+                this.moveHighlight(e.key);
+            } else if (e.key === 'Enter') {
+                if (this.highlightedIndex !== -1) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.selectHighlightedProduct();
+                }
+            } else if (e.key === 'Escape') {
+                this.highlightedIndex = -1;
+                this.renderProducts(this.currentFilteredProducts);
+            }
+        };
+
+        // Add the new listener
+        document.addEventListener('keydown', globalKeyDownHandler);
     }
 
     async loadProducts() {
@@ -64,7 +104,7 @@ export class ProductManager {
         this.pos.dom.productGrid.style.visibility = '';
 
         // Render Products
-        this.pos.dom.productGrid.innerHTML = productsToShow.map(product => {
+        this.pos.dom.productGrid.innerHTML = productsToShow.map((product, index) => {
             const stock = parseInt(product.stock || 0);
             const isAvailable = stock > 0;
             const imageUri = product.imageUri || 'https://via.placeholder.com/150?text=No+Image';
@@ -79,8 +119,14 @@ export class ProductManager {
                 dispBadge = '<span class="absolute top-1 right-1 bg-green-500/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded backdrop-blur-sm shadow-sm">DISP</span>';
             }
 
+            const absoluteIndex = startIndex + index;
+            const isHighlighted = this.highlightedIndex === absoluteIndex;
+            const highlightClass = isHighlighted
+                ? 'border-blue-600 dark:border-blue-400 bg-indigo-50/30 dark:bg-indigo-900/20 shadow-xl scale-[1.02] z-20'
+                : 'border-transparent hover:scale-105';
+
             return `
-                <div class="product-card group cursor-pointer relative" data-id="${product.id}">
+                <div class="product-card group cursor-pointer relative transition-all duration-200 rounded-xl border-2 ${highlightClass}" data-id="${product.id}" id="product-card-${absoluteIndex}">
                     
                     <!-- Image Container with Floating Actions -->
                     <div class="aspect-square overflow-hidden bg-transparent relative rounded-xl">
@@ -155,11 +201,112 @@ export class ProductManager {
 
     changePage(newPage) {
         this.currentPage = newPage;
-        this.renderProducts(); // Re-render with current filtered list
+        this.renderProducts(this.currentFilteredProducts); // Re-render with current filtered list
         // Scroll to top of grid
         this.pos.dom.productGrid.parentElement.scrollTop = 0;
     }
 
+    moveHighlight(direction) {
+        if (this.currentFilteredProducts.length === 0) return;
+
+        let columns = 2;
+        try {
+            // Match Tailwind grid-cols classes from index.html
+            // grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5
+            const w = window.innerWidth;
+            if (w >= 1280) columns = 5;      // xl
+            else if (w >= 1024) columns = 4; // lg
+            else if (w >= 640) columns = 3;  // sm & md
+            else columns = 2;                // default
+        } catch (e) { console.error('Error calcing columns', e); }
+
+        const totalItems = this.currentFilteredProducts.length;
+        let oldIndex = this.highlightedIndex;
+
+        if (this.highlightedIndex === -1) {
+            this.highlightedIndex = (this.currentPage - 1) * this.itemsPerPage;
+            if (this.highlightedIndex < 0) this.highlightedIndex = 0;
+            if (this.highlightedIndex >= totalItems) this.highlightedIndex = totalItems - 1;
+        } else {
+            let newIndex = this.highlightedIndex;
+            switch (direction) {
+                case 'ArrowRight': newIndex++; break;
+                case 'ArrowLeft': newIndex--; break;
+                case 'ArrowUp': newIndex -= columns; break;
+                case 'ArrowDown': newIndex += columns; break;
+            }
+
+            if (newIndex < 0) newIndex = 0;
+            if (newIndex >= totalItems) newIndex = totalItems - 1;
+
+            this.highlightedIndex = newIndex;
+        }
+
+        const pageOfIndex = Math.floor(this.highlightedIndex / this.itemsPerPage) + 1;
+        if (pageOfIndex !== this.currentPage) {
+            this.changePage(pageOfIndex);
+        } else {
+            // Optimize: Toggle classes directly
+            const highlightClasses = ['border-blue-600', 'dark:border-blue-400', 'bg-indigo-50/30', 'dark:bg-indigo-900/20', 'shadow-xl', 'scale-[1.02]', 'z-20'];
+            const normalClasses = ['border-transparent', 'hover:scale-105'];
+
+            if (oldIndex !== -1 && oldIndex !== this.highlightedIndex) {
+                const oldEl = document.getElementById(`product-card-${oldIndex}`);
+                if (oldEl) {
+                    oldEl.classList.remove(...highlightClasses);
+                    oldEl.classList.add(...normalClasses);
+                }
+            }
+
+            const newEl = document.getElementById(`product-card-${this.highlightedIndex}`);
+            if (newEl) {
+                newEl.classList.remove(...normalClasses);
+                newEl.classList.add(...highlightClasses);
+                newEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }
+    }
+
+    focusProductGrid() {
+        if (this.currentFilteredProducts.length === 0) return;
+
+        // Reset or set to first item
+        this.highlightedIndex = 0;
+
+        // Ensure page 1 if not already
+        if (this.currentPage !== 1) {
+            this.changePage(1);
+        } else {
+            // Apply highlight visually, preserving filter
+            this.renderProducts(this.currentFilteredProducts);
+        }
+
+        // Scroll top
+        if (this.pos.dom.productGrid) {
+            this.pos.dom.productGrid.parentElement.scrollTop = 0;
+            // Ensure first item is visible
+            setTimeout(() => {
+                const el = document.getElementById(`product-card-0`);
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }, 50);
+        }
+    }
+
+    selectHighlightedProduct() {
+        if (this.highlightedIndex === -1) return;
+        const product = this.currentFilteredProducts[this.highlightedIndex];
+        if (product) {
+            const el = document.getElementById(`product-card-${this.highlightedIndex}`);
+            if (el) {
+                el.classList.add('ring-green-500', 'scale-95');
+                setTimeout(() => {
+                    // Cleanup or re-render handles it
+                    if (el) el.classList.remove('ring-green-500', 'scale-95');
+                }, 200);
+            }
+            this.pos.cartManager.addToCart(product);
+        }
+    }
     renderCategories() {
         if (!this.pos.dom.categoryFilters) return;
 

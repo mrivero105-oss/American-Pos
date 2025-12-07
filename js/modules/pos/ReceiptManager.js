@@ -7,6 +7,7 @@ export class ReceiptManager {
     }
 
     showReceipt(saleData) {
+        console.log('POS: Showing receipt for sale:', saleData);
         this.pos.lastSale = saleData;
         if (this.pos.dom.paymentModal) this.pos.dom.paymentModal.classList.remove('hidden');
         if (this.pos.dom.paymentFormContent) this.pos.dom.paymentFormContent.classList.add('hidden');
@@ -44,6 +45,7 @@ export class ReceiptManager {
         return `
             <div style="${styles.container}">
                 <div style="${styles.header}">
+                    ${this.pos.businessInfo?.logoUrl ? `<img src="${this.pos.businessInfo.logoUrl}" style="max-width: 150px; max-height: 80px; margin-bottom: 10px; display: block; margin-left: auto; margin-right: auto;" />` : ''}
                     <h1 style="${styles.title}">${this.pos.businessInfo?.name || 'AMERICAN POS'}</h1>
                     ${this.pos.businessInfo?.address ? `<p style="${styles.subtitle}">${this.pos.businessInfo.address}</p>` : ''}
                     ${this.pos.businessInfo?.phone ? `<p style="${styles.subtitle}">Tel: ${this.pos.businessInfo.phone}</p>` : ''}
@@ -66,7 +68,7 @@ export class ReceiptManager {
                         <span>CANT / DESCRIPCION</span>
                         <span>TOTAL</span>
                     </div>
-                    ${saleData.items.map(item => `
+                    ${(saleData.items || []).map(item => `
                         <div style="${styles.itemRow}">
                             <span style="flex: 1;">${item.quantity} x ${item.name}</span>
                             <span>Bs ${(item.price * item.quantity * this.pos.exchangeRate).toFixed(2)}</span>
@@ -85,7 +87,7 @@ export class ReceiptManager {
                 
                 <div style="margin-bottom: 10px;">
                     <p style="font-weight: bold; font-size: 11px; margin-bottom: 5px;">MÉTODOS DE PAGO:</p>
-                    ${saleData.paymentDetails.map(detail => `
+                    ${(saleData.paymentDetails || []).map(detail => `
                         <div style="${styles.row}">
                             <span>${getMethodName(detail.method)}</span>
                             <span>Bs ${(detail.amount * (detail.currency === 'USD' ? this.pos.exchangeRate : 1)).toFixed(2)}</span>
@@ -133,6 +135,7 @@ export class ReceiptManager {
         api.sales.emailReceipt(this.pos.lastSale.id, email, html)
             .then(() => {
                 ui.showNotification(`Recibo enviado a ${email}`, 'success');
+                this.hideReceipt(); // Close modal on success
             })
             .catch(error => {
                 console.error('Error sending email:', error);
@@ -226,6 +229,7 @@ export class ReceiptManager {
         // Remove the iframe after a delay to ensure print dialog has opened
         setTimeout(() => {
             document.body.removeChild(iframe);
-        }, 2000);
+            this.hideReceipt(); // Close modal after printing initiated
+        }, 1000);
     }
 }

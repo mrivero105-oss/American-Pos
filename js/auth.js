@@ -53,6 +53,14 @@ export const authService = {
         return !!localStorage.getItem('authToken');
     },
 
+    getUser: () => {
+        try {
+            return JSON.parse(localStorage.getItem('user'));
+        } catch (e) {
+            return null;
+        }
+    },
+
     // Listen to auth state changes (Simulated for compatibility)
     onAuthChange: (callback) => {
         const token = localStorage.getItem('authToken');

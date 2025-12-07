@@ -20,15 +20,18 @@ export class Settings {
             businessAddress: document.getElementById('business-address'),
             businessPhone: document.getElementById('business-phone'),
             businessTaxId: document.getElementById('business-tax-id'),
-            businessLogo: document.getElementById('business-logo'),
+            businessLogo: document.getElementById('business-logo'), // Enabled
             saveBusinessBtn: document.getElementById('save-business-btn'),
-            // Payment Methods
-            paymentMethodsSelect: document.getElementById('payment-methods-settings-select'),
-            deleteMethodBtn: document.getElementById('delete-payment-method-btn'),
+
+            // Payment Methods - NEW
+            paymentMethodsList: document.getElementById('payment-methods-list'),
+            paymentMethodsCount: document.getElementById('payment-methods-count'),
+
             newPaymentMethodName: document.getElementById('new-payment-method-name'),
             newPaymentMethodCurrency: document.getElementById('new-payment-method-currency'),
             newPaymentMethodRequiresRef: document.getElementById('new-payment-method-requires-ref'),
             addPaymentMethodBtn: document.getElementById('add-payment-method-btn'),
+
             // Backup
             downloadBackupBtn: document.getElementById('download-backup-btn'),
             restoreBackupBtn: document.getElementById('restore-backup-btn'),
@@ -40,9 +43,14 @@ export class Settings {
         this.dom.saveRateBtn?.addEventListener('click', () => this.saveRate());
         this.dom.saveBusinessBtn?.addEventListener('click', () => this.saveBusinessInfo());
         this.dom.addPaymentMethodBtn?.addEventListener('click', () => this.addPaymentMethod());
-        this.dom.deleteMethodBtn?.addEventListener('click', () => {
-            const id = this.dom.paymentMethodsSelect?.value;
-            if (id) this.deletePaymentMethod(id);
+
+        // Delegation for delete buttons
+        this.dom.paymentMethodsList?.addEventListener('click', (e) => {
+            const btn = e.target.closest('.delete-method-btn');
+            if (btn) {
+                const id = btn.dataset.id;
+                this.deletePaymentMethod(id);
+            }
         });
 
         // Backup events
@@ -113,7 +121,8 @@ export class Settings {
             // Trigger an event or callback to update POS if needed
             try {
                 if (window.app && window.app.views.pos) {
-                    window.app.views.pos.updateExchangeRate(rate);
+                    // Refresh settings in POS to get new rate
+                    window.app.views.pos.loadSettings();
                 }
             } catch (posError) {
                 console.error('Error updating POS with new rate:', posError);
@@ -122,7 +131,7 @@ export class Settings {
             ui.showNotification('Error saving rate', 'error');
         } finally {
             this.dom.saveRateBtn.disabled = false;
-            this.dom.saveRateBtn.textContent = 'Guardar Tasa';
+            this.dom.saveRateBtn.textContent = 'OK';
         }
     }
 
@@ -147,17 +156,42 @@ export class Settings {
             ui.showNotification('Error saving business info', 'error');
         } finally {
             this.dom.saveBusinessBtn.disabled = false;
-            this.dom.saveBusinessBtn.textContent = 'Guardar Información';
+            this.dom.saveBusinessBtn.textContent = 'Guardar Cambios';
         }
     }
 
     renderPaymentMethods() {
-        if (!this.dom.paymentMethodsSelect) return;
+        if (!this.dom.paymentMethodsList) return;
 
-        this.dom.paymentMethodsSelect.innerHTML = this.paymentMethods.map(method => `
-            <option value="${method.id}">
-                ${method.name} ${method.requiresReference ? '(Requiere Ref.)' : ''}
-            </option>
+        if (this.dom.paymentMethodsCount) {
+            this.dom.paymentMethodsCount.textContent = this.paymentMethods.length;
+        }
+
+        if (this.paymentMethods.length === 0) {
+            this.dom.paymentMethodsList.innerHTML = `
+                <div class="text-center py-8 text-slate-400 flex flex-col items-center">
+                    <svg class="w-10 h-10 mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
+                    <span class="text-sm">Sin métodos de pago</span>
+                </div>
+            `;
+            return;
+        }
+
+        this.dom.paymentMethodsList.innerHTML = this.paymentMethods.map(method => `
+            <div class="flex justify-between items-center p-3 bg-white dark:bg-slate-700/50 rounded-lg border border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500 transition-colors group shadow-sm">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-600 flex items-center justify-center text-slate-500 dark:text-slate-300 font-bold text-xs">
+                        ${method.currency}
+                    </div>
+                    <div>
+                        <p class="font-bold text-slate-800 dark:text-white text-sm">${method.name}</p>
+                        ${method.requiresReference ? '<span class="text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">Ref. Req</span>' : ''}
+                    </div>
+                </div>
+                <button class="delete-method-btn text-slate-400 hover:text-red-500 hover:bg-red-50 p-1.5 rounded-lg opacity-100 lg:opacity-0 group-hover:opacity-100 transition-all focus:opacity-100" data-id="${method.id}" title="Eliminar">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                </button>
+            </div>
         `).join('');
     }
 
@@ -194,6 +228,7 @@ export class Settings {
             // Clear inputs
             this.dom.newPaymentMethodName.value = '';
             this.dom.newPaymentMethodRequiresRef.checked = false;
+            this.dom.newPaymentMethodName.focus(); // Focus back for rapid entry
 
             ui.showNotification('Método de pago agregado');
         } catch (error) {

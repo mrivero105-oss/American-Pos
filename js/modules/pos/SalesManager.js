@@ -30,20 +30,8 @@ export class SalesManager {
             return;
         }
 
-        // Always prompt for customer as requested
-        this.pos.showConfirmationModal(
-            '¿Asignar Cliente?',
-            '¿Desea asignar un cliente a esta venta en espera? Si selecciona "No", se guardará como anónima.',
-            () => {
-                this.pos.pendingHold = true;
-                this.pos.showCustomerSelection();
-            },
-            'Sí, Asignar',
-            () => {
-                this.holdSale();
-            },
-            'No, Guardar Anónima'
-        );
+        // Direct hold sale without confirmation modal as requested
+        this.holdSale();
     }
 
     holdSale() {
@@ -98,6 +86,7 @@ export class SalesManager {
                 this.pos.selectedCustomer = null;
                 this.pos.renderCart(); // Call renderCart on POS (which delegates to CartManager)
                 this.updateHeldSalesCount();
+                ui.showNotification('Venta puesta en espera', 'success');
                 this.closeHeldSalesDrawer();
             }
 

@@ -34,6 +34,10 @@ jobs:
           echo "    messagingSenderId: \"248248095933\"," >> js/config.js
           echo "    appId: \"1:248248095933:web:b0f75f9e5dfbc4594e93d4\"" >> js/config.js
           echo "};" >> js/config.js
+          echo "" >> js/config.js
+          echo "// API Configuration" >> js/config.js
+          echo "const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.startsWith('192.168.');" >> js/config.js
+          echo "export const API_BASE_URL = isLocal ? \`http://\${window.location.hostname}:3000\` : 'https://american-pos-backend.pages.dev';" >> js/config.js
           echo "Verifying config.js was created:"
           ls -la js/config.js
           cat js/config.js

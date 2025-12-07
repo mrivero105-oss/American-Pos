@@ -40,18 +40,53 @@ export class CartManager {
         } else {
             this.pos.cart.push({ ...product, quantity: quantity, isWeighted: isWeighted });
         }
+        this.saveCart();
+        this.renderCart();
+    }
+
+    saveCart() {
+        localStorage.setItem('pos_current_cart', JSON.stringify(this.pos.cart));
+        if (this.pos.selectedCustomer) {
+            localStorage.setItem('pos_current_customer', JSON.stringify(this.pos.selectedCustomer));
+        } else {
+            localStorage.removeItem('pos_current_customer');
+        }
+    }
+
+    loadCart() {
+        const savedCart = localStorage.getItem('pos_current_cart');
+        if (savedCart) {
+            try {
+                this.pos.cart = JSON.parse(savedCart);
+            } catch (e) {
+                console.error('Error loading cart', e);
+                this.pos.cart = [];
+            }
+        }
+
+        const savedCustomer = localStorage.getItem('pos_current_customer');
+        if (savedCustomer) {
+            try {
+                this.pos.selectCustomer(JSON.parse(savedCustomer));
+            } catch (e) {
+                console.error('Error loading customer', e);
+            }
+        }
+
         this.renderCart();
     }
 
     renderCart() {
+        this.saveCart(); // Auto-save on render
+
         // Calculate Totals
         const total = this.pos.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
         const totalBs = total * this.pos.exchangeRate;
         const itemCount = this.pos.cart.reduce((sum, item) => sum + item.quantity, 0);
 
         // Update UI Totals
-        if (this.pos.dom.cartTotal) this.pos.dom.cartTotal.textContent = formatBs(totalBs);
-        if (this.pos.dom.cartTotalBs) this.pos.dom.cartTotalBs.textContent = `$${total.toFixed(2)}`; // Show USD as secondary
+        if (this.pos.dom.cartTotal) this.pos.dom.cartTotal.textContent = `$${total.toFixed(2)}`;
+        if (this.pos.dom.cartTotalBs) this.pos.dom.cartTotalBs.textContent = formatBs(totalBs);
         if (this.pos.dom.mobileCartCount) this.pos.dom.mobileCartCount.textContent = itemCount;
 
         // Render Desktop Cart
@@ -114,34 +149,45 @@ export class CartManager {
         const quantityDisplay = isWeighted ? parseFloat(item.quantity).toFixed(3) : item.quantity;
         const weightTag = isWeighted ? '<span class="text-xs bg-blue-100 text-blue-800 px-1 rounded ml-1">Peso</span>' : '';
         const imageUri = item.imageUri || 'https://via.placeholder.com/150?text=No+Image';
-        const priceBs = (item.price * this.pos.exchangeRate).toFixed(2);
-        const totalBs = (item.price * item.quantity * this.pos.exchangeRate).toFixed(2);
+        const priceBs = formatBs(item.price * this.pos.exchangeRate);
+        const totalBs = formatBs(item.price * item.quantity * this.pos.exchangeRate);
+
+        // Adaptive Font Sizing (Length checks on formatted string)
+        let priceBsClass = 'text-base tracking-tight';
+        if (priceBs.length > 14) priceBsClass = 'text-[0.65rem] tracking-tighter'; // Extra small for huge numbers
+        else if (priceBs.length > 11) priceBsClass = 'text-xs tracking-tight';
+        else if (priceBs.length > 9) priceBsClass = 'text-sm tracking-tight';
+
+        let totalBsClass = 'text-lg tracking-tight';
+        if (totalBs.length > 15) totalBsClass = 'text-xs tracking-tighter';
+        else if (totalBs.length > 12) totalBsClass = 'text-sm tracking-tight';
+        else if (totalBs.length > 10) totalBsClass = 'text-base tracking-tight';
 
         return `
         <div class="cart-item flex flex-col p-3 mb-2 bg-slate-50 dark:bg-slate-700/50 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-500 transition-colors" data-id="${item.id}">
             <!-- Name Row -->
             <div class="w-full mb-2 border-b border-slate-200 dark:border-slate-600 pb-2">
-                 <h4 class="font-medium text-slate-900 dark:text-white text-base break-words">${item.name} ${weightTag}</h4>
+                 <h4 class="font-bold text-slate-900 dark:text-white text-sm md:text-base break-words leading-tight">${item.name} ${weightTag}</h4>
             </div>
             
             <!-- Content Row -->
             <div class="flex justify-between items-center w-full">
-                <div class="flex items-center gap-3 flex-1">
-                    <img src="${imageUri}" alt="${item.name}" class="w-16 h-16 object-cover rounded-md border border-slate-200 dark:border-slate-600">
-                    <div class="flex-1">
-                        <div class="text-base text-slate-500 dark:text-slate-400 flex flex-col gap-1">
-                            <span class="flex items-center">
-                                <span class="font-bold text-slate-700 dark:text-slate-200 text-lg">Bs ${priceBs}</span>
-                                <span class="mx-2">x</span>
-                                <input type="number" class="qty-input w-16 px-1 py-1 text-center border rounded bg-white dark:bg-slate-600 dark:text-white text-lg font-medium" 
+                <div class="flex items-center gap-2 md:gap-3 flex-1">
+                    <img src="${imageUri}" alt="${item.name}" class="w-12 h-12 md:w-16 md:h-16 object-cover rounded-md border border-slate-200 dark:border-slate-600">
+                    <div class="flex-1 min-w-0">
+                        <div class="text-sm md:text-base text-slate-500 dark:text-slate-400 flex flex-col gap-0.5 md:gap-1">
+                            <span class="flex items-center flex-wrap">
+                                <span class="font-bold text-slate-700 dark:text-slate-200 text-xs md:text-base tracking-tight truncate max-w-[80px] md:max-w-none">${priceBs}</span>
+                                <span class="mx-1 md:mx-2 text-xs md:text-base">x</span>
+                                <input type="number" class="qty-input w-12 md:w-16 px-1 py-1 text-center border rounded bg-white dark:bg-slate-600 dark:text-white text-sm md:text-lg font-medium" 
                                     value="${quantityDisplay}" step="${step}" min="${step}">
                             </span>
-                            <span class="text-blue-600 dark:text-blue-400 font-bold text-sm">$${parseFloat(item.price).toFixed(2)} c/u</span>
+                            <span class="text-blue-600 dark:text-blue-400 font-bold text-xs md:text-sm">$${parseFloat(item.price).toFixed(2)} c/u</span>
                         </div>
                     </div>
                 </div>
-                <div class="text-right pl-2">
-                    <p class="font-bold text-slate-900 dark:text-white text-xl">Bs ${totalBs}</p>
+                <div class="text-right pl-1 md:pl-2">
+                    <p class="font-bold text-slate-900 dark:text-white text-sm md:text-lg tracking-tight">${totalBs}</p>
                     <div class="flex items-center justify-end gap-1 mt-2">
                         <button class="decrease-qty p-1.5 text-slate-400 hover:text-red-500 transition-colors">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>

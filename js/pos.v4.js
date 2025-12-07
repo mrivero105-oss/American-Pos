@@ -56,6 +56,11 @@ export class POS {
 
             this.showLoading(); // Show loading overlay
 
+            // Restore Cart
+            if (this.cartManager) {
+                this.cartManager.loadCart();
+            }
+
             this.bindEvents();
             console.log('POS: bindEvents finished');
 
@@ -160,7 +165,9 @@ export class POS {
             cartSidebar: document.getElementById('cart-sidebar'), // Desktop
             mobileCartSidebar: document.getElementById('mobile-cart-sidebar'), // Mobile
             closeCartBtn: document.getElementById('close-cart-btn'),
+            closeCartBtn: document.getElementById('close-cart-btn'),
             closeMobileCartBtn: document.getElementById('close-mobile-cart-btn'),
+            mobileCheckoutBtn: document.getElementById('mobile-checkout-btn'),
 
             paymentReceivedVes: document.getElementById('payment-received-ves'),
             paymentAmount: document.getElementById('payment-amount'),
@@ -221,6 +228,13 @@ export class POS {
             confirmActionBtn: document.getElementById('confirm-action-btn'),
             cancelConfirmBtn: document.getElementById('cancel-confirm-btn'),
             confirmModalIconContainer: document.getElementById('confirm-modal-icon-container'),
+
+            // Customer Selection Modal (Checkout)
+            customerSelectionModal: document.getElementById('customer-selection-modal'),
+            searchCustomerCheckout: document.getElementById('search-customer-checkout'),
+            customerSelectionList: document.getElementById('customer-list-checkout'),
+            skipCustomerBtn: document.getElementById('skip-customer-btn'),
+            closeCustomerSelectionBtn: document.getElementById('close-customer-selection'),
         };
 
         this.lastScanTime = 0;
@@ -261,6 +275,15 @@ export class POS {
                     const query = e.target.value;
                     this.filterProducts(query);
                 });
+
+                // Jump to grid on Enter
+                this.dom.searchInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        this.dom.searchInput.blur(); // Remove focus from input
+                        this.productManager.focusProductGrid(); // Transfer to grid
+                    }
+                });
             }
 
             // Price Check Input
@@ -272,22 +295,17 @@ export class POS {
             }
 
             // Customer Search Input
-            if (this.dom.customerSearchInput) {
-                console.log('POS: Binding customer search input event');
-                this.dom.customerSearchInput.addEventListener('input', (e) => {
-                    const query = e.target.value;
-                    console.log('POS: Customer search input event fired. Query:', query);
-                    this.searchCustomers(query);
-                });
+            this.bindCustomerSearchInput();
 
-                // Hide results when clicking outside
-                document.addEventListener('click', (e) => {
-                    if (this.dom.customerSearchContainer && !this.dom.customerSearchContainer.contains(e.target)) {
-                        if (this.dom.customerSearchResults) this.dom.customerSearchResults.classList.add('hidden');
-                    }
-                });
-            } else {
-                console.error('POS: customerSearchInput not found during bindEvents');
+            // Weight Modal Calculations
+            if (this.dom.weightInput) {
+                this.dom.weightInput.addEventListener('input', () => this.weightModal.calculateWeightValues('weight'));
+            }
+            if (this.dom.weightPriceUsd) {
+                this.dom.weightPriceUsd.addEventListener('input', () => this.weightModal.calculateWeightValues('price_usd'));
+            }
+            if (this.dom.weightPriceBs) {
+                this.dom.weightPriceBs.addEventListener('input', () => this.weightModal.calculateWeightValues('price_bs'));
             }
 
             // Deselect Customer
@@ -361,12 +379,50 @@ export class POS {
                 });
             }
 
+            // Customer Selection Modal Events
+            if (this.dom.closeCustomerSelectionBtn) {
+                this.dom.closeCustomerSelectionBtn.addEventListener('click', () => this.hideCustomerSelection());
+            }
+            if (this.dom.skipCustomerBtn) {
+                this.dom.skipCustomerBtn.addEventListener('click', () => {
+                    this.processCheckout(null);
+                });
+            }
+            if (this.dom.searchCustomerCheckout) {
+                this.dom.searchCustomerCheckout.addEventListener('input', (e) => {
+                    const query = e.target.value;
+                    // We need to use a specific filter method that targets the modal list
+                    if (this.customerManager) {
+                        this.customerManager.filterCustomerList(query, this.dom.customerSelectionList);
+                    }
+                });
+            }
+
 
 
 
             // Cart Actions
             if (this.dom.clearCartBtn) this.dom.clearCartBtn.addEventListener('click', () => this.clearCart());
-            if (this.dom.holdSaleBtn) this.dom.holdSaleBtn.addEventListener('click', () => this.holdSale());
+            if (this.dom.holdSaleBtn) this.dom.holdSaleBtn.addEventListener('click', () => this.initiateHoldSale());
+            if (this.dom.viewHeldSalesBtn) this.dom.viewHeldSalesBtn.addEventListener('click', () => this.openHeldSalesDrawer());
+            if (this.dom.checkoutBtn) {
+                this.dom.checkoutBtn.addEventListener('click', () => this.showCustomerSelection());
+            }
+            if (this.dom.mobileCheckoutBtn) {
+                this.dom.mobileCheckoutBtn.addEventListener('click', () => {
+                    // Close mobile cart directly
+                    if (this.dom.mobileCartSidebar) {
+                        this.dom.mobileCartSidebar.classList.add('translate-x-full');
+                        this.dom.mobileCartSidebar.style.transform = ''; // Clear inline styles
+                    }
+                    if (this.dom.mobileOverlay) {
+                        this.dom.mobileOverlay.classList.add('hidden');
+                        this.dom.mobileOverlay.style.display = 'none';
+                    }
+
+                    this.showCustomerSelection();
+                });
+            }
             const handleCartAction = (e) => {
                 const target = e.target;
                 const cartItem = target.closest('.cart-item');
@@ -469,6 +525,83 @@ export class POS {
 
             // Global Shortcuts
             document.addEventListener('keydown', (e) => {
+                // handle Enter for Modals
+                if (e.key === 'Enter') {
+                    // 1. Payment Modal
+                    if (this.dom.paymentModal && !this.dom.paymentModal.classList.contains('hidden') && this.dom.paymentModal.style.display !== 'none') {
+                        e.preventDefault();
+                        this.checkoutManager.confirmPayment();
+                        return;
+                    }
+
+                    // 2. Weight Modal
+                    if (this.dom.weightModal && !this.dom.weightModal.classList.contains('hidden') && this.dom.weightModal.style.display !== 'none') {
+                        e.preventDefault();
+                        // Trigger via the form submit button or method if accessible
+                        // accessing via method is cleaner if exposed
+                        if (this.weightModal) this.weightModal.confirmWeightItem();
+                        return;
+                    }
+
+                    // 3. Cash Control - Open
+                    const openCashModal = document.getElementById('open-cash-modal');
+                    if (openCashModal && !openCashModal.classList.contains('hidden') && openCashModal.style.display !== 'none') {
+                        e.preventDefault();
+                        const btn = document.getElementById('confirm-open-cash');
+                        if (btn) btn.click();
+                        return;
+                    }
+
+                    // 4. Cash Control - Close
+                    const closeCashModal = document.getElementById('close-cash-modal');
+                    if (closeCashModal && !closeCashModal.classList.contains('hidden') && closeCashModal.style.display !== 'none') {
+                        e.preventDefault();
+                        const btn = document.getElementById('confirm-close-cash');
+                        if (btn) btn.click();
+                        return;
+                    }
+
+                    // 5. Cash Control - Movement
+                    const movementModal = document.getElementById('cash-movement-modal');
+                    if (movementModal && !movementModal.classList.contains('hidden') && movementModal.style.display !== 'none') {
+                        e.preventDefault();
+                        const btn = document.getElementById('confirm-cash-movement');
+                        if (btn) btn.click();
+                        return;
+                    }
+
+                    // 6. Generic Input Modal
+                    if (this.dom.inputModal && !this.dom.inputModal.classList.contains('hidden') && this.dom.inputModal.style.display !== 'none') {
+                        e.preventDefault();
+                        if (this.dom.confirmInputBtn) this.dom.confirmInputBtn.click();
+                        return;
+                    }
+
+                    // 7. Product Grid Selection (if no modal is open)
+                    // We check if any modal is open before intercepting Enter for grid
+                    const isAnyModalOpen = document.querySelector('.fixed.inset-0:not(.hidden)');
+                    // Also check if we are NOT inside a search input
+                    // Actually, if we are in search input, Enter should maybe add the first result? Or just do nothing?
+                    // User asked to navigate. If focus is in search input, Arrows might conflict with cursor movement?
+                    // Usually ArrowUp/Down in search input navigates results. ArrowLeft/Right moves cursor.
+
+                    const activeEl = document.activeElement;
+                    const isInputFocused = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA');
+
+                    if (!isAnyModalOpen && !isInputFocused) {
+                        e.preventDefault();
+                        this.productManager.selectHighlightedProduct();
+                        return;
+                    }
+                }
+
+                // Navigation Keys
+                // Navigation Keys - Handled by ProductManager.js directly
+                if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                    // Handled by ProductManager directly now
+                    return;
+                }
+
                 if (e.key === 'Escape') {
                     // Check if payment/receipt modal is open
                     if (this.dom.paymentModal && !this.dom.paymentModal.classList.contains('hidden')) {
@@ -480,6 +613,16 @@ export class POS {
                             this.hidePaymentModal();
                         }
                     }
+
+                    // Cash Control Modals
+                    ['cash-movement-modal', 'open-cash-modal', 'close-cash-modal', 'product-form-modal'].forEach(id => {
+                        const modal = document.getElementById(id);
+                        if (modal && !modal.classList.contains('hidden') && modal.style.display !== 'none') {
+                            // Use global ui helper if available or manual class manip
+                            modal.classList.add('hidden');
+                            modal.style.display = 'none';
+                        }
+                    });
                     // Close search results if open
                     if (this.dom.customerSearchResults && !this.dom.customerSearchResults.classList.contains('hidden')) {
                         this.dom.customerSearchResults.classList.add('hidden');
@@ -761,6 +904,14 @@ export class POS {
             this.dom.customerDocumentDisplay.textContent = customer.document_number || 'Sin Documento';
             this.dom.customerDocumentDisplay.parentElement.classList.remove('hidden');
         }
+
+        ui.showNotification(`Cliente seleccionado: ${customer.name}`);
+
+        // If validation/checkout modal is open, proceed to checkout
+        if (this.dom.customerSelectionModal && !this.dom.customerSelectionModal.classList.contains('hidden')) {
+            this.hideCustomerSelection();
+            this.processCheckout(customer);
+        }
     }
 
     deselectCustomer() {
@@ -833,14 +984,7 @@ export class POS {
 
     deleteHeldSale(id) {
         console.log('POS: deleteHeldSale called for id', id);
-        this.showConfirmationModal(
-            '¿Eliminar venta en espera?',
-            '¿Está seguro de eliminar esta venta en espera? Esta acción no se puede deshacer.',
-            () => {
-                this.salesManager.deleteHeldSale(id);
-            },
-            'Sí, Eliminar'
-        );
+        this.salesManager.deleteHeldSale(id);
     }
 
     openHeldSalesDrawer() {
@@ -848,27 +992,47 @@ export class POS {
     }
 
     async showCustomerSelection() {
-        await this.customerManager.loadCustomers();
-        if (!this.customers || this.customers.length === 0) {
-            this.processCheckout(null);
-            return;
+        if (this.selectedCustomer) {
+            // Directly proceed to checkout using currently selected customer
+            this.processCheckout(this.selectedCustomer);
+        } else {
+            console.log('POS: Opening Customer Selection Modal');
+
+            // Show Modal
+            if (this.dom.customerSelectionModal) {
+                this.dom.customerSelectionModal.classList.remove('hidden');
+                this.dom.customerSelectionModal.style.display = 'flex';
+            } else {
+                console.error('POS: customerSelectionModal not found');
+            }
+
+            // Focus Search
+            if (this.dom.searchCustomerCheckout) {
+                this.dom.searchCustomerCheckout.value = '';
+                this.dom.searchCustomerCheckout.focus();
+            }
+
+            // Render List
+            if (this.customerManager && this.dom.customerSelectionList) {
+                this.customerManager.renderCustomerList(this.customers, this.dom.customerSelectionList);
+            }
         }
-        this.customerManager.renderCustomerList(this.customers);
-        if (this.dom.customerSelectionModal) {
-            this.dom.customerSelectionModal.classList.remove('hidden');
-            this.dom.customerSelectionModal.style.display = 'flex';
+    }
+
+    processCheckout(customer) {
+        if (this.checkoutManager) {
+            this.checkoutManager.processCheckout(customer);
+        } else {
+            console.error('POS: CheckoutManager not initialized!');
         }
-        setTimeout(() => {
-            if (this.dom.searchCustomerCheckout) this.dom.searchCustomerCheckout.focus();
-        }, 100);
     }
 
     hideCustomerSelection() {
+        // Modal disabled
         if (this.dom.customerSelectionModal) {
             this.dom.customerSelectionModal.classList.add('hidden');
             this.dom.customerSelectionModal.style.display = 'none';
         }
-        if (this.dom.searchCustomerCheckout) this.dom.searchCustomerCheckout.value = '';
     }
 
     renderCustomerList(customers) {
@@ -902,6 +1066,48 @@ export class POS {
 
     deselectCustomer() {
         this.customerManager.deselectCustomer();
+    }
+
+    bindCustomerSearchInput() {
+        console.log('POS: Binding/Re-binding customer search input');
+        let input = document.getElementById('pos-customer-search');
+
+        if (input) {
+            // Clone to strip existing listeners and references
+            const newInput = input.cloneNode(true);
+            if (input.parentNode) {
+                input.parentNode.replaceChild(newInput, input);
+            }
+            this.dom.customerSearchInput = newInput;
+
+            // Re-bind Input Event
+            newInput.addEventListener('input', (e) => {
+                const query = e.target.value;
+                console.log('POS: Customer search input event fired. Query:', query);
+                this.searchCustomers(query);
+            });
+
+            // Re-bind Click/Focus to ensure it wakes up
+            newInput.addEventListener('click', () => {
+                newInput.focus();
+                if (newInput.value.length >= 2) {
+                    this.searchCustomers(newInput.value);
+                }
+            });
+
+            // Re-bind Keydown for Enter
+            newInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (newInput.value.length >= 2) {
+                        this.searchCustomers(newInput.value);
+                    }
+                }
+            });
+
+        } else {
+            console.error('POS: customerSearchInput not found during manual bind');
+        }
     }
 
     async refreshData() {
@@ -1034,61 +1240,73 @@ export class POS {
         ui.showNotification('Carrito vaciado');
     }
 
-    showConfirmationModal(title, message, onConfirm, confirmText = 'Confirmar', onCancel = null, cancelText = 'Cancelar') {
-        if (this.dom.confirmationModal) {
-            if (this.dom.confirmModalTitle) this.dom.confirmModalTitle.textContent = title;
-            if (this.dom.confirmModalMessage) this.dom.confirmModalMessage.textContent = message;
+    showConfirmationModal(title, message, onConfirm, confirmText = 'Confirmar', onCancel, cancelText = 'Cancelar') {
+        const modal = document.getElementById('confirmation-modal');
+        if (!modal) {
+            console.error('POS: Confirmation modal not found in DOM');
+            return;
+        }
 
-            // Force update icon to animated trash can (Robust selector for cache issues)
-            const iconContainer = this.dom.confirmModalIconContainer ||
-                (this.dom.confirmationModal ? this.dom.confirmationModal.querySelector('.rounded-full') : null);
+        const titleEl = document.getElementById('confirm-modal-title');
+        const messageEl = document.getElementById('confirm-modal-message');
+        const iconContainer = document.getElementById('confirm-modal-icon-container');
 
-            if (iconContainer) {
-                iconContainer.innerHTML = `
-                    <svg class="w-10 h-10 text-red-600 dark:text-red-400 animate-tip-over overflow-visible" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6"></path>
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                    </svg>
-                `;
+        if (titleEl) titleEl.textContent = title;
+        if (messageEl) messageEl.textContent = message;
+
+        // Reset Icon
+        if (iconContainer) {
+            iconContainer.innerHTML = `
+                <svg class="h-10 w-10 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                </svg>
+             `;
+        }
+
+        // Helper to safely replace button
+        const safeReplaceButton = (btnId, text, callback, cacheKey) => {
+            const btn = document.getElementById(btnId);
+            if (btn) {
+                btn.textContent = text;
+                const newBtn = btn.cloneNode(true);
+                if (btn.parentNode) {
+                    btn.parentNode.replaceChild(newBtn, btn);
+                    this.dom[cacheKey] = newBtn; // Update cache
+                    newBtn.addEventListener('click', () => {
+                        if (callback) callback();
+                        this.hideConfirmationModal();
+                    });
+                } else {
+                    console.error(`POS: Button ${btnId} found but detached from DOM`);
+                }
+            } else {
+                console.error(`POS: Button ${btnId} not found`);
             }
+        };
 
-            const confirmBtn = this.dom.confirmActionBtn;
-            const cancelBtn = this.dom.cancelConfirmBtn;
+        safeReplaceButton('confirm-action-btn', confirmText, onConfirm, 'confirmActionBtn');
+        safeReplaceButton('cancel-confirm-btn', cancelText, onCancel, 'cancelConfirmBtn');
 
-            if (confirmBtn) {
-                confirmBtn.textContent = confirmText;
-                // Remove old listeners by cloning
-                const newConfirmBtn = confirmBtn.cloneNode(true);
-                confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
-                this.dom.confirmActionBtn = newConfirmBtn;
-
-                newConfirmBtn.addEventListener('click', () => {
-                    if (onConfirm) onConfirm();
-                    this.hideConfirmationModal();
-                });
-            }
-
-            if (cancelBtn) {
-                cancelBtn.textContent = cancelText;
-                const newCancelBtn = cancelBtn.cloneNode(true);
-                cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
-                this.dom.cancelConfirmBtn = newCancelBtn;
-
-                newCancelBtn.addEventListener('click', () => {
-                    if (onCancel) onCancel();
-                    this.hideConfirmationModal();
-                });
-            }
-
-            this.dom.confirmationModal.classList.remove('hidden');
-            this.dom.confirmationModal.style.display = 'flex';
+        modal.classList.remove('hidden');
+        modal.style.display = 'flex';
+        // Animation
+        const content = modal.querySelector('div[class*="rounded-2xl"]');
+        if (content) {
+            content.style.opacity = '0';
+            content.style.transform = 'scale(0.95)';
+            requestAnimationFrame(() => {
+                content.style.transition = 'all 0.2s ease-out';
+                content.style.opacity = '1';
+                content.style.transform = 'scale(1)';
+            });
         }
     }
 
     hideConfirmationModal() {
-        if (this.dom.confirmationModal) {
-            this.dom.confirmationModal.classList.add('hidden');
-            this.dom.confirmationModal.style.display = 'none';
+        const modal = document.getElementById('confirmation-modal');
+        if (modal) {
+            modal.classList.add('hidden');
+            modal.style.display = 'none';
         }
     }
 
@@ -1580,6 +1798,7 @@ window.closeMobileCart = function () {
 };
 
 // Initialize
-document.addEventListener('DOMContentLoaded', () => {
-    window.pos = new POS();
-});
+// Initialize - REMOVED (Handled by App.js)
+// document.addEventListener('DOMContentLoaded', () => {
+//     window.pos = new POS();
+// });

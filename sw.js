@@ -1,7 +1,8 @@
-const CACHE_NAME = 'american-pos-v259';
+const CACHE_NAME = 'american-pos-v262';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
+    './manifest.json',
     './js/app.js',
     './js/api.js',
     './js/pos.v4.js',

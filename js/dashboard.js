@@ -76,7 +76,7 @@ export class Dashboard {
     async loadData() {
         try {
             // Fetch business info for exchange rate
-            const businessInfo = await api.business.getInfo();
+            const businessInfo = await api.settings.getBusinessInfo();
             this.currentExchangeRate = businessInfo.exchangeRate || 1;
 
             // Fetch all sales for client-side processing
@@ -267,10 +267,12 @@ export class Dashboard {
 
     renderCategoryChart(labels, data) {
         if (!this.dom.categoryCanvas) return;
+
+        const existingChart = Chart.getChart(this.dom.categoryCanvas);
+        if (existingChart) existingChart.destroy();
+
         const ctx = this.dom.categoryCanvas.getContext('2d');
         const colors = this.getThemeColors();
-
-        if (this.charts.category) this.charts.category.destroy();
 
         this.charts.category = new Chart(ctx, {
             type: 'pie',
@@ -383,10 +385,13 @@ export class Dashboard {
 
     renderTrendChart(labels, data) {
         if (!this.dom.trendCanvas) return;
+
+        // Destroy existing chart on this canvas if it exists
+        const existingChart = Chart.getChart(this.dom.trendCanvas);
+        if (existingChart) existingChart.destroy();
+
         const ctx = this.dom.trendCanvas.getContext('2d');
         const colors = this.getThemeColors();
-
-        if (this.charts.trend) this.charts.trend.destroy();
 
         this.charts.trend = new Chart(ctx, {
             type: 'line',
@@ -447,10 +452,12 @@ export class Dashboard {
 
     renderTopProductsChart(labels, data) {
         if (!this.dom.topProductsCanvas) return;
+
+        const existingChart = Chart.getChart(this.dom.topProductsCanvas);
+        if (existingChart) existingChart.destroy();
+
         const ctx = this.dom.topProductsCanvas.getContext('2d');
         const colors = this.getThemeColors();
-
-        if (this.charts.topProducts) this.charts.topProducts.destroy();
 
         this.charts.topProducts = new Chart(ctx, {
             type: 'bar',
@@ -497,10 +504,12 @@ export class Dashboard {
 
     renderPaymentMethodsChart(labels, data) {
         if (!this.dom.paymentMethodsCanvas) return;
+
+        const existingChart = Chart.getChart(this.dom.paymentMethodsCanvas);
+        if (existingChart) existingChart.destroy();
+
         const ctx = this.dom.paymentMethodsCanvas.getContext('2d');
         const colors = this.getThemeColors();
-
-        if (this.charts.paymentMethods) this.charts.paymentMethods.destroy();
 
         this.charts.paymentMethods = new Chart(ctx, {
             type: 'doughnut',
@@ -564,20 +573,4 @@ document.addEventListener('DOMContentLoaded', () => {
         window.dashboard = new Dashboard();
     }
 });
-tooltip: {
-    callbacks: {
-        label: function(context) {
-            const value = context.raw;
-            const total = context.chart._metasets[context.datasetIndex].total;
-            const percentage = ((value / total) * 100).toFixed(1) + '%';
-            return `${context.label}: ${formatBs(value)} (${percentage})`;
-        }
-    }
-}
-                    }
-                },
-cutout: '70%'
-            }
-        });
-    }
-}
+

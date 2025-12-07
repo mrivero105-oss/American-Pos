@@ -1,12 +1,13 @@
-import { POS } from './pos.v4.js?v=222';
-import { Dashboard } from './dashboard.js?v=222';
-import { SalesHistory } from './sales.js?v=222';
-import { Settings } from './settings.js?v=222';
-import { Customers } from './customers.js?v=222';
-import { Products } from './products.js?v=222';
-import { authService } from './auth.js?v=222';
+import { POS } from './pos.v4.js?v=223';
+import { Dashboard } from './dashboard.js?v=223';
+import { SalesHistory } from './sales.js?v=223';
+import { Settings } from './settings.js?v=223';
+import { CustomersView } from './modules/dashboard/CustomersView.js?v=223';
+import { UsersManager } from './modules/admin/UsersManager.js?v=223';
+import { Products } from './products.js?v=223';
+import { authService } from './auth.js?v=223';
 
-const APP_VERSION = 'v222';
+const APP_VERSION = 'v223';
 
 class App {
     constructor() {
@@ -15,7 +16,8 @@ class App {
             dashboard: new Dashboard(),
             sales: new SalesHistory(),
             settings: new Settings(),
-            customers: new Customers(),
+            customers: new CustomersView(new Dashboard()),
+            users: new UsersManager(),
             products: Products
         };
         this.currentView = 'pos';
@@ -35,6 +37,9 @@ class App {
 
         navLinks.forEach(link => {
             link.addEventListener('click', (e) => {
+                // If clicking the toggle button, do nothing (handled separately)
+                if (e.currentTarget.id === 'sidebar-toggle-desktop') return;
+
                 console.log('Nav link clicked:', e.currentTarget.dataset.view);
                 e.preventDefault();
                 const viewName = e.currentTarget.dataset.view;
@@ -46,6 +51,24 @@ class App {
                 }
             });
         });
+
+        // Initialize Sidebar Toggle (Desktop)
+        const sidebarToggle = document.getElementById('sidebar-toggle-desktop');
+        const sidebar = document.getElementById('sidebar');
+        if (sidebarToggle && sidebar) {
+            sidebarToggle.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                sidebar.classList.toggle('sidebar-collapsed');
+                const isCollapsed = sidebar.classList.contains('sidebar-collapsed');
+                localStorage.setItem('sidebarCollapsed', isCollapsed);
+            });
+
+            // Restore preference
+            if (localStorage.getItem('sidebarCollapsed') === 'true') {
+                sidebar.classList.add('sidebar-collapsed');
+            }
+        }
 
         // Logout Button
         const logoutBtn = document.getElementById('logout-btn');
@@ -94,7 +117,6 @@ class App {
                 } catch (e) {
                     console.error('Error reading tailwind config:', e);
                 }
-                console.log('Classes before:', document.documentElement.className);
 
                 if (document.documentElement.classList.contains('dark')) {
                     document.documentElement.classList.remove('dark');
@@ -103,7 +125,6 @@ class App {
                     document.documentElement.classList.add('dark');
                     localStorage.theme = 'dark';
                 }
-                console.log('Classes after:', document.documentElement.className);
             }
         });
 
@@ -155,14 +176,19 @@ class App {
         const cartSidebar = document.getElementById('cart-sidebar');
         const overlay = document.getElementById('mobile-overlay');
 
+        if (!cartSidebar) return; // Safety check
+
         if (show) {
             cartSidebar.classList.remove('translate-x-full');
-            overlay.classList.remove('hidden');
+            if (overlay) overlay.classList.remove('hidden');
         } else {
             cartSidebar.classList.add('translate-x-full');
             // Only hide overlay if sidebar is also closed
             const sidebar = document.getElementById('sidebar');
-            if (sidebar.classList.contains('-translate-x-full')) {
+            if (sidebar && sidebar.classList.contains('-translate-x-full')) {
+                if (overlay) overlay.classList.add('hidden');
+            } else if (!sidebar && overlay) {
+                // Fallback if sidebar not found but overlay exists
                 overlay.classList.add('hidden');
             }
         }
@@ -170,17 +196,7 @@ class App {
 
     switchView(viewName) {
         // Update Nav
-        document.querySelectorAll('nav a').forEach(link => {
-            if (link.dataset.view === viewName) {
-                // Active State
-                link.classList.add('bg-slate-800', 'text-white');
-                link.classList.remove('text-slate-800', 'dark:text-slate-200', 'hover:bg-slate-100', 'dark:hover:bg-slate-800');
-            } else {
-                // Inactive State
-                link.classList.remove('bg-slate-800', 'text-white');
-                link.classList.add('text-slate-800', 'dark:text-slate-200', 'hover:bg-slate-100', 'dark:hover:bg-slate-800');
-            }
-        });
+        this.updateNavigation(viewName);
 
         // Hide all views
         document.querySelectorAll('.view-section').forEach(section => {
@@ -207,6 +223,8 @@ class App {
                     this.views.products.loadProducts();
                 }
                 if (viewName === 'settings') this.views.settings.loadSettings();
+                if (viewName === 'users') this.views.users.load();
+                if (viewName === 'customers') this.views.customers.load();
                 if (viewName === 'pos') this.views.pos.refreshData();
             } catch (error) {
                 console.error(`Error loading view ${viewName}:`, error);
@@ -227,23 +245,35 @@ class App {
             if (mobileCartBtn) mobileCartBtn.classList.add('hidden');
         }
     }
-}
 
-console.log('App.js module loaded');
+    updateNavigation(currentView) {
+        document.querySelectorAll('nav a').forEach(link => {
+            if (link.dataset.view === currentView) {
+                // Active State
+                link.classList.add('bg-slate-800', 'text-white');
+                link.classList.remove('text-slate-800', 'dark:text-slate-200', 'hover:bg-slate-100', 'dark:hover:bg-slate-800');
+            } else {
+                // Inactive State
+                link.classList.remove('bg-slate-800', 'text-white');
+                link.classList.add('text-slate-800', 'dark:text-slate-200', 'hover:bg-slate-100', 'dark:hover:bg-slate-800');
+            }
+        });
 
-const initApp = () => {
-    if (window.appInitialized) {
-        console.warn('App already initialized, skipping.');
-        return;
+        // Toggle Users menu item visibility
+        const user = authService.getUser();
+        const usersLink = document.getElementById('nav-users-link');
+
+        if (usersLink) {
+            if (user && user.role === 'admin') {
+                usersLink.classList.remove('hidden');
+                usersLink.style.display = 'flex'; // Force display if hidden by default was hard
+            } else {
+                usersLink.classList.add('hidden');
+                usersLink.style.display = 'none';
+            }
+        }
     }
-    window.appInitialized = true;
-    console.log('initApp called');
-    // if (window.app) return; // Force init for debugging
-    window.app = new App();
-};
-
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initApp);
-} else {
-    initApp();
 }
+
+// Global App Instance
+window.app = new App();

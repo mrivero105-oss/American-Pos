@@ -68,73 +68,122 @@ export class CustomerManager {
         this.renderCustomerSearchResults(results);
     }
 
-    renderCustomerSearchResults(results) {
-        if (!this.pos.dom.customerSearchResults) return;
+    filterCustomerList(query, container) {
+        if (!this.pos.customers) return;
+        const lowerQuery = query ? query.toLowerCase() : '';
+        const results = this.pos.customers.filter(c =>
+            c.name.toLowerCase().includes(lowerQuery) ||
+            (c.document_number && c.document_number.includes(lowerQuery))
+        );
+        this.renderCustomerSearchResults(results, container);
+    }
+
+    renderCustomerList(customers, container = null) {
+        // Render a limited set of customers (e.g. first 20) to avoid lagging the UI
+        const list = customers || [];
+        this.renderCustomerSearchResults(list.slice(0, 20), container);
+    }
+
+    renderCustomerSearchResults(results, container = null) {
+        const target = container || this.pos.dom.customerSearchResults;
+        if (!target) return;
 
         if (results.length === 0) {
-            this.pos.dom.customerSearchResults.innerHTML = '<div class="p-3 text-slate-500 text-center">No se encontraron clientes</div>';
+            target.innerHTML = '<div class="p-3 text-slate-500 text-center">No se encontraron clientes</div>';
         } else {
-            this.pos.dom.customerSearchResults.innerHTML = results.map(c => `
-                <div class="customer-result-item p-3 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer border-b border-slate-100 dark:border-slate-700 last:border-0" data-id="${c.id}">
+            target.innerHTML = results.map(c => `
+                <div class="customer-result-item p-3 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer border-b border-slate-100 dark:border-slate-700 last:border-0 rounded-lg" data-id="${c.id}">
                     <div class="font-medium text-slate-900 dark:text-white">${c.name}</div>
                     <div class="text-sm text-slate-500 dark:text-slate-400">${c.document_number || 'Sin documento'}</div>
                 </div>
             `).join('');
 
             // Bind click events
-            this.pos.dom.customerSearchResults.querySelectorAll('.customer-result-item').forEach(item => {
+            target.querySelectorAll('.customer-result-item').forEach(item => {
                 item.addEventListener('click', () => {
                     const id = item.dataset.id;
                     const customer = this.pos.customers.find(c => String(c.id) === String(id));
                     if (customer) {
-                        this.selectCustomer(customer);
+                        // If we are in the modal (container passed), we proceed to checkout
+                        if (container) {
+                            this.pos.processCheckout(customer);
+                        } else {
+                            // Standard sidebar selection
+                            this.selectCustomer(customer);
+                        }
                     }
                 });
             });
         }
 
-        this.pos.dom.customerSearchResults.classList.remove('hidden');
+        if (!container) {
+            this.pos.dom.customerSearchResults.classList.remove('hidden');
+        }
     }
 
     selectCustomer(customer) {
         this.pos.selectedCustomer = customer;
 
-        // Update UI
-        if (this.pos.dom.customerSearchInput) {
-            this.pos.dom.customerSearchInput.value = customer.name;
-            this.pos.dom.customerSearchInput.disabled = true;
-        }
+        // Hide Search Container
+        const searchContainer = document.getElementById('customer-search-container');
+        if (searchContainer) searchContainer.classList.add('hidden');
 
-        if (this.pos.dom.customerSearchResults) {
-            this.pos.dom.customerSearchResults.classList.add('hidden');
-        }
+        // Show Selected Customer Card
+        const selectedContainer = document.getElementById('pos-selected-customer');
+        if (selectedContainer) selectedContainer.classList.remove('hidden');
 
-        if (this.pos.dom.deselectCustomerBtn) {
-            this.pos.dom.deselectCustomerBtn.classList.remove('hidden');
-        }
+        // Update Text
+        const nameEl = document.getElementById('selected-customer-name');
+        const docEl = document.getElementById('selected-customer-doc');
 
-        if (this.pos.dom.customerDocumentDisplay) {
-            this.pos.dom.customerDocumentDisplay.textContent = customer.document_number || 'Sin Documento';
-            this.pos.dom.customerDocumentDisplay.parentElement.classList.remove('hidden');
-        }
+        if (nameEl) nameEl.textContent = customer.name;
+        if (docEl) docEl.textContent = customer.document_number ? `CI: ${customer.document_number}` : 'Sin Documento';
+
+        // Ensure deselect button event is bound (it usually is by bindEvents / cacheDOM, but good to check layout)
     }
 
     deselectCustomer() {
         this.pos.selectedCustomer = null;
 
-        // Update UI
-        if (this.pos.dom.customerSearchInput) {
-            this.pos.dom.customerSearchInput.value = '';
-            this.pos.dom.customerSearchInput.disabled = false;
-            this.pos.dom.customerSearchInput.focus();
+        // Show Search Container
+        const searchContainer = document.getElementById('customer-search-container');
+        if (searchContainer) {
+            searchContainer.classList.remove('hidden');
+            searchContainer.style.display = 'block';
         }
 
-        if (this.pos.dom.deselectCustomerBtn) {
-            this.pos.dom.deselectCustomerBtn.classList.add('hidden');
-        }
+        // Hide Selected Customer Card
+        const selectedContainer = document.getElementById('pos-selected-customer');
+        if (selectedContainer) selectedContainer.classList.add('hidden');
 
-        if (this.pos.dom.customerDocumentDisplay) {
-            this.pos.dom.customerDocumentDisplay.parentElement.classList.add('hidden');
+        // Reset and Focus Input (Safe DOM query)
+        setTimeout(() => {
+            // Force re-bind to clear any stuck state
+            if (this.pos.bindCustomerSearchInput) {
+                this.pos.bindCustomerSearchInput();
+            }
+
+            const input = document.getElementById('pos-customer-search');
+            if (input) {
+                input.value = '';
+                input.disabled = false;
+                input.readOnly = false; // Ensure not readonly
+                input.classList.remove('hidden');
+                input.style.display = 'block';
+                input.setAttribute('placeholder', 'Buscar cliente (Nombre/CI)...');
+                input.focus();
+
+                // Update cache if needed
+                if (this.pos.dom) this.pos.dom.customerSearchInput = input;
+            } else {
+                console.error('POS: Customer search input not found during deselect');
+            }
+        }, 50);
+
+        // Hide ANY open results
+        if (this.pos.dom.customerSearchResults) {
+            this.pos.dom.customerSearchResults.classList.add('hidden');
+            this.pos.dom.customerSearchResults.innerHTML = '';
         }
     }
 }
