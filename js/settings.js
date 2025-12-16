@@ -1,5 +1,6 @@
 import { api } from './api.js';
 import { ui } from './ui.js';
+import { currencySettings } from './utils.js';
 
 export class Settings {
     constructor() {
@@ -71,6 +72,12 @@ export class Settings {
     }
 
     async loadSettings() {
+        // Hide exchange rate section when USD-only mode
+        const exchangeRateContainer = document.getElementById('exchange-rate-container');
+        if (exchangeRateContainer) {
+            exchangeRateContainer.style.display = currencySettings.isBsEnabled() ? '' : 'none';
+        }
+
         try {
             // Use allSettled to prevent one failure from blocking everything
             const results = await Promise.allSettled([
