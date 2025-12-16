@@ -291,6 +291,7 @@ export class POS {
             cartTotal: document.getElementById('cart-total'),
             cartTotalBs: document.getElementById('cart-total-bs'),
             searchInput: document.getElementById('search-input'),
+            mobileSearchInput: document.getElementById('mobile-search-input'),
             checkoutBtn: document.getElementById('checkout-btn'),
             clearCartBtn: document.getElementById('clear-cart-btn'),
             holdSaleBtn: document.getElementById('hold-sale-btn'),
@@ -430,6 +431,23 @@ export class POS {
                         e.preventDefault();
                         this.dom.searchInput.blur(); // Remove focus from input
                         this.productManager.focusProductGrid(); // Transfer to grid
+                    }
+                });
+            }
+
+            // Mobile Search Input
+            if (this.dom.mobileSearchInput) {
+                this.dom.mobileSearchInput.addEventListener('input', debounce((e) => {
+                    const query = e.target.value;
+                    // Sync with desktop input
+                    if (this.dom.searchInput) this.dom.searchInput.value = query;
+                    this.filterProducts(query);
+                }, 300));
+
+                this.dom.mobileSearchInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        this.dom.mobileSearchInput.blur();
                     }
                 });
             }
