@@ -1,4 +1,5 @@
 import { ui } from '../../ui.js';
+import { currencySettings } from '../../utils.js';
 
 export class WeightModal {
     constructor(pos) {
@@ -15,11 +16,36 @@ export class WeightModal {
         }
 
         this.pos.dom.weightModalTitle.textContent = product.name;
-        this.pos.dom.weightModalUnitPrice.textContent = `$${parseFloat(product.price).toFixed(2)} / Kg`;
+
+        // Show USD unit price if USD is enabled, otherwise convert to Bs
+        if (currencySettings.isUsdEnabled()) {
+            this.pos.dom.weightModalUnitPrice.textContent = `$${parseFloat(product.price).toFixed(2)} / Kg`;
+        } else {
+            const priceBs = parseFloat(product.price) * this.pos.exchangeRate;
+            this.pos.dom.weightModalUnitPrice.textContent = `Bs ${priceBs.toFixed(2)} / Kg`;
+        }
 
         this.pos.dom.weightInput.value = '';
         this.pos.dom.weightPriceUsd.value = '';
         if (this.pos.dom.weightPriceBs) this.pos.dom.weightPriceBs.value = '';
+
+        // Visibility toggle for USD container
+        if (this.pos.dom.weightPriceUsdContainer) {
+            if (currencySettings.isUsdEnabled()) {
+                this.pos.dom.weightPriceUsdContainer.classList.remove('hidden');
+            } else {
+                this.pos.dom.weightPriceUsdContainer.classList.add('hidden');
+            }
+        }
+
+        // Visibility toggle for Bs container
+        if (this.pos.dom.weightPriceBsContainer) {
+            if (currencySettings.isBsEnabled()) {
+                this.pos.dom.weightPriceBsContainer.classList.remove('hidden');
+            } else {
+                this.pos.dom.weightPriceBsContainer.classList.add('hidden');
+            }
+        }
 
         // Focus weight input by default
         setTimeout(() => this.pos.dom.weightInput.focus(), 100);

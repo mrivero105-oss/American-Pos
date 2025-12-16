@@ -355,7 +355,9 @@ export class POS {
             weightModalUnitPrice: document.getElementById('weight-modal-unit-price'),
             weightInput: document.getElementById('weight-input'),
             weightPriceUsd: document.getElementById('weight-price-usd'),
-            weightPriceBs: document.getElementById('weight-price-bs'), // Note: ID in HTML is weight-price-input for USD, need to check if BS input exists or if I should map correctly
+            weightPriceUsdContainer: document.getElementById('weight-price-usd-container'),
+            weightPriceBs: document.getElementById('weight-price-bs'),
+            weightPriceBsContainer: document.getElementById('weight-price-bs-container'),
             confirmWeightBtn: document.getElementById('confirm-weight-btn'),
 
             // Customer Search Elements
