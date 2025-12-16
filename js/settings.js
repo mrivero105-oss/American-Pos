@@ -330,7 +330,7 @@ export class Settings {
             this.dom.downloadBackupBtn.disabled = true;
             this.dom.downloadBackupBtn.textContent = 'Generando...';
 
-            const data = await api.backup.create();
+            const data = await api.backup.download();
             const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
