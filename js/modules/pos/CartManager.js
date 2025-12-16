@@ -116,9 +116,15 @@ export class CartManager {
         if (this.pos.dom.cartTotalBs) {
             if (showBs) {
                 this.pos.dom.cartTotalBs.textContent = formatBs(totalBs);
-                this.pos.dom.cartTotalBs.style.display = '';
+            }
+        }
+        // Show/hide entire Total BS row in desktop cart
+        const cartTotalBsRow = document.getElementById('cart-total-bs-row');
+        if (cartTotalBsRow) {
+            if (showBs) {
+                cartTotalBsRow.classList.remove('hidden');
             } else {
-                this.pos.dom.cartTotalBs.style.display = 'none';
+                cartTotalBsRow.classList.add('hidden');
             }
         }
         if (this.pos.dom.mobileCartCount) this.pos.dom.mobileCartCount.textContent = itemCount;
@@ -141,7 +147,8 @@ export class CartManager {
             }
 
             const mobileTotalBsEl = document.getElementById('mobile-cart-total-bs');
-            if (mobileTotalBsEl) {
+            const mobileTotalBsRow = document.getElementById('mobile-cart-total-bs-row');
+            if (mobileTotalBsEl && mobileTotalBsRow) {
                 if (showBs) {
                     const SafeRate = this.pos.exchangeRate || 0;
                     // Round UP to nearest whole Bs
@@ -149,9 +156,9 @@ export class CartManager {
                     const formattedBs = formatBs(safeTotalBs);
                     console.log('POS: Updating mobile total BS. Element:', mobileTotalBsEl, 'Value:', formattedBs);
                     mobileTotalBsEl.textContent = formattedBs;
-                    mobileTotalBsEl.style.display = '';
+                    mobileTotalBsRow.classList.remove('hidden');
                 } else {
-                    mobileTotalBsEl.style.display = 'none';
+                    mobileTotalBsRow.classList.add('hidden');
                 }
             } else {
                 console.warn('POS: Mobile Total BS Element #mobile-cart-total-bs NOT found');
