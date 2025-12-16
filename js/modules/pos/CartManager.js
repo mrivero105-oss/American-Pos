@@ -1,5 +1,5 @@
 import { ui } from '../../ui.js';
-import { formatBs, roundBsUp } from '../../utils.js';
+import { formatBs, roundBsUp, currencySettings } from '../../utils.js';
 import { getImageUrl } from '../../config.js';
 
 export class CartManager {
@@ -102,6 +102,9 @@ export class CartManager {
     renderCart() {
         this.saveCart(); // Auto-save on render
 
+        // Check currency settings
+        const showBs = currencySettings.isBsEnabled();
+
         // Calculate Totals
         const total = this.pos.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
         // Round UP to nearest whole Bs
@@ -110,7 +113,14 @@ export class CartManager {
 
         // Update UI Totals
         if (this.pos.dom.cartTotal) this.pos.dom.cartTotal.textContent = `$${total.toFixed(2)}`;
-        if (this.pos.dom.cartTotalBs) this.pos.dom.cartTotalBs.textContent = formatBs(totalBs);
+        if (this.pos.dom.cartTotalBs) {
+            if (showBs) {
+                this.pos.dom.cartTotalBs.textContent = formatBs(totalBs);
+                this.pos.dom.cartTotalBs.style.display = '';
+            } else {
+                this.pos.dom.cartTotalBs.style.display = 'none';
+            }
+        }
         if (this.pos.dom.mobileCartCount) this.pos.dom.mobileCartCount.textContent = itemCount;
 
         // FIXED: Update Mobile Specific Totals (Robust Version)
@@ -132,12 +142,17 @@ export class CartManager {
 
             const mobileTotalBsEl = document.getElementById('mobile-cart-total-bs');
             if (mobileTotalBsEl) {
-                const SafeRate = this.pos.exchangeRate || 0;
-                // Round UP to nearest whole Bs
-                const safeTotalBs = roundBsUp((total || 0) * SafeRate);
-                const formattedBs = formatBs(safeTotalBs);
-                console.log('POS: Updating mobile total BS. Element:', mobileTotalBsEl, 'Value:', formattedBs);
-                mobileTotalBsEl.textContent = formattedBs;
+                if (showBs) {
+                    const SafeRate = this.pos.exchangeRate || 0;
+                    // Round UP to nearest whole Bs
+                    const safeTotalBs = roundBsUp((total || 0) * SafeRate);
+                    const formattedBs = formatBs(safeTotalBs);
+                    console.log('POS: Updating mobile total BS. Element:', mobileTotalBsEl, 'Value:', formattedBs);
+                    mobileTotalBsEl.textContent = formattedBs;
+                    mobileTotalBsEl.style.display = '';
+                } else {
+                    mobileTotalBsEl.style.display = 'none';
+                }
             } else {
                 console.warn('POS: Mobile Total BS Element #mobile-cart-total-bs NOT found');
             }

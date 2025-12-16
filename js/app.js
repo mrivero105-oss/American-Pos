@@ -10,6 +10,7 @@ import { Products } from './products.js?v=223';
 import { authService } from './auth.js?v=223';
 import { SuppliersView } from './modules/dashboard/SuppliersView.js?v=224';
 import { PurchaseOrdersView } from './modules/dashboard/PurchaseOrdersView.js?v=224';
+import { currencySettings } from './utils.js';
 
 const APP_VERSION = 'v224';
 
@@ -35,6 +36,12 @@ class App {
         if (!authService.isAuthenticated()) {
             window.location.href = 'login.html';
             return;
+        }
+
+        // Initialize currency settings from user data
+        const user = authService.getUser();
+        if (user && user.businessInfo && user.businessInfo.currencies) {
+            currencySettings.setEnabled(user.businessInfo.currencies);
         }
 
         // Navigation

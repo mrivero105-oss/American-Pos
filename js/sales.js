@@ -1,5 +1,5 @@
 import { api } from './api.js';
-import { formatCurrency, formatDate, formatBs } from './utils.js';
+import { formatCurrency, formatDate, formatBs, currencySettings } from './utils.js';
 import { ui } from './ui.js';
 
 export class SalesHistory {
@@ -121,7 +121,7 @@ export class SalesHistory {
                 </td>
                 <td class="px-4 py-3 whitespace-nowrap text-right">
                     <div class="text-sm font-bold text-indigo-600 dark:text-indigo-400">${formatCurrency(sale.total)}</div>
-                    <div class="text-xs text-slate-500 dark:text-slate-400">${formatBs(totalInBs)}</div>
+                    ${currencySettings.isBsEnabled() ? `<div class="text-xs text-slate-500 dark:text-slate-400">${formatBs(totalInBs)}</div>` : ''}
                     ${sale.status === 'REFUNDED' ? '<span class="block mt-1 px-1.5 py-0.5 rounded-full bg-red-100 text-red-800 text-[10px] dark:bg-red-900/30 dark:text-red-400">Reemb.</span>' : ''}
                     ${sale.status === 'PARTIAL_REFUNDED' ? '<span class="block mt-1 px-1.5 py-0.5 rounded-full bg-yellow-100 text-yellow-800 text-[10px] dark:bg-yellow-900/30 dark:text-yellow-400">Parcial</span>' : ''}
                 </td>
@@ -204,6 +204,7 @@ export class SalesHistory {
                             <div class="font-bold text-green-600 dark:text-green-400">${formatCurrency(totalUsd)}</div>
                         </div>
                     </div>
+                    ${currencySettings.isBsEnabled() ? `
                     <div class="flex items-center gap-2">
                         <div class="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center">
                             <span class="text-sm">💰</span>
@@ -213,6 +214,7 @@ export class SalesHistory {
                             <div class="font-bold text-indigo-600 dark:text-indigo-400">${formatBs(totalBs)}</div>
                         </div>
                     </div>
+                    ` : ''}
                 </div>
             </div>
         `;

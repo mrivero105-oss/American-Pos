@@ -72,3 +72,64 @@ export const roundBsNearest = (amount) => {
 export const roundUsd = (amount) => {
     return Math.round(amount * 100) / 100;
 };
+
+/**
+ * Currency Settings Manager
+ * Tracks which currencies are enabled for the current user
+ */
+export const currencySettings = {
+    _enabled: ['USD', 'VES'], // Default to both
+
+    /**
+     * Set enabled currencies from user data
+     * @param {string[]} currencies - Array of currency codes ['USD', 'VES']
+     */
+    setEnabled(currencies) {
+        if (Array.isArray(currencies) && currencies.length > 0) {
+            this._enabled = currencies.map(c => c.toUpperCase());
+        } else {
+            this._enabled = ['USD', 'VES']; // Default to both
+        }
+        console.log('Currency settings updated:', this._enabled);
+    },
+
+    /**
+     * Check if USD is enabled
+     * @returns {boolean}
+     */
+    isUsdEnabled() {
+        return this._enabled.includes('USD');
+    },
+
+    /**
+     * Check if Bs (VES) is enabled
+     * @returns {boolean}
+     */
+    isBsEnabled() {
+        return this._enabled.includes('VES') || this._enabled.includes('BS');
+    },
+
+    /**
+     * Check if ONLY USD is enabled (no Bs)
+     * @returns {boolean}
+     */
+    isUsdOnly() {
+        return this.isUsdEnabled() && !this.isBsEnabled();
+    },
+
+    /**
+     * Check if ONLY Bs is enabled (no USD)
+     * @returns {boolean}
+     */
+    isBsOnly() {
+        return this.isBsEnabled() && !this.isUsdEnabled();
+    },
+
+    /**
+     * Check if both currencies are enabled
+     * @returns {boolean}
+     */
+    isBothEnabled() {
+        return this.isUsdEnabled() && this.isBsEnabled();
+    }
+};

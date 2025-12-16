@@ -1,5 +1,5 @@
 import { api } from '../../api.js';
-import { formatBs, roundBsUp, roundBsNearest } from '../../utils.js';
+import { formatBs, roundBsUp, roundBsNearest, currencySettings } from '../../utils.js';
 import { ui } from '../../ui.js';
 
 export class CheckoutManager {
@@ -59,9 +59,30 @@ export class CheckoutManager {
         // Round UP to nearest whole Bs (105.62 → 106)
         const totalBs = roundBsUp(totalBsRaw);
 
-        // Update Total Display (show rounded amount only)
-        if (this.pos.dom.paymentTotalUsd) this.pos.dom.paymentTotalUsd.textContent = formatBs(totalBs);
-        if (this.pos.dom.paymentTotalVes) this.pos.dom.paymentTotalVes.textContent = `$${total.toFixed(2)}`; // Show USD as secondary
+        // Currency-aware display
+        const showBs = currencySettings.isBsEnabled();
+        const showUsd = currencySettings.isUsdEnabled();
+
+        // Update Total Display based on currency settings
+        if (this.pos.dom.paymentTotalUsd) {
+            if (showBs) {
+                // Show Bs as primary
+                this.pos.dom.paymentTotalUsd.textContent = formatBs(totalBs);
+            } else {
+                // USD only - show USD as primary
+                this.pos.dom.paymentTotalUsd.textContent = `$${total.toFixed(2)}`;
+            }
+        }
+        if (this.pos.dom.paymentTotalVes) {
+            if (showBs && showUsd) {
+                // Both currencies - show USD as secondary
+                this.pos.dom.paymentTotalVes.textContent = `$${total.toFixed(2)}`;
+                this.pos.dom.paymentTotalVes.style.display = '';
+            } else {
+                // Single currency - hide secondary
+                this.pos.dom.paymentTotalVes.style.display = 'none';
+            }
+        }
 
         // Select default method (Cash)
         this.handlePaymentMethodClick('cash');
