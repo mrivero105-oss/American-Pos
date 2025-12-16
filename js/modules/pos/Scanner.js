@@ -11,7 +11,10 @@ export class Scanner {
         if (this.html5QrCode) return;
 
         const modal = document.getElementById('pos-scanner-modal');
-        if (modal) modal.classList.remove('hidden');
+        if (modal) {
+            modal.classList.remove('hidden');
+            modal.style.display = 'flex';
+        }
 
         this.html5QrCode = new Html5Qrcode("pos-reader");
         const config = { fps: 10, qrbox: { width: 250, height: 250 } };
@@ -43,7 +46,10 @@ export class Scanner {
             }
         }
         const modal = document.getElementById('pos-scanner-modal');
-        if (modal) modal.classList.add('hidden');
+        if (modal) {
+            modal.classList.add('hidden');
+            modal.style.display = 'none';
+        }
     }
 
     handleScan(barcode) {
