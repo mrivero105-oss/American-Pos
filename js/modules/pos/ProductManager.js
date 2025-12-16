@@ -88,15 +88,45 @@ export class ProductManager {
     async loadProducts() {
         // Reset State
         this.apiPage = 1;
-        // Reset State
-        this.apiPage = 1;
-        this.apiLimit = 50; // Optimized for memory
+        this.apiLimit = 50;
         this.isLoading = false;
         this.hasMore = true;
         this.allLoadedProducts = [];
         this.pos.products = [];
 
-        // Clear Grid and Show Skeletons
+        // Try to load from cache first for instant display
+        const cachedProducts = localStorage.getItem('pos_products_cache');
+        const cachedCategories = localStorage.getItem('pos_categories_cache');
+
+        if (cachedProducts) {
+            try {
+                const cached = JSON.parse(cachedProducts);
+                if (cached && cached.products && cached.products.length > 0) {
+                    console.log('POS: Loading from cache first...');
+                    this.allLoadedProducts = cached.products;
+                    this.pos.products = cached.products;
+
+                    // Load cached categories too
+                    if (cachedCategories) {
+                        const catCache = JSON.parse(cachedCategories);
+                        this.categoryStats = catCache.counts || {};
+                        this.categoryStatsTotal = catCache.total || 0;
+                        this.renderCategories();
+                    }
+
+                    this.renderProducts(cached.products, false);
+                    this.hasMore = false; // Disable infinite scroll for cache
+
+                    // Refresh in background after short delay
+                    setTimeout(() => this.refreshProductsInBackground(), 2000);
+                    return;
+                }
+            } catch (e) {
+                console.warn('Cache parse error, loading fresh:', e);
+            }
+        }
+
+        // No cache - load normally with skeletons
         this.pos.dom.productGrid.innerHTML = '';
         this.renderSkeletons();
 
@@ -104,6 +134,49 @@ export class ProductManager {
 
         // Setup Infinite Scroll
         this.setupIntersectionObserver();
+    }
+
+    async refreshProductsInBackground() {
+        console.log('POS: Background refresh starting...');
+        try {
+            // Fetch all products silently
+            const response = await api.products.getAll(1, 500); // Get up to 500 in background
+            let products = [];
+
+            if (Array.isArray(response)) {
+                products = response;
+            } else if (response.products) {
+                products = response.products;
+            }
+
+            if (products.length > 0) {
+                // Update cache
+                localStorage.setItem('pos_products_cache', JSON.stringify({
+                    products: products,
+                    timestamp: Date.now()
+                }));
+
+                // Fetch categories too
+                const stats = await api.products.getCategories();
+                localStorage.setItem('pos_categories_cache', JSON.stringify(stats));
+
+                // Update local state
+                this.allLoadedProducts = products;
+                this.pos.products = products;
+                this.categoryStats = stats.counts || {};
+                this.categoryStatsTotal = stats.total || 0;
+
+                // Re-render if no filter active
+                if (!this.activeQuery && !this.activeCategory) {
+                    this.renderProducts(products, false);
+                }
+                this.renderCategories();
+
+                console.log('POS: Background refresh complete');
+            }
+        } catch (e) {
+            console.warn('Background refresh failed:', e);
+        }
     }
 
     renderSkeletons() {
@@ -166,6 +239,18 @@ export class ProductManager {
                 this.pos.products = this.allLoadedProducts;
                 this.renderProducts(products, false); // Replace
                 console.log('POS: Loaded initial products');
+
+                // Save to cache for instant next load
+                try {
+                    localStorage.setItem('pos_products_cache', JSON.stringify({
+                        products: products,
+                        timestamp: Date.now()
+                    }));
+                    const catStats = { counts: this.categoryStats, total: this.categoryStatsTotal };
+                    localStorage.setItem('pos_categories_cache', JSON.stringify(catStats));
+                } catch (cacheErr) {
+                    console.warn('Failed to cache products:', cacheErr);
+                }
             } else {
                 this.allLoadedProducts.push(...products);
                 this.renderProducts(products, true); // Append

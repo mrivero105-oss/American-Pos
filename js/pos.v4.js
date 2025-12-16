@@ -12,6 +12,7 @@ import { Scanner } from './modules/pos/Scanner.js';
 import { CashControlManager } from './modules/pos/CashControlManager.js';
 import { RefundManager } from './modules/pos/RefundManager.js';
 import { authService } from './auth.js';
+import { sounds } from './sounds.js';
 
 export class POS {
     constructor() {
@@ -1011,6 +1012,7 @@ export class POS {
 
     addToCart(productOrId, quantity = 1) {
         this.cartManager.addToCart(productOrId, quantity);
+        sounds.beep(); // Audio feedback
     }
 
     openWeightModal(product) {

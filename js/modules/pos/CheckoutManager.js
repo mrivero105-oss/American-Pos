@@ -1,6 +1,7 @@
 import { api } from '../../api.js';
 import { formatBs, roundBsUp, roundBsNearest, currencySettings } from '../../utils.js';
 import { ui } from '../../ui.js';
+import { sounds } from '../../sounds.js';
 
 export class CheckoutManager {
     constructor(pos) {
@@ -541,6 +542,7 @@ export class CheckoutManager {
 
         if (!sale.isOffline) {
             ui.showNotification('Venta procesada correctamente');
+            sounds.success(); // Success chime
         }
     }
 }
