@@ -130,14 +130,16 @@ export const Products = {
                     <h3 class="font-bold text-slate-800 dark:text-white text-lg mb-1 truncate" title="${product.name}">${product.name}</h3>
                     
                     <div class="flex justify-between items-end mt-3">
+                         ${currencySettings.isUsdEnabled() ? `
                          <div class="flex flex-col">
                             <span class="text-xs text-slate-500 dark:text-slate-400">Precio</span>
                             <span class="text-xl font-bold text-slate-900 dark:text-white">$${parseFloat(product.price).toFixed(2)}</span>
                         </div>
+                        ` : ''}
                          ${currencySettings.isBsEnabled() ? `
-                         <div class="flex flex-col items-end">
+                         <div class="flex flex-col ${currencySettings.isUsdEnabled() ? 'items-end' : ''}">
                             <span class="text-xs text-slate-500 dark:text-slate-400">Bs</span>
-                            <span class="text-sm font-medium text-slate-600 dark:text-slate-300">${(parseFloat(product.price) * (this.exchangeRate || 1)).toFixed(2)}</span>
+                            <span class="${currencySettings.isUsdEnabled() ? 'text-sm font-medium text-slate-600 dark:text-slate-300' : 'text-xl font-bold text-slate-900 dark:text-white'}">${(parseFloat(product.price) * (this.exchangeRate || 1)).toFixed(2)}</span>
                         </div>
                         ` : ''}
                     </div>
