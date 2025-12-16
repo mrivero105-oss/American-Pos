@@ -401,6 +401,41 @@ export class POS {
         this.eventsBound = true;
 
         try {
+            // Global Keyboard Shortcuts
+            document.addEventListener('keydown', (e) => {
+                // Skip if typing in input
+                if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) {
+                    // Allow ESC to blur inputs
+                    if (e.key === 'Escape') {
+                        document.activeElement.blur();
+                    }
+                    return;
+                }
+
+                // F1 = Focus Search
+                if (e.key === 'F1') {
+                    e.preventDefault();
+                    if (this.dom.searchInput) this.dom.searchInput.focus();
+                }
+                // F2 = Open Payment (if cart has items)
+                else if (e.key === 'F2') {
+                    e.preventDefault();
+                    if (this.cart.length > 0) this.showPaymentModal();
+                }
+                // F3 = Open Customer Search
+                else if (e.key === 'F3') {
+                    e.preventDefault();
+                    const customerInput = document.getElementById('pos-customer-search');
+                    if (customerInput) customerInput.focus();
+                }
+                // ESC = Close Modals
+                else if (e.key === 'Escape') {
+                    this.hidePaymentModal();
+                    this.weightModal.closeWeightModal();
+                    this.salesManager.closeHeldSalesDrawer();
+                }
+            });
+
             // Payment
             if (this.dom.cancelPaymentBtn) this.dom.cancelPaymentBtn.addEventListener('click', () => this.hidePaymentModal());
             if (this.dom.confirmPaymentBtn) this.dom.confirmPaymentBtn.addEventListener('click', () => this.confirmPayment());

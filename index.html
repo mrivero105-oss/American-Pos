@@ -274,6 +274,23 @@
             animation: fadeIn 0.2s ease-out forwards;
         }
 
+        /* Cart item slide-in animation */
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .cart-item-new {
+            animation: slideInRight 0.25s ease-out forwards;
+        }
+
         @media print {
             body * {
                 visibility: hidden;
