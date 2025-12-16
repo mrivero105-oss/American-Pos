@@ -100,46 +100,43 @@ export const Products = {
                 <div class="aspect-square w-full relative bg-slate-100 overflow-hidden">
                     <img src="${getImageUrl(product.imageUri)}" 
                          alt="${product.name}" 
-                         class="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500"
-                         onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDQwIDQwIj4KICA8cmVjdCB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIGZpbGw9IiNlMmU4ZjAiLz4KICA8cGF0aCBkPSJNMjAgMThjLTIuMjEgMC00IDEuNzktNCA0czEuNzkgNCA0IDQgNCAxLjc5IDQgNC0xLjc5IDQtNCA0em0wLTJjMy4zMSAwIDYtMi42OSA2LTZzLTIuNjktNi02LTYtNiAyLjY5LTYgNiAyLjY5IDYgNiA2eiIgZmlsbD0iIzk0YTNYOCIvPgo8L3N2Zz4='">
+                         loading="lazy"
+                         class="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-300"
+                         onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDQwIDQwIj4KICA8cmVjdCB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIGZpbGw9IiNlMmU4ZjAiLz4KICA8cGF0aCBkPSJNMjAgMThjLTIuMjEgMC00IDEuNzktNCA0czEuNzkgNCA0IDQgNCAxLjc5IDQgNC0xLjc5IDQtNCA0em0wLTJjMy4zMSAwIDYtMi42OSA2LTZzLTIuNjktNi02LTYtNiAyLjY5LTYgNiAyLjY5IDYgNiA2eiIgZmlsbD0iIzk0YTNiOCIvPgo8L3N2Zz4='">
                     
-                    <div class="absolute top-2 right-2">
-                        <span class="px-2 py-1 text-xs font-bold rounded-lg ${product.stock > 5 ? 'bg-green-500/90 text-white' : 'bg-red-500/90 text-white'} backdrop-blur-sm">
-                            ${product.stock}
-                        </span>
-                    </div>
+                    <!-- Stock Badge -->
+                    <span class="absolute top-1.5 right-1.5 px-1.5 py-0.5 text-[10px] md:text-xs font-bold rounded-md ${product.stock > 5 ? 'bg-emerald-500/90 text-white' : product.stock > 0 ? 'bg-amber-500/90 text-white' : 'bg-red-500/90 text-white'} backdrop-blur-sm shadow">
+                        ${product.stock}
+                    </span>
 
-                    <!-- Actions Overlay -->
-                    <div class="absolute inset-0 bg-black/40 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                        <button onclick="window.editProduct('${product.id}')" class="p-2 bg-white rounded-full text-slate-900 hover:bg-blue-50 transition-colors shadow-lg" title="Editar">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                    <!-- Mobile Action Buttons - Always Visible -->
+                    <div class="absolute bottom-1.5 right-1.5 flex gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                        <button onclick="window.editProduct('${product.id}')" class="p-1.5 md:p-2 bg-white/90 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors shadow-md backdrop-blur-sm" title="Editar">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
                         </button>
-                        <button onclick="window.deleteProduct('${product.id}')" class="p-2 bg-white rounded-full text-red-600 hover:bg-red-50 transition-colors shadow-lg" title="Eliminar">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        <button onclick="window.deleteProduct('${product.id}')" class="p-1.5 md:p-2 bg-white/90 rounded-lg text-red-600 hover:bg-red-50 transition-colors shadow-md backdrop-blur-sm" title="Eliminar">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                         </button>
                     </div>
                 </div>
 
-                <div class="p-4">
-                    <div class="flex justify-between items-start mb-2">
-                        <span class="inline-block px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-slate-100 dark:bg-slate-700/50 dark:text-slate-400 rounded">
-                            ${product.category || 'General'}
-                        </span>
-                    </div>
+                <div class="p-2 md:p-3">
+                    <span class="inline-block px-1.5 py-0.5 text-[9px] md:text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-slate-100 dark:bg-slate-700/50 dark:text-slate-400 rounded mb-1">
+                        ${product.category || 'General'}
+                    </span>
                     
-                    <h3 class="font-bold text-slate-800 dark:text-white text-lg mb-1 truncate" title="${product.name}">${product.name}</h3>
+                    <h3 class="font-bold text-slate-800 dark:text-white text-sm md:text-base leading-tight truncate" title="${product.name}">${product.name}</h3>
                     
-                    <div class="flex justify-between items-end mt-3">
+                    <div class="flex justify-between items-end mt-1.5 md:mt-2">
                          ${currencySettings.isUsdEnabled() ? `
                          <div class="flex flex-col">
-                            <span class="text-xs text-slate-500 dark:text-slate-400">Precio</span>
-                            <span class="text-xl font-bold text-slate-900 dark:text-white">$${parseFloat(product.price).toFixed(2)}</span>
+                            <span class="text-lg md:text-xl font-bold text-emerald-600 dark:text-emerald-400">$${parseFloat(product.price).toFixed(2)}</span>
                         </div>
                         ` : ''}
                          ${currencySettings.isBsEnabled() ? `
                          <div class="flex flex-col ${currencySettings.isUsdEnabled() ? 'items-end' : ''}">
-                            <span class="text-xs text-slate-500 dark:text-slate-400">Bs</span>
-                            <span class="${currencySettings.isUsdEnabled() ? 'text-sm font-medium text-slate-600 dark:text-slate-300' : 'text-xl font-bold text-slate-900 dark:text-white'}">${(parseFloat(product.price) * (this.exchangeRate || 1)).toFixed(2)}</span>
+                            <span class="text-[10px] text-slate-400">Bs</span>
+                            <span class="${currencySettings.isUsdEnabled() ? 'text-xs font-medium text-slate-500' : 'text-lg font-bold text-slate-900 dark:text-white'}">${(parseFloat(product.price) * (this.exchangeRate || 1)).toFixed(2)}</span>
                         </div>
                         ` : ''}
                     </div>
