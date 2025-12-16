@@ -1,6 +1,6 @@
 import { api } from './api.js';
 import { ui } from './ui.js';
-import { debounce } from './utils.js';
+import { debounce, currencySettings } from './utils.js';
 import { CartManager } from './modules/pos/CartManager.js';
 import { ProductManager } from './modules/pos/ProductManager.js';
 import { CustomerManager } from './modules/pos/CustomerManager.js';
@@ -1668,15 +1668,17 @@ export class POS {
                 <h3 class="text-xl font-bold text-slate-900 dark:text-white mb-2">${product.name}</h3>
                 <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">${product.barcode || 'Sin código'}</p>
                 
-                <div class="grid grid-cols-2 gap-4 w-full mb-4">
+                <div class="grid ${currencySettings.isBsEnabled() ? 'grid-cols-2' : 'grid-cols-1'} gap-4 w-full mb-4">
                     <div class="bg-slate-50 dark:bg-slate-700 p-3 rounded-lg">
                         <p class="text-xs text-slate-500 dark:text-slate-400 uppercase font-bold">Precio USD</p>
                         <p class="text-2xl font-extrabold text-slate-900 dark:text-white">$${parseFloat(product.price).toFixed(2)}</p>
                     </div>
+                    ${currencySettings.isBsEnabled() ? `
                     <div class="bg-slate-50 dark:bg-slate-700 p-3 rounded-lg">
                         <p class="text-xs text-slate-500 dark:text-slate-400 uppercase font-bold">Precio Bs</p>
                         <p class="text-2xl font-extrabold text-slate-900 dark:text-white">Bs ${priceBs.toFixed(2)}</p>
                     </div>
+                    ` : ''}
                 </div>
 
                 <button onclick="window.pos.addToCart('${product.id}'); window.pos.closePriceCheck();" 

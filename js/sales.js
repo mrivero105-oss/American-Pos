@@ -313,7 +313,7 @@ export class SalesHistory {
                     ${saleData.items.map(item => `
                         <div style="${styles.itemRow}">
                             <span style="flex: 1;">${item.quantity} x ${item.name}</span>
-                            <span>Bs ${(item.price * item.quantity * this.exchangeRate).toFixed(2)}</span>
+                            <span>${currencySettings.isBsEnabled() ? 'Bs ' + (item.price * item.quantity * this.exchangeRate).toFixed(2) : '$' + (item.price * item.quantity).toFixed(2)}</span>
                         </div>
                     `).join('')}
                 </div>
@@ -322,7 +322,7 @@ export class SalesHistory {
                 
                 <div style="${styles.totalRow}">
                     <span>TOTAL PAGADO</span>
-                    <span>Bs ${(saleData.total * this.exchangeRate).toFixed(2)}</span>
+                    <span>${currencySettings.isBsEnabled() ? 'Bs ' + (saleData.total * this.exchangeRate).toFixed(2) : '$' + saleData.total.toFixed(2)}</span>
                 </div>
 
                 <div style="${styles.divider}"></div>
@@ -340,7 +340,7 @@ export class SalesHistory {
                 return paymentList.map(detail => `
                             <div style="${styles.row}">
                                 <span>${getMethodName(detail.method)}</span>
-                                <span>Bs ${(detail.amount * (detail.currency === 'USD' ? this.exchangeRate : 1)).toFixed(2)}</span>
+                                <span>${currencySettings.isBsEnabled() ? 'Bs ' + (detail.amount * (detail.currency === 'USD' ? this.exchangeRate : 1)).toFixed(2) : '$' + detail.amount.toFixed(2)}</span>
                             </div>
                         `).join('');
             })()}
