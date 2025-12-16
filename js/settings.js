@@ -72,10 +72,14 @@ export class Settings {
     }
 
     async loadSettings() {
-        // Hide exchange rate section when USD-only mode
+        // Show/hide exchange rate section based on currency settings
         const exchangeRateContainer = document.getElementById('exchange-rate-container');
         if (exchangeRateContainer) {
-            exchangeRateContainer.style.display = currencySettings.isBsEnabled() ? '' : 'none';
+            if (currencySettings.isBsEnabled()) {
+                exchangeRateContainer.classList.remove('hidden');
+            } else {
+                exchangeRateContainer.classList.add('hidden');
+            }
         }
 
         try {
