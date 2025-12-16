@@ -11,6 +11,7 @@ export class ProductManager {
         this.pos = pos;
         this.currentPage = 1;
         this.itemsPerPage = 48;
+        this.apiLimit = 48; // API Pagination Limit
         this.currentFilteredProducts = [];
         this.highlightedIndex = -1;
         this.bindEvents();
