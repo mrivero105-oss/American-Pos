@@ -1,5 +1,5 @@
 import { api } from './api.js';
-import { formatCurrency, formatBs } from './utils.js';
+import { formatCurrency, formatBs, currencySettings } from './utils.js';
 import { ui } from './ui.js';
 
 export class Dashboard {
@@ -340,10 +340,17 @@ export class Dashboard {
         const totalRevenue = filteredSales.reduce((sum, s) => sum + this.getSaleAmountBs(s), 0);
         const totalSalesCount = filteredSales.length;
         const avgTicket = totalSalesCount > 0 ? totalRevenue / totalSalesCount : 0;
+        // Currency-aware formatting
+        const showBs = currencySettings.isBsEnabled();
+        const formatAmount = showBs ? formatBs : formatCurrency;
 
-        if (this.dom.totalRevenue) this.dom.totalRevenue.textContent = formatBs(totalRevenue);
+        // For USD-only mode, calculate in USD instead of Bs
+        const displayRevenue = showBs ? totalRevenue : filteredSales.reduce((sum, s) => sum + (s.total || 0), 0);
+        const displayAvgTicket = totalSalesCount > 0 ? displayRevenue / totalSalesCount : 0;
+
+        if (this.dom.totalRevenue) this.dom.totalRevenue.textContent = formatAmount(displayRevenue);
         if (this.dom.totalSales) this.dom.totalSales.textContent = totalSalesCount;
-        if (this.dom.avgTicket) this.dom.avgTicket.textContent = formatBs(avgTicket);
+        if (this.dom.avgTicket) this.dom.avgTicket.textContent = formatAmount(displayAvgTicket);
 
         // 2b. Calculate Previous Period for Trend Comparison
         const prevPeriodSales = this.getPreviousPeriodSales(targetDate);
@@ -577,7 +584,7 @@ export class Dashboard {
             data: {
                 labels: labels,
                 datasets: [{
-                    label: 'Ventas (Bs)',
+                    label: currencySettings.isBsEnabled() ? 'Ventas (Bs)' : 'Ventas (USD)',
                     data: data,
                     borderColor: '#3b82f6',
                     backgroundColor: (context) => {
@@ -610,7 +617,7 @@ export class Dashboard {
                         cornerRadius: 8,
                         displayColors: false,
                         callbacks: {
-                            label: (context) => formatBs(context.raw)
+                            label: (context) => currencySettings.isBsEnabled() ? formatBs(context.raw) : formatCurrency(context.raw)
                         }
                     }
                 },
@@ -618,7 +625,7 @@ export class Dashboard {
                     y: {
                         beginAtZero: true,
                         grid: { color: colors.gridColor, borderDash: [5, 5] },
-                        ticks: { color: colors.textColor, callback: (value) => 'Bs ' + value }
+                        ticks: { color: colors.textColor, callback: (value) => currencySettings.isBsEnabled() ? 'Bs ' + value : '$' + value }
                     },
                     x: {
                         grid: { display: false },
