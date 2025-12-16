@@ -134,10 +134,12 @@ export const Products = {
                             <span class="text-xs text-slate-500 dark:text-slate-400">Precio</span>
                             <span class="text-xl font-bold text-slate-900 dark:text-white">$${parseFloat(product.price).toFixed(2)}</span>
                         </div>
+                         ${currencySettings.isBsEnabled() ? `
                          <div class="flex flex-col items-end">
                             <span class="text-xs text-slate-500 dark:text-slate-400">Bs</span>
                             <span class="text-sm font-medium text-slate-600 dark:text-slate-300">${(parseFloat(product.price) * (this.exchangeRate || 1)).toFixed(2)}</span>
                         </div>
+                        ` : ''}
                     </div>
                 </div>
             </div>

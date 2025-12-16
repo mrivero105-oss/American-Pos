@@ -483,7 +483,7 @@ export class Dashboard {
                                 const value = context.raw;
                                 const total = context.chart._metasets[context.datasetIndex].total;
                                 const percentage = ((value / total) * 100).toFixed(1) + '%';
-                                return `${context.label}: ${formatBs(value)} (${percentage})`;
+                                return `${context.label}: ${currencySettings.isBsEnabled() ? formatBs(value) : formatCurrency(value)} (${percentage})`;
                             }
                         }
                     }
@@ -733,7 +733,7 @@ export class Dashboard {
                                 const value = context.raw;
                                 const total = context.chart._metasets[context.datasetIndex].total;
                                 const percentage = ((value / total) * 100).toFixed(1) + '%';
-                                return context.label + ': ' + formatBs(value) + ' (' + percentage + ')';
+                                return context.label + ': ' + (currencySettings.isBsEnabled() ? formatBs(value) : formatCurrency(value)) + ' (' + percentage + ')';
                             }
                         }
                     }
