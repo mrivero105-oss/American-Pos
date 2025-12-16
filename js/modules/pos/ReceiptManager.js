@@ -71,7 +71,7 @@ export class ReceiptManager {
                     ${(saleData.items || []).map(item => `
                         <div style="${styles.itemRow}">
                             <span style="flex: 1;">${item.quantity} x ${item.name}</span>
-                            <span>Bs ${(item.price * item.quantity * this.pos.exchangeRate).toFixed(2)}</span>
+                            <span>Bs ${(item.price * item.quantity * (saleData.exchangeRate || this.pos.exchangeRate || 1)).toFixed(2)}</span>
                         </div>
                     `).join('')}
                 </div>
@@ -80,17 +80,17 @@ export class ReceiptManager {
                 
                 <div style="${styles.totalRow}">
                     <span>TOTAL PAGADO</span>
-                    <span>Bs ${(saleData.total * this.pos.exchangeRate).toFixed(2)}</span>
+                    <span>Bs ${((saleData.total || 0) * (saleData.exchangeRate || this.pos.exchangeRate || 1)).toFixed(2)}</span>
                 </div>
 
                 <div style="${styles.divider}"></div>
                 
                 <div style="margin-bottom: 10px;">
                     <p style="font-weight: bold; font-size: 11px; margin-bottom: 5px;">MÉTODOS DE PAGO:</p>
-                    ${(saleData.paymentDetails || []).map(detail => `
+                    ${(saleData.paymentMethods || saleData.paymentDetails || []).map(detail => `
                         <div style="${styles.row}">
                             <span>${getMethodName(detail.method)}</span>
-                            <span>Bs ${(detail.amount * (detail.currency === 'USD' ? this.pos.exchangeRate : 1)).toFixed(2)}</span>
+                            <span>Bs ${(detail.amount * (detail.currency === 'USD' ? (saleData.exchangeRate || this.pos.exchangeRate || 1) : 1)).toFixed(2)}</span>
                         </div>
                     `).join('')}
                 </div>

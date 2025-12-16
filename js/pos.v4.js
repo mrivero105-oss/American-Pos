@@ -10,6 +10,8 @@ import { ReceiptManager } from './modules/pos/ReceiptManager.js';
 import { WeightModal } from './modules/pos/WeightModal.js';
 import { Scanner } from './modules/pos/Scanner.js';
 import { CashControlManager } from './modules/pos/CashControlManager.js';
+import { RefundManager } from './modules/pos/RefundManager.js';
+import { authService } from './auth.js';
 
 export class POS {
     constructor() {
@@ -33,17 +35,76 @@ export class POS {
         this.weightModal = new WeightModal(this);
         this.scanner = new Scanner(this);
         this.cashControlManager = new CashControlManager(this);
+        this.refundManager = new RefundManager(this);
 
-        // Pagination State (Delegated to ProductManager)
-        // this.currentPage = 1; // Now in productManager
-        // this.itemsPerPage = 48; // Now in productManager
-        // this.currentFilteredProducts = []; // Now in productManager
-
-        this.customerSearchHighlightIndex = -1; // Track highlighted result
+        // Session Recovery
+        this.setupSessionRecovery();
 
         console.log('POS: Calling init()');
         this.init();
     }
+
+    setupSessionRecovery() {
+        window.addEventListener('session-expired', () => {
+            this.showReLoginModal();
+        });
+    }
+
+    showReLoginModal() {
+        const modal = document.getElementById('relogin-modal');
+        const form = document.getElementById('relogin-form');
+        const passwordInput = document.getElementById('relogin-password');
+        const errorDiv = document.getElementById('relogin-error');
+
+        if (!modal) return;
+
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        passwordInput.value = '';
+        passwordInput.focus();
+        errorDiv.classList.add('hidden');
+
+        // Handle Form
+        form.onsubmit = async (e) => {
+            e.preventDefault();
+            const password = passwordInput.value;
+            const user = authService.getUser();
+            const email = user ? user.email : ''; // We need email. It should be in localStorage('user')
+
+            if (!email) {
+                // Fallback if no user stored (shouldn't happen if we were logged in)
+                window.location.href = 'login.html';
+                return;
+            }
+
+            // Disable UI
+            const btn = form.querySelector('button');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<span>Verificando...</span>';
+            btn.disabled = true;
+
+            try {
+                const result = await authService.login(email, password);
+
+                if (result.success) {
+                    modal.classList.add('hidden');
+                    modal.classList.remove('flex');
+                    ui.showNotification('Sesión restaurada', 'success');
+                    // Optional: Retry failed request? For now, just let user retry action.
+                } else {
+                    errorDiv.textContent = 'Contraseña incorrecta';
+                    errorDiv.classList.remove('hidden');
+                }
+            } catch (err) {
+                errorDiv.textContent = 'Error de conexión';
+                errorDiv.classList.remove('hidden');
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        };
+    }
+
 
     async init() {
         console.log('POS: init() started');
@@ -64,6 +125,9 @@ export class POS {
             this.bindEvents();
             console.log('POS: bindEvents finished');
 
+            // Global event delegation for held sales (in case drawer is moved)
+            this.bindGlobalHeldSalesEvents();
+
             // Parallelize data loading
             console.time('POS Initialization');
             await Promise.all([
@@ -78,7 +142,7 @@ export class POS {
             this.renderCategories();
             console.log('POS: renderCategories finished');
 
-            this.checkHeldSale();
+            this.salesManager.checkHeldSale();
             this.renderCart();
 
             // Force hide sidebars on init to prevent ghost overlays
@@ -111,12 +175,95 @@ export class POS {
                 this.dom.customerSearchInput.focus();
             }
 
+            // Start Online Status Check
+            this.checkOnlineStatus();
+
             console.log('POS: init() completed successfully');
         } catch (error) {
             console.error('POS: Critical error during init:', error);
             ui.showNotification('Error crítico al iniciar POS: ' + error.message, 'error');
         } finally {
             this.hideLoading(); // Hide loading overlay
+        }
+    }
+
+    checkOnlineStatus() {
+        // Initial Check
+        this.updateOnlineStatus();
+
+        // Events
+        window.addEventListener('online', () => {
+            this.updateOnlineStatus();
+            ui.showNotification('Conexión restaurada. Sincronizando...', 'success');
+            this.syncOfflineSales();
+        });
+
+        window.addEventListener('offline', () => {
+            this.updateOnlineStatus();
+            ui.showNotification('Modo Offline activado', 'warning');
+        });
+
+        // Polling (optional, but good for robust detection)
+        setInterval(() => {
+            // Check if status changed silently?
+            // Actually events are usually enough, but let's try to sync if we have items
+            if (navigator.onLine && localStorage.getItem('offline_sales_queue')) {
+                const queue = JSON.parse(localStorage.getItem('offline_sales_queue') || '[]');
+                if (queue.length > 0) {
+                    this.syncOfflineSales();
+                }
+            }
+        }, 30000); // Check every 30s
+    }
+
+    updateOnlineStatus() {
+        const statusEls = document.querySelectorAll('.connection-status-indicator');
+        statusEls.forEach(statusEl => {
+            if (navigator.onLine) {
+                statusEl.innerHTML = '<div class="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div><span class="text-xs text-green-600 dark:text-green-400 font-bold">Online</span>';
+                statusEl.title = "Conectado";
+            } else {
+                statusEl.innerHTML = '<div class="w-3 h-3 bg-red-500 rounded-full"></div><span class="text-xs text-red-600 dark:text-red-400 font-bold">Offline</span>';
+                statusEl.title = "Sin Conexión";
+            }
+        });
+    }
+
+    async syncOfflineSales() {
+        const queueStr = localStorage.getItem('offline_sales_queue');
+        if (!queueStr) return;
+
+        const queue = JSON.parse(queueStr);
+        if (queue.length === 0) return;
+
+        console.log(`POS: Attempting to sync ${queue.length} offline sales...`);
+        const remainingQueue = [];
+        let syncedCount = 0;
+
+        for (const sale of queue) {
+            try {
+                // Remove local ID and flag before sending
+                const { id, isOffline, ...saleData } = sale;
+
+                await api.sales.create(saleData);
+                syncedCount++;
+                console.log(`POS: Synced sale ${sale.timestamp}`);
+            } catch (error) {
+                console.error('POS: Failed to sync sale:', error);
+                // Keep in queue if it looks like a network error, otherwise maybe move to a "failed" list?
+                // For now, retry all.
+                remainingQueue.push(sale);
+            }
+        }
+
+        if (syncedCount > 0) {
+            ui.showNotification(`${syncedCount} ventas sincronizadas`, 'success');
+        }
+
+        if (remainingQueue.length > 0) {
+            localStorage.setItem('offline_sales_queue', JSON.stringify(remainingQueue));
+        } else {
+            localStorage.removeItem('offline_sales_queue');
         }
     }
 
@@ -165,7 +312,6 @@ export class POS {
             cartSidebar: document.getElementById('cart-sidebar'), // Desktop
             mobileCartSidebar: document.getElementById('mobile-cart-sidebar'), // Mobile
             closeCartBtn: document.getElementById('close-cart-btn'),
-            closeCartBtn: document.getElementById('close-cart-btn'),
             closeMobileCartBtn: document.getElementById('close-mobile-cart-btn'),
             mobileCheckoutBtn: document.getElementById('mobile-checkout-btn'),
 
@@ -182,7 +328,7 @@ export class POS {
             paymentTotalVes: document.getElementById('payment-total-ves'),
             cancelPaymentBtn: document.getElementById('cancel-payment-btn'),
             confirmPaymentBtn: document.getElementById('confirm-payment-btn'),
-            closeReceiptBtn: document.getElementById('close-receipt'),
+            closeReceiptBtn: document.getElementById('close-receipt-btn'),
             emailReceiptBtn: document.getElementById('email-receipt-btn'),
             printReceiptBtn: document.getElementById('print-receipt-btn'),
 
@@ -271,10 +417,10 @@ export class POS {
 
             // Search Input
             if (this.dom.searchInput) {
-                this.dom.searchInput.addEventListener('input', (e) => {
+                this.dom.searchInput.addEventListener('input', debounce((e) => {
                     const query = e.target.value;
                     this.filterProducts(query);
-                });
+                }, 300));
 
                 // Jump to grid on Enter
                 this.dom.searchInput.addEventListener('keydown', (e) => {
@@ -318,6 +464,19 @@ export class POS {
             const btnCloseScan = document.getElementById('close-pos-scanner');
             if (btnScan) btnScan.addEventListener('click', () => this.startScanner());
             if (btnCloseScan) btnCloseScan.addEventListener('click', () => this.stopScanner());
+
+            // Category Filters Horizontal Scroll with Mouse Wheel
+            if (this.dom.categoryFilters) {
+                this.dom.categoryFilters.addEventListener('wheel', (e) => {
+                    // Only intercept if there's horizontal overflow
+                    const el = this.dom.categoryFilters;
+                    if (el.scrollWidth > el.clientWidth) {
+                        e.preventDefault();
+                        // Convert vertical scroll to horizontal
+                        el.scrollLeft += e.deltaY * 2; // Multiplier for faster scroll
+                    }
+                }, { passive: false });
+            }
 
             // Mobile Menu Toggle
             if (this.dom.mobileMenuBtn) {
@@ -403,8 +562,8 @@ export class POS {
 
             // Cart Actions
             if (this.dom.clearCartBtn) this.dom.clearCartBtn.addEventListener('click', () => this.clearCart());
-            if (this.dom.holdSaleBtn) this.dom.holdSaleBtn.addEventListener('click', () => this.initiateHoldSale());
-            if (this.dom.viewHeldSalesBtn) this.dom.viewHeldSalesBtn.addEventListener('click', () => this.openHeldSalesDrawer());
+            if (this.dom.holdSaleBtn) this.dom.holdSaleBtn.addEventListener('click', () => this.salesManager.initiateHoldSale());
+            if (this.dom.viewHeldSalesBtn) this.dom.viewHeldSalesBtn.addEventListener('click', () => this.salesManager.showHeldSales());
             if (this.dom.checkoutBtn) {
                 this.dom.checkoutBtn.addEventListener('click', () => this.showCustomerSelection());
             }
@@ -468,26 +627,6 @@ export class POS {
             if (this.dom.mobileCartItems) {
                 this.dom.mobileCartItems.addEventListener('click', handleCartAction);
                 this.dom.mobileCartItems.addEventListener('change', handleCartInput);
-            }
-
-            // Held Sales List Delegation
-            if (this.dom.heldSalesList) {
-                this.dom.heldSalesList.addEventListener('click', (e) => {
-                    console.log('POS: Held sales list clicked', e.target);
-                    const restoreBtn = e.target.closest('.restore-held-btn');
-                    if (restoreBtn) {
-                        console.log('POS: Restore button clicked', restoreBtn.dataset.id);
-                        this.restoreSale(restoreBtn.dataset.id);
-                        return;
-                    }
-
-                    const deleteBtn = e.target.closest('.delete-held-btn');
-                    if (deleteBtn) {
-                        console.log('POS: Delete button clicked', deleteBtn.dataset.id);
-                        this.deleteHeldSale(deleteBtn.dataset.id);
-                        return;
-                    }
-                });
             }
 
             // Customer Selection
@@ -681,26 +820,8 @@ export class POS {
             if (this.dom.cancelCustomItemBtn) this.dom.cancelCustomItemBtn.addEventListener('click', () => this.closeCustomItemModal());
             if (this.dom.customItemForm) this.dom.customItemForm.addEventListener('submit', (e) => this.handleCustomItemSubmit(e));
 
-            // Product Grid Click (Add to Cart)
-            if (this.dom.productGrid) {
-                this.dom.productGrid.addEventListener('click', (e) => {
-                    const card = e.target.closest('.product-card');
-                    if (card) {
-                        const id = card.dataset.id;
-                        // Use loose equality for ID matching just in case
-                        const product = this.products.find(p => p.id == id);
-
-                        if (product) {
-                            // Check stock if needed, though UI handles disabled state
-                            if (parseInt(product.stock || 0) > 0) {
-                                this.addToCart(product);
-                            } else {
-                                ui.showNotification('Producto agotado', 'warning');
-                            }
-                        }
-                    }
-                });
-            }
+            // Product Grid Click - REMOVED (handled by inline onclick in product cards)
+            // Previous duplicate listener was causing products to be added twice.
 
             // Weight Modal Events
             if (this.dom.weightInput) {
@@ -1003,6 +1124,12 @@ export class POS {
     }
 
     async showCustomerSelection() {
+        // Validate cart is not empty
+        if (!this.cart || this.cart.length === 0) {
+            ui.showNotification('El carrito está vacío', 'warning');
+            return;
+        }
+
         if (this.selectedCustomer) {
             // Directly proceed to checkout using currently selected customer
             this.processCheckout(this.selectedCustomer);
@@ -1025,7 +1152,7 @@ export class POS {
 
             // Render List
             if (this.customerManager && this.dom.customerSelectionList) {
-                this.customerManager.renderCustomerList(this.customers, this.dom.customerSelectionList);
+                this.customerManager.renderCustomerSearchResults(this.customers, this.dom.customerSelectionList);
             }
         }
     }
@@ -1091,27 +1218,33 @@ export class POS {
             }
             this.dom.customerSearchInput = newInput;
 
+            // Debounce the search handler
+            const debouncedSearch = debounce((query) => {
+                console.log('POS: Customer search (debounced):', query);
+                this.customerManager.searchCustomers(query);
+            }, 300);
+
             // Re-bind Input Event
             newInput.addEventListener('input', (e) => {
-                const query = e.target.value;
-                console.log('POS: Customer search input event fired. Query:', query);
-                this.searchCustomers(query);
+                debouncedSearch(e.target.value);
             });
 
             // Re-bind Click/Focus to ensure it wakes up
             newInput.addEventListener('click', () => {
                 newInput.focus();
                 if (newInput.value.length >= 2) {
-                    this.searchCustomers(newInput.value);
+                    // For click/focus we might want immediate feedback if they already typed, 
+                    // or also debounce? Debounce is safer.
+                    debouncedSearch(newInput.value);
                 }
             });
 
-            // Re-bind Keydown for Enter
+            // Re-bind Keydown for Enter (Immediate)
             newInput.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') {
                     e.preventDefault();
                     if (newInput.value.length >= 2) {
-                        this.searchCustomers(newInput.value);
+                        this.customerManager.searchCustomers(newInput.value); // Immediate on Enter
                     }
                 }
             });
@@ -1352,7 +1485,7 @@ export class POS {
             name: name,
             price: price,
             stock: 9999,
-            imageUri: 'https://via.placeholder.com/150?text=Custom',
+            imageUri: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'%3E%3Crect fill='%23dbeafe' width='150' height='150'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='11' fill='%233b82f6'%3EPersonalizado%3C/text%3E%3C/svg%3E",
             isCustom: true
         };
 
@@ -1527,7 +1660,7 @@ export class POS {
         if (!this.dom.priceCheckResult) return;
 
         const priceBs = product.price * this.exchangeRate;
-        const imageUri = product.imageUri || 'https://via.placeholder.com/150?text=No+Image';
+        const imageUri = product.imageUri || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'%3E%3Crect fill='%23e2e8f0' width='150' height='150'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='12' fill='%2364748b'%3ESin imagen%3C/text%3E%3C/svg%3E";
 
         this.dom.priceCheckResult.innerHTML = `
             <div class="flex flex-col items-center text-center p-6 bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700">
@@ -1754,6 +1887,67 @@ export class POS {
             document.addEventListener('touchend', (e) => { ... });
             */
         });
+    }
+
+    /**
+     * Global event delegation for held sales buttons
+     * This ensures buttons work even if the drawer is moved in the DOM
+     */
+    bindGlobalHeldSalesEvents() {
+        // Debounce protection to prevent double-firing from touch + click
+        let lastRestoreClick = 0;
+        let lastDeleteClick = 0;
+        const DEBOUNCE_MS = 500;
+
+        document.addEventListener('click', (e) => {
+            const restoreBtn = e.target.closest('.restore-held-btn');
+            if (restoreBtn) {
+                const now = Date.now();
+                if (now - lastRestoreClick < DEBOUNCE_MS) {
+                    console.log('POS: Ignoring duplicate restore click');
+                    return;
+                }
+                lastRestoreClick = now;
+
+                e.preventDefault();
+                e.stopPropagation();
+
+                const saleId = restoreBtn.dataset.id;
+                console.log('POS: Global restore button clicked, ID:', saleId);
+
+                if (this.salesManager) {
+                    this.salesManager.restoreSale(saleId);
+                } else {
+                    console.error('POS: SalesManager not available');
+                }
+                return;
+            }
+
+            const deleteBtn = e.target.closest('.delete-held-btn');
+            if (deleteBtn) {
+                const now = Date.now();
+                if (now - lastDeleteClick < DEBOUNCE_MS) {
+                    console.log('POS: Ignoring duplicate delete click');
+                    return;
+                }
+                lastDeleteClick = now;
+
+                e.preventDefault();
+                e.stopPropagation();
+
+                const saleId = deleteBtn.dataset.id;
+                console.log('POS: Global delete button clicked, ID:', saleId);
+
+                if (this.salesManager) {
+                    this.salesManager.deleteHeldSale(saleId);
+                } else {
+                    console.error('POS: SalesManager not available');
+                }
+                return;
+            }
+        }, true); // Use capture phase to handle before other handlers
+
+        console.log('POS: Global held sales event handlers registered');
     }
 }
 

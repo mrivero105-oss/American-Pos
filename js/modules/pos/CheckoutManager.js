@@ -1,5 +1,5 @@
 import { api } from '../../api.js';
-import { formatBs } from '../../utils.js';
+import { formatBs, roundBsUp, roundBsNearest } from '../../utils.js';
 import { ui } from '../../ui.js';
 
 export class CheckoutManager {
@@ -30,9 +30,24 @@ export class CheckoutManager {
     }
 
     showPaymentModal() {
-        if (this.pos.dom.paymentModal) {
-            this.pos.dom.paymentModal.classList.remove('hidden');
-            this.pos.dom.paymentModal.style.display = 'flex';
+        // ROBUST: Ensure Modal Exists
+        let modal = this.pos.dom.paymentModal;
+        if (!modal) {
+            modal = document.getElementById('payment-modal');
+            if (modal) this.pos.dom.paymentModal = modal;
+        }
+
+        if (modal) {
+            modal.classList.remove('hidden');
+            modal.style.display = 'flex';
+        } else {
+            console.error('CheckoutManager: Payment Modal NOT found');
+            return;
+        }
+
+        // Show confirm payment button (may have been hidden after previous sale)
+        if (this.pos.dom.confirmPaymentBtn) {
+            this.pos.dom.confirmPaymentBtn.classList.remove('hidden');
         }
 
         // Ensure methods are populated
@@ -40,20 +55,33 @@ export class CheckoutManager {
 
         // Calculate totals
         const total = this.pos.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-        const totalBs = total * this.pos.exchangeRate;
+        const totalBsRaw = total * this.pos.exchangeRate;
+        // Round UP to nearest whole Bs (105.62 → 106)
+        const totalBs = roundBsUp(totalBsRaw);
 
-        // Update Total Display
+        // Update Total Display (show rounded amount only)
         if (this.pos.dom.paymentTotalUsd) this.pos.dom.paymentTotalUsd.textContent = formatBs(totalBs);
         if (this.pos.dom.paymentTotalVes) this.pos.dom.paymentTotalVes.textContent = `$${total.toFixed(2)}`; // Show USD as secondary
 
         // Select default method (Cash)
         this.handlePaymentMethodClick('cash');
 
+        // ROBUST: Ensure Payment Fields Container Exists
+        let fieldsContainer = this.pos.dom.paymentFields;
+        if (!fieldsContainer) {
+            fieldsContainer = document.getElementById('payment-fields');
+            if (fieldsContainer) this.pos.dom.paymentFields = fieldsContainer;
+        }
+
         // Auto-fill amount for Cash USD
-        const cashUsdInput = this.pos.dom.paymentFields.querySelector('input[data-id="cash_usd"]');
-        if (cashUsdInput) {
-            cashUsdInput.value = total.toFixed(2);
-            this.calculateChange();
+        if (fieldsContainer) {
+            const cashUsdInput = fieldsContainer.querySelector('input[data-id="cash_usd"]');
+            if (cashUsdInput) {
+                cashUsdInput.value = total.toFixed(2);
+                this.calculateChange();
+            }
+        } else {
+            console.error('CheckoutManager: Payment Fields container NOT found');
         }
 
         // Show payment form, hide receipt
@@ -69,8 +97,19 @@ export class CheckoutManager {
     }
 
     populatePaymentMethods() {
-        if (!this.pos.dom.paymentMethodOptions) return;
-        this.pos.dom.paymentMethodOptions.innerHTML = '';
+        // ROBUST: Ensure container exists
+        let container = this.pos.dom.paymentMethodOptions;
+        if (!container) {
+            container = document.getElementById('payment-method-options');
+            if (container) this.pos.dom.paymentMethodOptions = container;
+        }
+
+        if (!container) {
+            console.error('CheckoutManager: Payment Method Options container NOT found in DOM.');
+            return;
+        }
+
+        container.innerHTML = '';
 
         // Ensure Cash exists
         if (!this.pos.paymentMethods.some(m => m.id === 'cash')) {
@@ -91,7 +130,7 @@ export class CheckoutManager {
             button.textContent = method.name;
             button.dataset.id = method.id;
             button.addEventListener('click', () => this.handlePaymentMethodClick(method.id));
-            this.pos.dom.paymentMethodOptions.appendChild(button);
+            container.appendChild(button);
         });
 
         // Add Combined Option explicitly
@@ -104,7 +143,39 @@ export class CheckoutManager {
         combinedButton.textContent = 'Combinado (Múltiples)';
         combinedButton.dataset.id = 'combined';
         combinedButton.addEventListener('click', () => this.handlePaymentMethodClick('combined'));
-        this.pos.dom.paymentMethodOptions.appendChild(combinedButton);
+        container.appendChild(combinedButton);
+
+        // Add Fiado Option (only if customer has credit enabled)
+        const customer = this.pos.selectedCustomer;
+        if (customer && customer.creditLimit && customer.creditLimit > 0) {
+            const availableCredit = (customer.creditLimit || 0) - (customer.creditBalance || 0);
+            const cartTotal = this.pos.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            const hasEnoughCredit = availableCredit >= cartTotal;
+
+            const fiadoButton = document.createElement('button');
+            fiadoButton.type = 'button';
+            fiadoButton.className = `payment-method-btn w-full py-3 px-4 rounded-lg border text-sm font-medium transition-all duration-200 ${this.selectedPaymentMethodId === 'fiado'
+                ? 'bg-amber-600 text-white border-amber-600 shadow-md'
+                : hasEnoughCredit
+                    ? 'bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800'
+                    : 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                } `;
+            fiadoButton.innerHTML = `
+                <span>💳 Crédito</span>
+                <span class="block text-xs mt-1 ${hasEnoughCredit ? 'opacity-70' : 'text-red-500'}">
+                    Disponible: $${availableCredit.toFixed(2)}
+                </span>
+            `;
+            fiadoButton.dataset.id = 'fiado';
+
+            if (hasEnoughCredit) {
+                fiadoButton.addEventListener('click', () => this.handlePaymentMethodClick('fiado'));
+            } else {
+                fiadoButton.disabled = true;
+                fiadoButton.title = 'Crédito insuficiente';
+            }
+            container.appendChild(fiadoButton);
+        }
 
         this.onPaymentMethodChange();
     }
@@ -112,8 +183,20 @@ export class CheckoutManager {
     handlePaymentMethodClick(methodId) {
         this.selectedPaymentMethodId = methodId;
 
+        // ROBUST: Ensure container exists
+        let container = this.pos.dom.paymentMethodOptions;
+        if (!container) {
+            container = document.getElementById('payment-method-options');
+            if (container) this.pos.dom.paymentMethodOptions = container;
+        }
+
+        if (!container) {
+            console.error('CheckoutManager: Cannot handle click, container not found.');
+            return;
+        }
+
         // Update UI
-        const buttons = this.pos.dom.paymentMethodOptions.querySelectorAll('.payment-method-btn');
+        const buttons = container.querySelectorAll('.payment-method-btn');
         buttons.forEach(btn => {
             if (btn.dataset.id === methodId) {
                 btn.className = 'payment-method-btn w-full py-3 px-4 rounded-lg border text-sm font-medium transition-all duration-200 bg-slate-900 text-white border-slate-900 dark:bg-blue-600 dark:border-blue-600 dark:text-white shadow-md';
@@ -256,14 +339,16 @@ export class CheckoutManager {
 
         const paidTotalInUsd = paidUsd + (paidBs / (this.pos.exchangeRate || 1));
         const changeUsd = paidTotalInUsd - total;
-        const changeBs = changeUsd * this.pos.exchangeRate;
+        const changeBsRaw = changeUsd * this.pos.exchangeRate;
+        // Round change to nearest whole Bs
+        const changeBs = roundBsNearest(changeBsRaw);
 
         if (changeUsd >= 0) {
             this.pos.dom.paymentChange.innerHTML = `
                 <div class="flex flex-col items-center justify-center">
                     <span class="text-sm text-green-600 dark:text-green-400 font-medium">Cambio</span>
                     <div class="text-xl font-bold text-green-600 dark:text-green-400">
-                        Bs ${changeBs.toFixed(2)}
+                        Bs ${changeBs.toLocaleString('es-VE')}
                     </div>
                     <div class="text-sm font-medium text-green-600 dark:text-green-400">
                         $${changeUsd.toFixed(2)}
@@ -289,6 +374,45 @@ export class CheckoutManager {
 
     async confirmPayment() {
         const total = this.pos.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+        // Handle FIADO payment
+        if (this.selectedPaymentMethodId === 'fiado') {
+            if (!this.pos.selectedCustomer || !this.pos.selectedCustomer.id) {
+                ui.showNotification('Se requiere un cliente para venta a crédito', 'error');
+                return;
+            }
+
+            const saleData = {
+                items: this.pos.cart.map(item => ({
+                    id: item.id,
+                    name: item.name,
+                    price: item.price,
+                    quantity: item.quantity,
+                    isWeighted: item.isWeighted,
+                    category: item.category || 'Otros'
+                })),
+                total: total,
+                customer: this.pos.selectedCustomer,
+                customerId: this.pos.selectedCustomer.id,
+                paymentMethod: 'fiado',
+                paymentMethods: [{ method: 'fiado', amount: total, currency: 'USD' }],
+                exchangeRate: this.pos.exchangeRate,
+                timestamp: new Date().toISOString()
+            };
+
+            try {
+                const createdSale = await api.sales.create(saleData);
+                this.pos.lastSale = createdSale;
+                this.handleSuccessfulSale(createdSale);
+                ui.showNotification('Venta a crédito registrada', 'success');
+            } catch (error) {
+                console.error('Error processing fiado sale:', error);
+                ui.showNotification(error.message || 'Error al procesar venta a crédito', 'error');
+            }
+            return;
+        }
+
+        // Handle normal payments
         let paidUsd = 0;
         let paidBs = 0;
 
@@ -338,6 +462,7 @@ export class CheckoutManager {
             })),
             total: total,
             customer: this.pos.selectedCustomer, // Can be null
+            customerId: this.pos.selectedCustomer?.id || null,
             paymentMethods: paymentDetails,
             exchangeRate: this.pos.exchangeRate,
             timestamp: new Date().toISOString()
@@ -346,16 +471,56 @@ export class CheckoutManager {
         try {
             const createdSale = await api.sales.create(saleData);
             this.pos.lastSale = createdSale;
-            this.pos.cart = [];
-            this.pos.selectedCustomer = null;
-            this.pos.customerSelectionSkipped = false;
-            this.pos.renderCart();
-            // this.hidePaymentModal(); // Keep modal open for receipt
-            this.pos.receiptManager.showReceipt(createdSale);
-            ui.showNotification('Venta procesada correctamente');
+            this.handleSuccessfulSale(createdSale);
         } catch (error) {
             console.error('Error processing sale:', error);
-            ui.showNotification('Error al procesar la venta: ' + error.message, 'error');
+
+            // Offline Sales Fallback
+            // If network error (or specific 5xx, though fetch usually throws on network only if we handle it right in api.js)
+            // api.js throws 'Failed to fetch' or similar on network issues.
+
+            if (error.message && (error.message.includes('Failed to fetch') || error.message.includes('NetworkError') || !navigator.onLine)) {
+                console.log('POS: Network error detected. Saving to Offline Queue.');
+
+                const offlineQueue = JSON.parse(localStorage.getItem('offline_sales_queue') || '[]');
+
+                // Add a temporary local ID
+                saleData.id = 'offline-' + Date.now();
+                saleData.isOffline = true;
+
+                offlineQueue.push(saleData);
+                localStorage.setItem('offline_sales_queue', JSON.stringify(offlineQueue));
+
+                ui.showNotification('Sin conexión. Venta guardada localmente.', 'info');
+
+                // Treat as success for UI purposes
+                this.pos.lastSale = saleData;
+                this.handleSuccessfulSale(saleData);
+
+                // Trigger sync attempt in background (if connection flapped back)
+                // this.pos.syncOfflineSales(); // We'll add this method to POS next
+            } else {
+                ui.showNotification('Error al procesar la venta: ' + error.message, 'error');
+            }
+        }
+    }
+
+    handleSuccessfulSale(sale) {
+        this.pos.cart = [];
+        this.pos.selectedCustomer = null;
+        this.pos.customerSelectionSkipped = false;
+        this.pos.renderCart();
+        // this.hidePaymentModal(); // Keep modal open for receipt
+        this.pos.receiptManager.showReceipt(sale);
+
+        // Hide confirm payment button since sale is already complete
+        if (this.pos.dom.confirmPaymentBtn) {
+            this.pos.dom.confirmPaymentBtn.classList.add('hidden');
+        }
+
+        if (!sale.isOffline) {
+            ui.showNotification('Venta procesada correctamente');
         }
     }
 }
+

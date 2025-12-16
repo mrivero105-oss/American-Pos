@@ -1,4 +1,5 @@
 import { api as API } from './api.js';
+import { getImageUrl } from './config.js';
 
 export const Products = {
     version: 'v192',
@@ -96,7 +97,7 @@ export const Products = {
         this.dom.productsList.innerHTML = products.map(product => `
             <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden hover:shadow-lg transition-all duration-300 group">
                 <div class="aspect-square w-full relative bg-slate-100 overflow-hidden">
-                    <img src="${product.imageUri || 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDQwIDQwIj4KICA8cmVjdCB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIGZpbGw9IiNlMmU4ZjAiLz4KICA8cGF0aCBkPSJNMjAgMThjLTIuMjEgMC00IDEuNzktNCA0czEuNzkgNCA0IDQgNCAxLjc5IDQgNC0xLjc5IDQtNCA0em0wLTJjMy4zMSAwIDYtMi42OSA2LTZzLTIuNjktNi02LTYtNiAyLjY5LTYgNiAyLjY5IDYgNiA2eiIgZmlsbD0iIzk0YTNYOCIvPgo8L3N2Zz4='}" 
+                    <img src="${getImageUrl(product.imageUri)}" 
                          alt="${product.name}" 
                          class="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500"
                          onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDQwIDQwIj4KICA8cmVjdCB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIGZpbGw9IiNlMmU4ZjAiLz4KICA8cGF0aCBkPSJNMjAgMThjLTIuMjEgMC00IDEuNzktNCA0czEuNzkgNCA0IDQgNCAxLjc5IDQgNC0xLjc5IDQtNCA0em0wLTJjMy4zMSAwIDYtMi42OSA2LTZzLTIuNjktNi02LTYtNiAyLjY5LTYgNiAyLjY5IDYgNiA2eiIgZmlsbD0iIzk0YTNYOCIvPgo8L3N2Zz4='">
@@ -187,6 +188,15 @@ export const Products = {
 
         // Image Preview
         this.dom.inputImageFile?.addEventListener('change', (e) => this.handleImageSelect(e));
+
+        // Toggle stockUnit selector when isSoldByWeight changes
+        const isSoldByWeightCheckbox = document.getElementById('product-is-sold-by-weight');
+        const stockUnitContainer = document.getElementById('stock-unit-container');
+        isSoldByWeightCheckbox?.addEventListener('change', (e) => {
+            if (stockUnitContainer) {
+                stockUnitContainer.classList.toggle('hidden', !e.target.checked);
+            }
+        });
 
         // Search
         this.dom.searchInput?.addEventListener('input', (e) => {
@@ -297,7 +307,11 @@ export const Products = {
         this.dom.inputId.value = '';
 
         const isSoldByWeightCheckbox = document.getElementById('product-is-sold-by-weight');
+        const stockUnitContainer = document.getElementById('stock-unit-container');
+        const stockUnitSelect = document.getElementById('product-stock-unit');
         if (isSoldByWeightCheckbox) isSoldByWeightCheckbox.checked = false;
+        if (stockUnitContainer) stockUnitContainer.classList.add('hidden');
+        if (stockUnitSelect) stockUnitSelect.value = 'kg';
 
         // Reset pricing fields
         if (this.dom.packageType) this.dom.packageType.value = '';
@@ -326,8 +340,17 @@ export const Products = {
             this.dom.inputBarcode.value = product.barcode || '';
 
             const isSoldByWeightCheckbox = document.getElementById('product-is-sold-by-weight');
+            const stockUnitContainer = document.getElementById('stock-unit-container');
+            const stockUnitSelect = document.getElementById('product-stock-unit');
             if (isSoldByWeightCheckbox) {
                 isSoldByWeightCheckbox.checked = !!product.isSoldByWeight;
+                // Show/hide stockUnit selector
+                if (stockUnitContainer) {
+                    stockUnitContainer.classList.toggle('hidden', !product.isSoldByWeight);
+                }
+                if (stockUnitSelect && product.stockUnit) {
+                    stockUnitSelect.value = product.stockUnit;
+                }
             }
 
             // Show existing image preview
@@ -356,15 +379,17 @@ export const Products = {
     async handleFormSubmit(e) {
         e.preventDefault();
 
+        const isSoldByWeight = document.getElementById('product-is-sold-by-weight').checked;
         const productData = {
             name: this.dom.inputName.value,
             price: parseFloat(this.dom.inputPrice.value),
             priceBs: parseFloat(this.dom.inputPriceBs.value),
-            stockQuantity: parseInt(this.dom.inputStock.value),
+            stock: parseFloat(this.dom.inputStock.value),
             category: this.dom.inputCategory.value,
             imageUri: this.currentImageUri || '',
             barcode: this.dom.inputBarcode.value,
-            isSoldByWeight: document.getElementById('product-is-sold-by-weight').checked ? 1 : 0
+            isSoldByWeight: isSoldByWeight ? 1 : 0,
+            stockUnit: isSoldByWeight ? document.getElementById('product-stock-unit').value : null
         };
 
         const id = this.dom.inputId.value;

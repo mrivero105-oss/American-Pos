@@ -12,8 +12,8 @@ async function getAuthHeaders() {
 // Helper function to handle auth errors
 function handleAuthError(response) {
     if (response.status === 401) {
-        localStorage.removeItem('authToken');
-        window.location.href = 'login.html';
+        // Dispatch event so UI can show Re-Login Modal
+        window.dispatchEvent(new CustomEvent('session-expired'));
         throw new Error('Unauthorized');
     }
 }
@@ -41,16 +41,57 @@ async function fetchWithTimeout(url, options = {}) {
 }
 
 export const api = {
+    // Generic POST helper
+    post: async (endpoint, data) => {
+        const response = await fetchWithTimeout(`${API_BASE_URL}${endpoint}`, {
+            method: 'POST',
+            headers: await getAuthHeaders(),
+            body: JSON.stringify(data)
+        });
+        handleAuthError(response);
+        if (!response.ok) throw new Error('API Error');
+        return await response.json();
+    },
+
+    refunds: {
+        create: async (data) => {
+            return api.post('/refunds', data);
+        }
+    },
+
     products: {
-        getAll: async () => {
-            const url = `${API_BASE_URL}/products`;
+        getAll: async (page = null, limit = null, category = null, search = null) => {
+            // Add timestamp to prevent browser caching
+            const params = new URLSearchParams();
+            params.append('_t', Date.now());
+
+            if (page) params.append('page', page);
+            if (limit) params.append('limit', limit);
+            if (category && category !== 'Todas') params.append('category', category);
+            if (search) params.append('search', search);
+
+            const url = `${API_BASE_URL}/products?${params.toString()}`;
+            console.log('DEBUG API URL:', url);
+
             const response = await fetchWithTimeout(url, {
-                headers: await getAuthHeaders()
+                headers: await getAuthHeaders(),
+                cache: 'no-store' // Explicitly request no cache
             });
             handleAuthError(response);
             if (!response.ok) throw new Error(`Error fetching products: ${response.status} ${response.statusText}`);
             return response.json();
         },
+
+        getCategories: async () => {
+            const response = await fetchWithTimeout(`${API_BASE_URL}/products/categories`, {
+                headers: await getAuthHeaders(),
+                cache: 'no-store'
+            });
+            handleAuthError(response);
+            if (!response.ok) throw new Error('Error fetching categories');
+            return response.json();
+        },
+
         create: async (product) => {
             const response = await fetchWithTimeout(`${API_BASE_URL}/products`, {
                 method: 'POST',
@@ -182,8 +223,18 @@ export const api = {
         }
     },
     customers: {
-        getAll: async () => {
-            const res = await fetchWithTimeout(`${API_BASE_URL}/customers`, {
+        getAll: async (page = 1, limit = 0, search = '') => { // Default to 0 (all) for backwards compatibility if not used
+            let url = `${API_BASE_URL}/customers`;
+            const params = new URLSearchParams();
+            if (page) params.append('page', page);
+            if (limit) params.append('limit', limit);
+            if (search) params.append('search', search);
+
+            if (params.toString()) {
+                url += `?${params.toString()}`;
+            }
+
+            const res = await fetchWithTimeout(url, {
                 headers: await getAuthHeaders()
             });
             handleAuthError(res);
@@ -234,14 +285,44 @@ export const api = {
             handleAuthError(res);
             if (!res.ok) throw new Error('Error al obtener ventas del cliente');
             return res.json();
+        },
+        // Credit system methods
+        getCreditHistory: async (id) => {
+            const res = await fetchWithTimeout(`${API_BASE_URL}/customers/${id}/credit-history`, {
+                headers: await getAuthHeaders()
+            });
+            handleAuthError(res);
+            if (!res.ok) throw new Error('Error al obtener historial de crédito');
+            return res.json();
+        },
+        registerCreditPayment: async (id, amount, description = '', paymentMethod = 'cash') => {
+            const res = await fetchWithTimeout(`${API_BASE_URL}/customers/${id}/credit-payment`, {
+                method: 'POST',
+                headers: await getAuthHeaders(),
+                body: JSON.stringify({ amount, description, paymentMethod })
+            });
+            handleAuthError(res);
+            if (!res.ok) {
+                const error = await res.json();
+                throw new Error(error.message || 'Error al registrar abono');
+            }
+            return res.json();
+        },
+        getDelinquentCustomers: async () => {
+            const res = await fetchWithTimeout(`${API_BASE_URL}/reports/delinquent-customers`, {
+                headers: await getAuthHeaders()
+            });
+            handleAuthError(res);
+            if (!res.ok) throw new Error('Error al obtener clientes morosos');
+            return res.json();
         }
     },
     users: {
         getAll: async () => {
-            const token = localStorage.getItem('authToken');
-            const res = await fetch(`${API_BASE_URL}/users`, {
-                headers: { 'Authorization': `Bearer ${token}` }
+            const res = await fetchWithTimeout(`${API_BASE_URL}/users`, {
+                headers: await getAuthHeaders()
             });
+            handleAuthError(res);
             if (!res.ok) throw new Error('Error loading users');
             return res.json();
         },
@@ -289,6 +370,96 @@ export const api = {
                 const err = await res.json();
                 throw new Error(err.error || 'Error updating user');
             }
+            return res.json();
+        }
+    },
+    suppliers: {
+        getAll: async () => {
+            const res = await fetchWithTimeout(`${API_BASE_URL}/suppliers`, {
+                headers: await getAuthHeaders()
+            });
+            handleAuthError(res);
+            if (!res.ok) throw new Error('Error al obtener proveedores');
+            return res.json();
+        },
+        create: async (data) => {
+            const res = await fetchWithTimeout(`${API_BASE_URL}/suppliers`, {
+                method: 'POST',
+                headers: await getAuthHeaders(),
+                body: JSON.stringify(data)
+            });
+            handleAuthError(res);
+            if (!res.ok) throw new Error('Error al crear proveedor');
+            return res.json();
+        },
+        update: async (id, data) => {
+            const res = await fetchWithTimeout(`${API_BASE_URL}/suppliers/${id}`, {
+                method: 'PUT',
+                headers: await getAuthHeaders(),
+                body: JSON.stringify(data)
+            });
+            handleAuthError(res);
+            if (!res.ok) throw new Error('Error al actualizar proveedor');
+            return res.json();
+        },
+        delete: async (id) => {
+            const res = await fetchWithTimeout(`${API_BASE_URL}/suppliers/${id}`, {
+                method: 'DELETE',
+                headers: await getAuthHeaders()
+            });
+            handleAuthError(res);
+            if (!res.ok) throw new Error('Error al eliminar proveedor');
+            return res.json();
+        }
+    },
+    purchaseOrders: {
+        getAll: async () => {
+            const res = await fetchWithTimeout(`${API_BASE_URL}/purchase-orders`, {
+                headers: await getAuthHeaders()
+            });
+            handleAuthError(res);
+            if (!res.ok) throw new Error('Error al obtener órdenes');
+            return res.json();
+        },
+        create: async (data) => {
+            const res = await fetchWithTimeout(`${API_BASE_URL}/purchase-orders`, {
+                method: 'POST',
+                headers: await getAuthHeaders(),
+                body: JSON.stringify(data)
+            });
+            handleAuthError(res);
+            if (!res.ok) throw new Error('Error al crear orden');
+            return res.json();
+        },
+        update: async (id, data) => {
+            const res = await fetchWithTimeout(`${API_BASE_URL}/purchase-orders/${id}`, {
+                method: 'PUT',
+                headers: await getAuthHeaders(),
+                body: JSON.stringify(data)
+            });
+            handleAuthError(res);
+            if (!res.ok) throw new Error('Error al actualizar orden');
+            return res.json();
+        },
+        receive: async (id) => {
+            const res = await fetchWithTimeout(`${API_BASE_URL}/purchase-orders/${id}/receive`, {
+                method: 'POST',
+                headers: await getAuthHeaders()
+            });
+            handleAuthError(res);
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.message || 'Error al recibir orden');
+            }
+            return res.json();
+        },
+        cancel: async (id) => {
+            const res = await fetchWithTimeout(`${API_BASE_URL}/purchase-orders/${id}/cancel`, {
+                method: 'POST',
+                headers: await getAuthHeaders()
+            });
+            handleAuthError(res);
+            if (!res.ok) throw new Error('Error al cancelar orden');
             return res.json();
         }
     },

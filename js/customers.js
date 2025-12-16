@@ -50,9 +50,16 @@ export class Customers {
 
     async loadCustomers() {
         try {
-            this.customers = await api.customers.getAll();
+            const response = await api.customers.getAll();
+            // Handle both legacy array and new paginated object
+            if (Array.isArray(response)) {
+                this.customers = response;
+            } else {
+                this.customers = response.customers || [];
+            }
             this.renderCustomers(this.customers);
         } catch (error) {
+            console.error('Error loading customers:', error);
             ui.showNotification('Error al cargar clientes', 'error');
         }
     }

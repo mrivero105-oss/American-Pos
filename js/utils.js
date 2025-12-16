@@ -43,3 +43,32 @@ export const debounce = (func, wait) => {
         timeout = setTimeout(later, wait);
     };
 };
+
+/**
+ * Round Bs amount UP to nearest whole number
+ * Example: 105.62 → 106
+ * @param {number} amount - Amount in Bs
+ * @returns {number} Rounded amount
+ */
+export const roundBsUp = (amount) => {
+    return Math.ceil(amount);
+};
+
+/**
+ * Round Bs amount to nearest whole number
+ * Example: 105.62 → 106, 105.49 → 105
+ * @param {number} amount - Amount in Bs
+ * @returns {number} Rounded amount
+ */
+export const roundBsNearest = (amount) => {
+    return Math.round(amount);
+};
+
+/**
+ * Round USD amount to 2 decimal places
+ * @param {number} amount - Amount in USD
+ * @returns {number} Rounded amount
+ */
+export const roundUsd = (amount) => {
+    return Math.round(amount * 100) / 100;
+};

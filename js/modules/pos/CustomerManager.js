@@ -4,97 +4,93 @@ import { ui } from '../../ui.js';
 export class CustomerManager {
     constructor(pos) {
         this.pos = pos;
+        this.isLoading = false;
     }
 
     async loadCustomers() {
-        console.log('POS: Loading customers...');
-        // 1. Try to load from cache first
-        const cachedCustomers = localStorage.getItem('cached_customers');
-        if (cachedCustomers) {
-            try {
-                this.pos.customers = JSON.parse(cachedCustomers);
-                console.log('POS: Loaded customers from cache. Count:', this.pos.customers.length);
-            } catch (e) {
-                console.error('Error parsing cached customers', e);
-            }
+        // No-op or minimal init. We don't want to load thousands of customers on startup anymore.
+        // Maybe load just the first 10 for the "Initial" view if desired?
+        // ONE-TIME: Clear old huge cache to free memory
+        if (localStorage.getItem('cached_customers')) {
+            localStorage.removeItem('cached_customers');
+            console.log('POS: Cleared legacy customer cache');
         }
 
-        // 2. Fetch fresh data in background
-        try {
-            console.log('POS: Fetching fresh customers from API...');
-            const freshCustomers = await api.customers.getAll();
-            console.log('POS: API Response:', freshCustomers);
-
-            if (Array.isArray(freshCustomers)) {
-                this.pos.customers = freshCustomers;
-                localStorage.setItem('cached_customers', JSON.stringify(freshCustomers));
-                console.log('POS: Updated customers from API. Count:', this.pos.customers.length);
-
-                // If modal is open, refresh list
-                if (this.pos.dom.customerSelectionModal && !this.pos.dom.customerSelectionModal.classList.contains('hidden')) {
-                    // Note: renderCustomerList might be in POS or here? 
-                    // It seems renderCustomerList is not in the extracted methods list but it is called here.
-                    // I need to check if renderCustomerList exists in POS or if I missed it.
-                    // Looking at the outline, renderCustomerList is not explicitly listed in the main methods I extracted, 
-                    // but renderCustomerSearchResults is.
-                    // Let's check if renderCustomerList is defined in POS.
-                    if (this.pos.renderCustomerList) {
-                        this.pos.renderCustomerList(this.pos.customers);
-                    }
-                }
-            } else {
-                console.error('POS: API returned non-array for customers:', freshCustomers);
-            }
-        } catch (error) {
-            console.error('Error loading customers:', error);
-            if (!this.pos.customers || this.pos.customers.length === 0) {
-                ui.showNotification('Error al cargar clientes', 'error');
-            }
-        }
+        console.log('POS: CustomerManager ready (Remote Search Mode)');
     }
 
-    searchCustomers(query) {
+    async searchCustomers(query) {
         if (!query || query.length < 2) {
             if (this.pos.dom.customerSearchResults) this.pos.dom.customerSearchResults.classList.add('hidden');
             return;
         }
 
-        const lowerQuery = query.toLowerCase();
-        const results = this.pos.customers.filter(c =>
-            c.name.toLowerCase().includes(lowerQuery) ||
-            (c.document_number && c.document_number.includes(lowerQuery))
-        );
+        this.isLoading = true;
+        // Show loading state?
+        const container = this.pos.dom.customerSearchResults;
+        if (container) {
+            container.classList.remove('hidden');
+            container.innerHTML = '<div class="p-3 text-slate-500 text-center text-sm">Buscando...</div>';
+        }
 
-        this.renderCustomerSearchResults(results);
+        try {
+            console.log(`POS: Searching customers remotely: "${query}"`);
+            const response = await api.customers.getAll(1, 20, query); // Page 1, Limit 20, Search Query
+
+            // Handle both legacy array and new paginated object
+            let results = [];
+            if (Array.isArray(response)) {
+                results = response;
+            } else {
+                results = response.customers || [];
+            }
+
+            this.renderCustomerSearchResults(results);
+
+        } catch (error) {
+            console.error('Error searching customers:', error);
+            if (container) {
+                container.innerHTML = '<div class="p-3 text-red-500 text-center text-sm">Error en búsqueda</div>';
+            }
+        } finally {
+            this.isLoading = false;
+        }
     }
 
-    filterCustomerList(query, container) {
-        if (!this.pos.customers) return;
-        const lowerQuery = query ? query.toLowerCase() : '';
-        const results = this.pos.customers.filter(c =>
-            c.name.toLowerCase().includes(lowerQuery) ||
-            (c.document_number && c.document_number.includes(lowerQuery))
-        );
-        this.renderCustomerSearchResults(results, container);
-    }
+    // This method was used by the checkout modal search
+    async filterCustomerList(query, container) {
+        if (!query || query.length < 2) return; // Wait for 2 chars
 
-    renderCustomerList(customers, container = null) {
-        // Render a limited set of customers (e.g. first 20) to avoid lagging the UI
-        const list = customers || [];
-        this.renderCustomerSearchResults(list.slice(0, 20), container);
+        try {
+            // Re-use API logic but render to distinct container
+            const response = await api.customers.getAll(1, 20, query);
+            let results = [];
+            if (Array.isArray(response)) {
+                results = response;
+            } else {
+                results = response.customers || [];
+            }
+            this.renderCustomerSearchResults(results, container);
+        } catch (error) {
+            console.error('Error filtering customers for checkout:', error);
+        }
     }
 
     renderCustomerSearchResults(results, container = null) {
         const target = container || this.pos.dom.customerSearchResults;
         if (!target) return;
 
+        target.classList.remove('hidden');
+
         if (results.length === 0) {
-            target.innerHTML = '<div class="p-3 text-slate-500 text-center">No se encontraron clientes</div>';
+            target.innerHTML = '<div class="p-3 text-slate-500 text-center text-sm">No se encontraron clientes</div>';
         } else {
             target.innerHTML = results.map(c => `
                 <div class="customer-result-item p-3 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer border-b border-slate-100 dark:border-slate-700 last:border-0 rounded-lg" data-id="${c.id}">
                     <div class="font-medium text-slate-900 dark:text-white">${c.name}</div>
-                    <div class="text-sm text-slate-500 dark:text-slate-400">${c.document_number || 'Sin documento'}</div>
+                    <div class="text-sm text-slate-500 dark:text-slate-400">
+                        ${c.idDocument ? `CI: ${c.idDocument}` : ''} ${c.email ? `• ${c.email}` : ''}
+                    </div>
                 </div>
             `).join('');
 
@@ -102,7 +98,9 @@ export class CustomerManager {
             target.querySelectorAll('.customer-result-item').forEach(item => {
                 item.addEventListener('click', () => {
                     const id = item.dataset.id;
-                    const customer = this.pos.customers.find(c => String(c.id) === String(id));
+                    // We need the full object. Since we don't have a global array anymore, find it in 'results'.
+                    const customer = results.find(c => String(c.id) === String(id));
+
                     if (customer) {
                         // If we are in the modal (container passed), we proceed to checkout
                         if (container) {
@@ -114,10 +112,6 @@ export class CustomerManager {
                     }
                 });
             });
-        }
-
-        if (!container) {
-            this.pos.dom.customerSearchResults.classList.remove('hidden');
         }
     }
 
@@ -137,9 +131,7 @@ export class CustomerManager {
         const docEl = document.getElementById('selected-customer-doc');
 
         if (nameEl) nameEl.textContent = customer.name;
-        if (docEl) docEl.textContent = customer.document_number ? `CI: ${customer.document_number}` : 'Sin Documento';
-
-        // Ensure deselect button event is bound (it usually is by bindEvents / cacheDOM, but good to check layout)
+        if (docEl) docEl.textContent = customer.idDocument ? `CI: ${customer.idDocument}` : 'Sin Documento';
     }
 
     deselectCustomer() {
@@ -150,40 +142,40 @@ export class CustomerManager {
         if (searchContainer) {
             searchContainer.classList.remove('hidden');
             searchContainer.style.display = 'block';
+
+            // CRITICAL: Also un-hide the inner .relative container that holds the input
+            const inputContainer = searchContainer.querySelector('.relative');
+            if (inputContainer) {
+                inputContainer.classList.remove('hidden');
+                inputContainer.style.display = 'block';
+            }
         }
 
         // Hide Selected Customer Card
         const selectedContainer = document.getElementById('pos-selected-customer');
         if (selectedContainer) selectedContainer.classList.add('hidden');
 
-        // Reset and Focus Input (Safe DOM query)
-        setTimeout(() => {
-            // Force re-bind to clear any stuck state
-            if (this.pos.bindCustomerSearchInput) {
-                this.pos.bindCustomerSearchInput();
-            }
-
-            const input = document.getElementById('pos-customer-search');
-            if (input) {
-                input.value = '';
-                input.disabled = false;
-                input.readOnly = false; // Ensure not readonly
-                input.classList.remove('hidden');
-                input.style.display = 'block';
-                input.setAttribute('placeholder', 'Buscar cliente (Nombre/CI)...');
-                input.focus();
-
-                // Update cache if needed
-                if (this.pos.dom) this.pos.dom.customerSearchInput = input;
-            } else {
-                console.error('POS: Customer search input not found during deselect');
-            }
-        }, 50);
-
-        // Hide ANY open results
+        // Hide ANY open results FIRST
         if (this.pos.dom.customerSearchResults) {
             this.pos.dom.customerSearchResults.classList.add('hidden');
             this.pos.dom.customerSearchResults.innerHTML = '';
         }
+
+        // Re-bind input (this clones the element, so we must query AFTER)
+        // Actually, re-render logic in POS might clobber this? 
+        // POS.v4.js logic for deselect basically just calls this. 
+        // We only need to focus, no need to re-bind events if elements are static in HTML.
+
+        setTimeout(() => {
+            const input = document.getElementById('pos-customer-search');
+            if (input) {
+                input.value = '';
+                input.focus();
+                // Update cached reference
+                if (this.pos.dom) this.pos.dom.customerSearchInput = input;
+            }
+        }, 100);
     }
 }
+
+

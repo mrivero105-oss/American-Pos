@@ -62,6 +62,10 @@ export class Settings {
             }
         });
 
+        // Logo file input event
+        const logoFileInput = document.getElementById('business-logo-file');
+        logoFileInput?.addEventListener('change', (e) => this.handleLogoFileChange(e));
+
         // Initialize payment methods array
         this.paymentMethods = [];
     }
@@ -102,6 +106,7 @@ export class Settings {
             }
             if (this.dom.businessLogo) {
                 this.dom.businessLogo.value = businessData.logoUrl || '';
+                this.updateLogoPreview(businessData.logoUrl);
             }
 
             // Store payment methods locally and render
@@ -110,6 +115,46 @@ export class Settings {
         } catch (error) {
             console.error('Error loading settings:', error);
             ui.showNotification('Error loading settings', 'error');
+        }
+    }
+
+    handleLogoFileChange(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            ui.showNotification('Por favor selecciona una imagen válida', 'error');
+            return;
+        }
+
+        // Validate file size (max 500KB for base64 storage)
+        if (file.size > 500 * 1024) {
+            ui.showNotification('La imagen es muy grande. Máximo 500KB', 'error');
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const base64 = event.target.result;
+            // Set the base64 data URL in the input field
+            if (this.dom.businessLogo) {
+                this.dom.businessLogo.value = base64;
+            }
+            this.updateLogoPreview(base64);
+            ui.showNotification('Imagen cargada. Haz clic en Guardar Cambios para aplicar.', 'success');
+        };
+        reader.readAsDataURL(file);
+    }
+
+    updateLogoPreview(logoUrl) {
+        const preview = document.getElementById('logo-preview');
+        if (!preview) return;
+
+        if (logoUrl && logoUrl.trim() !== '') {
+            preview.innerHTML = `<img src="${logoUrl}" alt="Logo" class="w-full h-full object-cover">`;
+        } else {
+            preview.innerHTML = '<span class="text-xs text-slate-400">Sin logo</span>';
         }
     }
 

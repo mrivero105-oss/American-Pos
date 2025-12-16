@@ -1,4 +1,6 @@
-import { POS } from './pos.v4.js?v=223';
+// Debug module MUST be imported first to override console.log before any other code
+import './debug.js';
+import { POS } from './pos.v4.js?v=351';
 import { Dashboard } from './dashboard.js?v=223';
 import { SalesHistory } from './sales.js?v=223';
 import { Settings } from './settings.js?v=223';
@@ -6,8 +8,10 @@ import { CustomersView } from './modules/dashboard/CustomersView.js?v=223';
 import { UsersManager } from './modules/admin/UsersManager.js?v=223';
 import { Products } from './products.js?v=223';
 import { authService } from './auth.js?v=223';
+import { SuppliersView } from './modules/dashboard/SuppliersView.js?v=224';
+import { PurchaseOrdersView } from './modules/dashboard/PurchaseOrdersView.js?v=224';
 
-const APP_VERSION = 'v223';
+const APP_VERSION = 'v224';
 
 class App {
     constructor() {
@@ -16,9 +20,11 @@ class App {
             dashboard: new Dashboard(),
             sales: new SalesHistory(),
             settings: new Settings(),
-            customers: new CustomersView(new Dashboard()),
+            customers: new CustomersView(), // Don't pass a separate Dashboard
             users: new UsersManager(),
-            products: Products
+            products: Products,
+            suppliers: new SuppliersView(),
+            purchaseOrders: new PurchaseOrdersView()
         };
         this.currentView = 'pos';
         this.init();
@@ -130,7 +136,21 @@ class App {
 
         // Initial view
         this.views.products.init();
-        this.switchView('pos');
+
+        // Determine initial view: Hash -> LocalStorage -> Default
+        let initialView = 'pos';
+        const hashView = window.location.hash.substring(1); // Remove #
+        const savedView = localStorage.getItem('activeView');
+
+        if (hashView && this.views[hashView]) {
+            console.log('Restoring view from URL:', hashView);
+            initialView = hashView;
+        } else if (savedView && this.views[savedView]) {
+            console.log('Restoring view from LocalStorage:', savedView);
+            initialView = savedView;
+        }
+
+        this.switchView(initialView);
     }
 
     toggleSidebar(show) {
@@ -195,6 +215,9 @@ class App {
     }
 
     switchView(viewName) {
+        // Save state persistence
+        localStorage.setItem('activeView', viewName);
+
         // Update Nav
         this.updateNavigation(viewName);
 
@@ -226,12 +249,37 @@ class App {
                 if (viewName === 'users') this.views.users.load();
                 if (viewName === 'customers') this.views.customers.load();
                 if (viewName === 'pos') this.views.pos.refreshData();
+                if (viewName === 'suppliers') {
+                    this.views.suppliers.load();
+                    this.views.purchaseOrders.load();
+                    this.setupSuppliersTabs();
+                }
             } catch (error) {
                 console.error(`Error loading view ${viewName}:`, error);
             }
         }
 
         this.currentView = viewName;
+
+        // Update Title and URL
+        const titles = {
+            'pos': 'Punto de Venta',
+            'dashboard': 'Dashboard',
+            'sales': 'Historial de Ventas',
+            'customers': 'Clientes',
+            'products': 'Productos',
+            'settings': 'Ajustes',
+            'users': 'Usuarios',
+            'suppliers': 'Proveedores'
+        };
+
+        const title = titles[viewName] || 'Inicio';
+        document.title = `American POS - ${title}`;
+
+        // Update URL without reloading
+        if (history.replaceState) {
+            history.replaceState(null, '', `#${viewName}`);
+        }
 
         // Manage Cart Visibility
         const cartSidebar = document.getElementById('cart-sidebar');
@@ -284,6 +332,39 @@ class App {
                 usersLink.style.display = 'none';
             }
         }
+    }
+
+    setupSuppliersTabs() {
+        const tabSuppliers = document.getElementById('tab-suppliers');
+        const tabPO = document.getElementById('tab-purchase-orders');
+        const panelSuppliers = document.getElementById('suppliers-panel');
+        const panelPO = document.getElementById('purchase-orders-panel');
+
+        if (!tabSuppliers || !tabPO) return;
+
+        // Remove previous listeners by cloning
+        const newTabSuppliers = tabSuppliers.cloneNode(true);
+        const newTabPO = tabPO.cloneNode(true);
+        tabSuppliers.parentNode.replaceChild(newTabSuppliers, tabSuppliers);
+        tabPO.parentNode.replaceChild(newTabPO, tabPO);
+
+        newTabSuppliers.addEventListener('click', () => {
+            panelSuppliers.classList.remove('hidden');
+            panelPO.classList.add('hidden');
+            newTabSuppliers.classList.add('border-b-2', 'border-blue-600', 'text-blue-600');
+            newTabSuppliers.classList.remove('text-slate-500');
+            newTabPO.classList.remove('border-b-2', 'border-blue-600', 'text-blue-600');
+            newTabPO.classList.add('text-slate-500');
+        });
+
+        newTabPO.addEventListener('click', () => {
+            panelSuppliers.classList.add('hidden');
+            panelPO.classList.remove('hidden');
+            newTabPO.classList.add('border-b-2', 'border-blue-600', 'text-blue-600');
+            newTabPO.classList.remove('text-slate-500');
+            newTabSuppliers.classList.remove('border-b-2', 'border-blue-600', 'text-blue-600');
+            newTabSuppliers.classList.add('text-slate-500');
+        });
     }
 }
 

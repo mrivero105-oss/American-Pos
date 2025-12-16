@@ -10,6 +10,7 @@ export class Dashboard {
             paymentMethods: null
         };
         this.currentRange = 'day'; // hour, day, week, month
+        this.selectedDate = null; // For specific date filter
         this.salesData = [];
         this.currentExchangeRate = 1;
         this.init();
@@ -25,13 +26,18 @@ export class Dashboard {
             totalRevenue: document.getElementById('total-revenue'),
             totalSales: document.getElementById('total-sales'),
             avgTicket: document.getElementById('avg-ticket'),
+            // Trend indicators
+            revenueTrend: document.getElementById('revenue-trend'),
+            salesTrend: document.getElementById('sales-trend'),
+            ticketTrend: document.getElementById('ticket-trend'),
             lowStockList: document.getElementById('low-stock-list'),
             trendCanvas: document.getElementById('sales-trend-chart'),
             topProductsCanvas: document.getElementById('top-products-chart'),
             paymentMethodsCanvas: document.getElementById('payment-methods-chart'),
             categoryCanvas: document.getElementById('category-sales-chart'),
             exportBtn: document.getElementById('export-report-btn'),
-            filterBtns: document.querySelectorAll('.dashboard-filter-btn')
+            filterBtns: document.querySelectorAll('.dashboard-filter-btn'),
+            dateFilter: document.getElementById('dashboard-date-filter')
         };
     }
 
@@ -45,6 +51,14 @@ export class Dashboard {
 
         if (this.dom.exportBtn) {
             this.dom.exportBtn.addEventListener('click', () => this.exportToExcel());
+        }
+
+        // Date Filter
+        if (this.dom.dateFilter) {
+            this.dom.dateFilter.addEventListener('change', (e) => {
+                this.selectedDate = e.target.value || null;
+                this.processAndRender();
+            });
         }
 
         // Listen for theme changes to update charts
@@ -116,20 +130,130 @@ export class Dashboard {
         return sale.total * rate;
     }
 
+    /**
+     * Get sales from the previous equivalent period based on current range
+     * hour → yesterday same hour range
+     * day → previous 7 days
+     * week → previous month
+     * month → previous year
+     */
+    getPreviousPeriodSales(targetDate) {
+        if (!this.salesData) return [];
+
+        switch (this.currentRange) {
+            case 'hour': // Previous day
+                const prevDay = new Date(targetDate);
+                prevDay.setDate(prevDay.getDate() - 1);
+                return this.salesData.filter(s => {
+                    const d = s.timestamp.toDate ? s.timestamp.toDate() : new Date(s.timestamp);
+                    return d.toDateString() === prevDay.toDateString();
+                });
+
+            case 'day': // Previous 7 days (8-14 days ago)
+                const prevWeekEnd = new Date(targetDate);
+                prevWeekEnd.setDate(targetDate.getDate() - 7);
+                const prevWeekStart = new Date(prevWeekEnd);
+                prevWeekStart.setDate(prevWeekEnd.getDate() - 6);
+                prevWeekStart.setHours(0, 0, 0, 0);
+                prevWeekEnd.setHours(23, 59, 59, 999);
+
+                return this.salesData.filter(s => {
+                    const d = s.timestamp.toDate ? s.timestamp.toDate() : new Date(s.timestamp);
+                    return d >= prevWeekStart && d <= prevWeekEnd;
+                });
+
+            case 'week': // Previous month
+                const prevMonth = new Date(targetDate.getFullYear(), targetDate.getMonth() - 1, 1);
+                const prevMonthEnd = new Date(targetDate.getFullYear(), targetDate.getMonth(), 0, 23, 59, 59, 999);
+
+                return this.salesData.filter(s => {
+                    const d = s.timestamp.toDate ? s.timestamp.toDate() : new Date(s.timestamp);
+                    return d >= prevMonth && d <= prevMonthEnd;
+                });
+
+            case 'month': // Previous year
+                const prevYear = new Date(targetDate.getFullYear() - 1, 0, 1);
+                const prevYearEnd = new Date(targetDate.getFullYear() - 1, 11, 31, 23, 59, 59, 999);
+
+                return this.salesData.filter(s => {
+                    const d = s.timestamp.toDate ? s.timestamp.toDate() : new Date(s.timestamp);
+                    return d >= prevYear && d <= prevYearEnd;
+                });
+
+            default:
+                return [];
+        }
+    }
+
+    /**
+     * Update a trend indicator element with percentage change
+     */
+    updateTrendIndicator(element, current, previous) {
+        if (!element) return;
+
+        // If no previous data, hide indicator
+        if (previous === 0 && current === 0) {
+            element.classList.add('hidden');
+            return;
+        }
+
+        let percentChange;
+        let label;
+
+        if (previous === 0) {
+            // New data where there was none before
+            percentChange = 100;
+            label = 'Nuevo';
+        } else {
+            percentChange = ((current - previous) / previous) * 100;
+        }
+
+        const isPositive = percentChange >= 0;
+        const arrow = isPositive ? '↑' : '↓';
+        const colorClass = isPositive
+            ? 'text-green-600 dark:text-green-400'
+            : 'text-red-600 dark:text-red-400';
+
+        // Period label based on range
+        const periodLabel = {
+            'hour': 'vs ayer',
+            'day': 'vs semana ant.',
+            'week': 'vs mes ant.',
+            'month': 'vs año ant.'
+        }[this.currentRange] || '';
+
+        const displayText = label
+            ? `${arrow} ${label}`
+            : `${arrow} ${percentChange >= 0 ? '+' : ''}${percentChange.toFixed(1)}% ${periodLabel}`;
+
+        element.textContent = displayText;
+        element.className = `text-sm font-medium mt-1 ${colorClass}`;
+        element.classList.remove('hidden');
+    }
+
     processAndRender() {
-        if (!this.salesData) return;
+        if (!this.salesData) {
+            console.warn('Dashboard: No salesData available');
+            return;
+        }
+
+        console.log(`Dashboard: Processing ${this.salesData.length} sales, range=${this.currentRange}, selectedDate=${this.selectedDate}`);
 
         const now = new Date();
         let filteredSales = [];
         let labels = [];
         let trendData = [];
 
+        // If a specific date is selected, use it instead of "now"
+        const targetDate = this.selectedDate ? new Date(this.selectedDate + 'T12:00:00') : now;
+        console.log(`Dashboard: targetDate=${targetDate.toISOString()}`);
+
         // 1. Filter Data based on Range
         switch (this.currentRange) {
-            case 'hour': // Today, grouped by hour
+            case 'hour': // Selected day (or today), grouped by hour
                 filteredSales = this.salesData.filter(s => {
                     const d = s.timestamp.toDate ? s.timestamp.toDate() : new Date(s.timestamp);
-                    return d.toDateString() === now.toDateString();
+                    return d.toDateString() === targetDate.toDateString();
                 });
                 // Generate labels 00:00 - 23:00
                 for (let i = 0; i < 24; i++) {
@@ -143,20 +267,23 @@ export class Dashboard {
                 });
                 break;
 
-            case 'day': // This Week (Last 7 days), grouped by day
-                const sevenDaysAgo = new Date();
-                sevenDaysAgo.setDate(now.getDate() - 6);
+            case 'day': // 7 days ending on targetDate, grouped by day
+                const sevenDaysAgo = new Date(targetDate);
+                sevenDaysAgo.setDate(targetDate.getDate() - 6);
                 sevenDaysAgo.setHours(0, 0, 0, 0);
+
+                const endOfDay = new Date(targetDate);
+                endOfDay.setHours(23, 59, 59, 999);
 
                 filteredSales = this.salesData.filter(s => {
                     const d = s.timestamp.toDate ? s.timestamp.toDate() : new Date(s.timestamp);
-                    return d >= sevenDaysAgo;
+                    return d >= sevenDaysAgo && d <= endOfDay;
                 });
 
                 for (let i = 0; i < 7; i++) {
                     const d = new Date(sevenDaysAgo);
                     d.setDate(d.getDate() + i);
-                    const dayName = d.toLocaleDateString('es-ES', { weekday: 'short' });
+                    const dayName = d.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' });
                     labels.push(dayName);
 
                     const dayTotal = filteredSales
@@ -169,11 +296,13 @@ export class Dashboard {
                 }
                 break;
 
-            case 'week': // This Month, grouped by week
-                const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+            case 'week': // Month of targetDate, grouped by week
+                const startOfMonth = new Date(targetDate.getFullYear(), targetDate.getMonth(), 1);
+                const endOfMonth = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 0, 23, 59, 59, 999);
+
                 filteredSales = this.salesData.filter(s => {
                     const d = s.timestamp.toDate ? s.timestamp.toDate() : new Date(s.timestamp);
-                    return d >= startOfMonth;
+                    return d >= startOfMonth && d <= endOfMonth;
                 });
 
                 // Simple 4 weeks approximation
@@ -187,11 +316,13 @@ export class Dashboard {
                 });
                 break;
 
-            case 'month': // This Year, grouped by month
-                const startOfYear = new Date(now.getFullYear(), 0, 1);
+            case 'month': // Year of targetDate, grouped by month
+                const startOfYear = new Date(targetDate.getFullYear(), 0, 1);
+                const endOfYear = new Date(targetDate.getFullYear(), 11, 31, 23, 59, 59, 999);
+
                 filteredSales = this.salesData.filter(s => {
                     const d = s.timestamp.toDate ? s.timestamp.toDate() : new Date(s.timestamp);
-                    return d >= startOfYear;
+                    return d >= startOfYear && d <= endOfYear;
                 });
 
                 const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
@@ -214,6 +345,17 @@ export class Dashboard {
         if (this.dom.totalSales) this.dom.totalSales.textContent = totalSalesCount;
         if (this.dom.avgTicket) this.dom.avgTicket.textContent = formatBs(avgTicket);
 
+        // 2b. Calculate Previous Period for Trend Comparison
+        const prevPeriodSales = this.getPreviousPeriodSales(targetDate);
+        const prevRevenue = prevPeriodSales.reduce((sum, s) => sum + this.getSaleAmountBs(s), 0);
+        const prevSalesCount = prevPeriodSales.length;
+        const prevAvgTicket = prevSalesCount > 0 ? prevRevenue / prevSalesCount : 0;
+
+        // 2c. Display Trend Indicators
+        this.updateTrendIndicator(this.dom.revenueTrend, totalRevenue, prevRevenue);
+        this.updateTrendIndicator(this.dom.salesTrend, totalSalesCount, prevSalesCount);
+        this.updateTrendIndicator(this.dom.ticketTrend, avgTicket, prevAvgTicket);
+
         // 3. Top Products
         const productMap = {};
         filteredSales.forEach(s => {
@@ -226,12 +368,29 @@ export class Dashboard {
             .sort((a, b) => b[1] - a[1])
             .slice(0, 5); // Top 5
 
-        // 4. Payment Methods
+        // 4. Payment Methods - Iterate over paymentMethods array
         const paymentMap = {};
         filteredSales.forEach(s => {
-            const method = s.paymentMethod || 'cash'; // Default to cash if missing
-            if (!paymentMap[method]) paymentMap[method] = 0;
-            paymentMap[method] += this.getSaleAmountBs(s);
+            // New structure: s.paymentMethods is an array of {method, amount, currency}
+            if (s.paymentMethods && Array.isArray(s.paymentMethods)) {
+                s.paymentMethods.forEach(pm => {
+                    const method = pm.method || 'cash';
+                    if (!paymentMap[method]) paymentMap[method] = 0;
+                    // Use amount in VES if available, otherwise convert
+                    if (pm.currency === 'VES') {
+                        paymentMap[method] += pm.amount;
+                    } else {
+                        // USD - convert to VES
+                        const rate = s.exchangeRate || this.currentExchangeRate;
+                        paymentMap[method] += pm.amount * rate;
+                    }
+                });
+            } else if (s.paymentMethod) {
+                // Legacy: single paymentMethod field
+                const method = s.paymentMethod || 'cash';
+                if (!paymentMap[method]) paymentMap[method] = 0;
+                paymentMap[method] += this.getSaleAmountBs(s);
+            }
         });
 
         // 5. Categories (Client-side aggregation for now)
@@ -248,14 +407,21 @@ export class Dashboard {
         });
         const sortedCategories = Object.entries(categoryMap).sort((a, b) => b[1] - a[1]);
 
-        // Map method IDs to readable names (simplified)
-        const methodLabels = Object.keys(paymentMap).map(k => {
-            if (k === 'cash') return 'Efectivo';
-            if (k === 'debit') return 'Débito';
-            if (k === 'pago_movil') return 'Pago Móvil';
-            if (k === 'zelle') return 'Zelle';
-            return k.charAt(0).toUpperCase() + k.slice(1);
-        });
+        // Map method IDs to readable names
+        const methodNames = {
+            'cash': 'Efectivo',
+            'cash_usd': 'Efectivo USD',
+            'cash_ves': 'Efectivo Bs',
+            'debit': 'Débito',
+            'tarjeta-de-debito': 'Tarjeta Débito',
+            'pago_movil': 'Pago Móvil',
+            'pago-movil': 'Pago Móvil',
+            'biopago': 'Biopago',
+            'zelle': 'Zelle',
+            'fiado': 'Fiado',
+            'credit': 'Crédito'
+        };
+        const methodLabels = Object.keys(paymentMap).map(k => methodNames[k] || k.charAt(0).toUpperCase() + k.slice(1).replace(/-/g, ' '));
         const methodData = Object.values(paymentMap);
 
         // Render Charts
@@ -326,17 +492,30 @@ export class Dashboard {
         }
 
         // Prepare data for Excel
-        const data = this.salesData.map(s => ({
-            ID: s.id,
-            Fecha: new Date(s.timestamp).toLocaleString(),
-            Cliente: s.customer ? s.customer.name : 'Casual',
-            Documento: s.customer ? s.customer.idDocument : '',
-            TotalBs: this.getSaleAmountBs(s),
-            TotalUSD: s.total,
-            Tasa: s.exchangeRate || this.currentExchangeRate,
-            MetodoPago: s.paymentMethod,
-            Items: s.items.map(i => `${i.quantity}x ${i.name}`).join(', ')
-        }));
+        const data = this.salesData.map(s => {
+            // Format payment methods from array
+            let metodosPago = '';
+            if (s.paymentMethods && Array.isArray(s.paymentMethods)) {
+                metodosPago = s.paymentMethods.map(pm => {
+                    const amount = pm.currency === 'VES' ? `Bs.${pm.amount.toFixed(2)}` : `$${pm.amount.toFixed(2)}`;
+                    return `${pm.method} (${amount})`;
+                }).join(', ');
+            } else if (s.paymentMethod) {
+                metodosPago = s.paymentMethod;
+            }
+
+            return {
+                ID: s.id,
+                Fecha: new Date(s.timestamp).toLocaleString(),
+                Cliente: s.customer ? s.customer.name : 'Casual',
+                Documento: s.customer ? s.customer.idDocument : '',
+                TotalBs: this.getSaleAmountBs(s),
+                TotalUSD: s.total,
+                Tasa: s.exchangeRate || this.currentExchangeRate,
+                MetodoPago: metodosPago,
+                Items: s.items.map(i => `${i.quantity}x ${i.name}`).join(', ')
+            };
+        });
 
         const ws = XLSX.utils.json_to_sheet(data);
         const wb = XLSX.utils.book_new();
@@ -567,10 +746,5 @@ export class Dashboard {
     }
 }
 
-// Initialize Dashboard if on dashboard page
-document.addEventListener('DOMContentLoaded', () => {
-    if (document.getElementById('dashboard-view')) {
-        window.dashboard = new Dashboard();
-    }
-});
-
+// Dashboard is now initialized and managed by app.js, not here.
+// Removed duplicate initialization to prevent multiple instances.

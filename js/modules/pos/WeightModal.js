@@ -49,7 +49,7 @@ export class WeightModal {
         // Add to cart with specific quantity (weight)
         // We pass the weight as quantity
         try {
-            this.pos.cartManager.addToCart(this.selectedWeightProduct, weight);
+            this.pos.cartManager.addToCart(this.selectedWeightProduct, weight, { skipWeightedModal: true });
             this.closeWeightModal();
         } catch (error) {
             console.error('Error adding weighted item:', error);

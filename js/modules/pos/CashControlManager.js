@@ -18,7 +18,8 @@ export class CashControlManager {
             this.currentShift = await api.cash.getCurrentShift();
         } catch (error) {
             console.error('Error checking shift:', error);
-            this.currentShift = null; // Assume closed on error
+            ui.showNotification('Error de conexión con Caja: ' + error.message, 'warning');
+            this.currentShift = null;
         } finally {
             this.updateUI();
         }
@@ -99,7 +100,9 @@ export class CashControlManager {
 
         if (!this.currentShift) return;
 
-        document.getElementById('expected-cash-display').textContent = formatBs(this.currentShift.expectedCash);
+        // expectedCash is in USD from backend, convert to Bs for display
+        const expectedInBs = (this.currentShift.expectedCash || 0) * (this.pos.exchangeRate || 1);
+        document.getElementById('expected-cash-display').textContent = formatBs(expectedInBs);
         document.getElementById('close-cash-actual').value = '';
 
         ui.toggleModal('close-cash-modal', true);
