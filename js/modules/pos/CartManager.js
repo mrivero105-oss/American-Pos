@@ -104,6 +104,7 @@ export class CartManager {
 
         // Check currency settings
         const showBs = currencySettings.isBsEnabled();
+        const showUsd = currencySettings.isUsdEnabled();
 
         // Calculate Totals
         const total = this.pos.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
@@ -127,6 +128,15 @@ export class CartManager {
                 cartTotalBsRow.classList.add('hidden');
             }
         }
+        // Show/hide entire Total USD row in desktop cart
+        const cartTotalUsdRow = document.getElementById('cart-total-usd-row');
+        if (cartTotalUsdRow) {
+            if (showUsd) {
+                cartTotalUsdRow.classList.remove('hidden');
+            } else {
+                cartTotalUsdRow.classList.add('hidden');
+            }
+        }
         if (this.pos.dom.mobileCartCount) this.pos.dom.mobileCartCount.textContent = itemCount;
 
         // FIXED: Update Mobile Specific Totals (Robust Version)
@@ -136,14 +146,19 @@ export class CartManager {
             if (totalEls.length > 1) console.warn('POS: WARNING - Multiple #mobile-cart-total elements found!', totalEls.length);
 
             const mobileTotalEl = document.getElementById('mobile-cart-total');
+            const mobileTotalUsdRow = document.getElementById('mobile-cart-total-usd-row');
             if (mobileTotalEl) {
                 const formatted = `$${(total || 0).toFixed(2)}`;
                 console.log('POS: Updating mobile total USD. Element:', mobileTotalEl, 'Value:', formatted);
                 mobileTotalEl.textContent = formatted;
-                // Force visibility just in case
-                mobileTotalEl.style.display = 'block';
-            } else {
-                console.warn('POS: Mobile Total Element #mobile-cart-total NOT found in DOM during renderCart');
+            }
+            // Show/hide mobile USD row
+            if (mobileTotalUsdRow) {
+                if (showUsd) {
+                    mobileTotalUsdRow.classList.remove('hidden');
+                } else {
+                    mobileTotalUsdRow.classList.add('hidden');
+                }
             }
 
             const mobileTotalBsEl = document.getElementById('mobile-cart-total-bs');
