@@ -44,6 +44,12 @@ class App {
             currencySettings.setEnabled(user.businessInfo.currencies);
         }
 
+        // Hide exchange rate section when USD-only mode
+        const exchangeRateContainer = document.getElementById('exchange-rate-container');
+        if (exchangeRateContainer && !currencySettings.isBsEnabled()) {
+            exchangeRateContainer.style.display = 'none';
+        }
+
         // Navigation
         const navLinks = document.querySelectorAll('[data-view]');
         console.log('Found nav links:', navLinks.length);
