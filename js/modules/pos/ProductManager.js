@@ -1,5 +1,5 @@
 import { api } from '../../api.js';
-import { formatBs } from '../../utils.js';
+import { formatBs, currencySettings } from '../../utils.js';
 import { ui } from '../../ui.js';
 import { getImageUrl } from '../../config.js';
 
@@ -391,7 +391,7 @@ export class ProductManager {
                     <div class="p-1 flex flex-col gap-0.5">
                         <h3 class="font-bold text-slate-800 dark:text-slate-100 text-[11px] leading-tight line-clamp-2 h-7" title="${product.name}">${product.name}</h3>
                         <div class="flex items-baseline gap-1">
-                            <span class="text-sm font-extrabold text-indigo-600 dark:text-indigo-400">${formatBs(product.price * this.pos.exchangeRate)}${isWeighted ? '/kg' : ''}</span>
+                            <span class="text-sm font-extrabold text-indigo-600 dark:text-indigo-400">${currencySettings.isBsEnabled() ? formatBs(product.price * this.pos.exchangeRate) : '$' + parseFloat(product.price).toFixed(2)}${isWeighted ? '/kg' : ''}</span>
                         </div>
                     </div>
                 </div>
