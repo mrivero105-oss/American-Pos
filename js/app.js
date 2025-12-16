@@ -8,6 +8,7 @@ import { CustomersView } from './modules/dashboard/CustomersView.js?v=223';
 import { UsersManager } from './modules/admin/UsersManager.js?v=223';
 import { Products } from './products.js?v=223';
 import { authService } from './auth.js?v=223';
+import { SwipeManager } from './swipe-manager.js';
 import { SuppliersView } from './modules/dashboard/SuppliersView.js?v=224';
 import { PurchaseOrdersView } from './modules/dashboard/PurchaseOrdersView.js?v=224';
 import { currencySettings } from './utils.js';
@@ -43,6 +44,9 @@ class App {
         if (user && user.businessInfo && user.businessInfo.currencies) {
             currencySettings.setEnabled(user.businessInfo.currencies);
         }
+
+        // Initialize Swipe Manager for Mobile
+        this.swipeManager = new SwipeManager();
 
         // Hide exchange rate section when USD-only mode
         const exchangeRateContainer = document.getElementById('exchange-rate-container');
