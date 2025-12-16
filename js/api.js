@@ -222,6 +222,34 @@ export const api = {
             return res.json();
         }
     },
+    backup: {
+        download: async () => {
+            const res = await fetchWithTimeout(`${API_BASE_URL}/backup`, {
+                headers: await getAuthHeaders()
+            });
+            handleAuthError(res);
+            if (!res.ok) throw new Error('Error downloading backup');
+            return res.json();
+        },
+        restore: async (backupData) => {
+            const res = await fetchWithTimeout(`${API_BASE_URL}/backup`, {
+                method: 'POST',
+                headers: await getAuthHeaders(),
+                body: JSON.stringify(backupData)
+            });
+            handleAuthError(res);
+            if (!res.ok) throw new Error('Error restoring backup');
+            return res.json();
+        },
+        history: async () => {
+            const res = await fetchWithTimeout(`${API_BASE_URL}/backup/history`, {
+                headers: await getAuthHeaders()
+            });
+            handleAuthError(res);
+            if (!res.ok) throw new Error('Error fetching backup history');
+            return res.json();
+        }
+    },
     customers: {
         getAll: async (page = 1, limit = 0, search = '') => { // Default to 0 (all) for backwards compatibility if not used
             let url = `${API_BASE_URL}/customers`;
