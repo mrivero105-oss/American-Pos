@@ -42,6 +42,17 @@ export class CartManager {
                 ui.showNotification(`Stock máximo alcanzado(${product.stock})`, 'warning');
             }
         } else {
+            // Validate stock for new items
+            const availableStock = parseFloat(product.stock) || 0;
+            if (quantity > availableStock && availableStock > 0) {
+                ui.showNotification(`Solo hay ${availableStock} unidades disponibles`, 'warning');
+                return;
+            }
+            if (availableStock <= 0 && product.track_inventory !== false) {
+                ui.showNotification(`${product.name} sin stock`, 'warning');
+                return;
+            }
+
             const newItem = { ...product, quantity: quantity, isWeighted: isWeighted };
             console.log('POS: Pushing new item to cart:', newItem);
             this.pos.cart.push(newItem);

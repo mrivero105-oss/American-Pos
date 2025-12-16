@@ -425,12 +425,31 @@ export class POS {
                     this.filterProducts(query);
                 }, 300));
 
-                // Jump to grid on Enter
+                // Jump to grid on Enter OR add to cart if barcode matches
                 this.dom.searchInput.addEventListener('keydown', (e) => {
                     if (e.key === 'Enter') {
                         e.preventDefault();
-                        this.dom.searchInput.blur(); // Remove focus from input
-                        this.productManager.focusProductGrid(); // Transfer to grid
+                        const query = this.dom.searchInput.value.trim();
+
+                        // Check if query matches exactly one product by barcode
+                        if (query && this.products) {
+                            const exactMatch = this.products.find(p =>
+                                p.barcode && p.barcode.toLowerCase() === query.toLowerCase()
+                            );
+
+                            if (exactMatch) {
+                                // Add to cart directly
+                                this.addToCart(exactMatch);
+                                this.dom.searchInput.value = '';
+                                this.filterProducts(''); // Reset filter
+                                ui.showNotification(`${exactMatch.name} agregado`, 'success');
+                                return;
+                            }
+                        }
+
+                        // Default: blur and focus grid
+                        this.dom.searchInput.blur();
+                        this.productManager.focusProductGrid();
                     }
                 });
             }
@@ -447,6 +466,24 @@ export class POS {
                 this.dom.mobileSearchInput.addEventListener('keydown', (e) => {
                     if (e.key === 'Enter') {
                         e.preventDefault();
+                        const query = this.dom.mobileSearchInput.value.trim();
+
+                        // Check if query matches exactly one product by barcode
+                        if (query && this.products) {
+                            const exactMatch = this.products.find(p =>
+                                p.barcode && p.barcode.toLowerCase() === query.toLowerCase()
+                            );
+
+                            if (exactMatch) {
+                                this.addToCart(exactMatch);
+                                this.dom.mobileSearchInput.value = '';
+                                if (this.dom.searchInput) this.dom.searchInput.value = '';
+                                this.filterProducts('');
+                                ui.showNotification(`${exactMatch.name} agregado`, 'success');
+                                return;
+                            }
+                        }
+
                         this.dom.mobileSearchInput.blur();
                     }
                 });
