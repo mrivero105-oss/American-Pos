@@ -290,19 +290,31 @@ export class CartManager {
         const quantityDisplay = isWeighted ? parseFloat(item.quantity).toFixed(3) : item.quantity;
         const weightTag = isWeighted ? '<span class="text-xs bg-blue-100 text-blue-800 px-1 rounded ml-1">Peso</span>' : '';
         const imageUri = getImageUrl(item.imageUri);
-        const priceBs = formatBs(item.price * this.pos.exchangeRate);
-        const totalBs = formatBs(item.price * item.quantity * this.pos.exchangeRate);
+
+        // Currency-aware pricing
+        const showBs = currencySettings.isBsEnabled();
+        const priceDisplay = showBs
+            ? formatBs(item.price * this.pos.exchangeRate)
+            : `$${parseFloat(item.price).toFixed(2)}`;
+        const totalDisplay = showBs
+            ? formatBs(item.price * item.quantity * this.pos.exchangeRate)
+            : `$${(parseFloat(item.price) * item.quantity).toFixed(2)}`;
 
         // Adaptive Font Sizing (Length checks on formatted string)
-        let priceBsClass = 'text-base tracking-tight';
-        if (priceBs.length > 14) priceBsClass = 'text-[0.65rem] tracking-tighter'; // Extra small for huge numbers
-        else if (priceBs.length > 11) priceBsClass = 'text-xs tracking-tight';
-        else if (priceBs.length > 9) priceBsClass = 'text-sm tracking-tight';
+        let priceClass = 'text-base tracking-tight';
+        if (priceDisplay.length > 14) priceClass = 'text-[0.65rem] tracking-tighter'; // Extra small for huge numbers
+        else if (priceDisplay.length > 11) priceClass = 'text-xs tracking-tight';
+        else if (priceDisplay.length > 9) priceClass = 'text-sm tracking-tight';
 
-        let totalBsClass = 'text-lg tracking-tight';
-        if (totalBs.length > 15) totalBsClass = 'text-xs tracking-tighter';
-        else if (totalBs.length > 12) totalBsClass = 'text-sm tracking-tight';
-        else if (totalBs.length > 10) totalBsClass = 'text-base tracking-tight';
+        let totalClass = 'text-lg tracking-tight';
+        if (totalDisplay.length > 15) totalClass = 'text-xs tracking-tighter';
+        else if (totalDisplay.length > 12) totalClass = 'text-sm tracking-tight';
+        else if (totalDisplay.length > 10) totalClass = 'text-base tracking-tight';
+
+        // Secondary price (show USD below Bs, or hide if USD-only)
+        const secondaryPrice = showBs
+            ? `<span class="text-blue-600 dark:text-blue-400 font-bold text-xs md:text-sm">$${parseFloat(item.price).toFixed(2)} c/u</span>`
+            : '';
 
         return `
         <div class="cart-item flex flex-col p-3 mb-2 bg-slate-50 dark:bg-slate-700/50 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-500 transition-colors" data-id="${item.id}">
@@ -318,17 +330,17 @@ export class CartManager {
                     <div class="flex-1 min-w-0">
                         <div class="text-sm md:text-base text-slate-500 dark:text-slate-400 flex flex-col gap-0.5 md:gap-1">
                             <span class="flex items-center flex-wrap">
-                                <span class="font-bold text-slate-700 dark:text-slate-200 text-xs md:text-base tracking-tight truncate max-w-[80px] md:max-w-none">${priceBs}</span>
+                                <span class="font-bold text-slate-700 dark:text-slate-200 text-xs md:text-base tracking-tight truncate max-w-[80px] md:max-w-none">${priceDisplay}</span>
                                 <span class="mx-1 md:mx-2 text-xs md:text-base">x</span>
                                 <input type="number" class="qty-input w-12 md:w-16 px-1 py-1 text-center border rounded bg-white dark:bg-slate-600 dark:text-white text-sm md:text-lg font-medium" 
                                     value="${quantityDisplay}" step="${step}" min="${step}">
                             </span>
-                            <span class="text-blue-600 dark:text-blue-400 font-bold text-xs md:text-sm">$${parseFloat(item.price).toFixed(2)} c/u</span>
+                            ${secondaryPrice}
                         </div>
                     </div>
                 </div>
                 <div class="text-right pl-1 md:pl-2">
-                    <p class="font-bold text-slate-900 dark:text-white text-sm md:text-lg tracking-tight">${totalBs}</p>
+                    <p class="font-bold text-slate-900 dark:text-white text-sm md:text-lg tracking-tight">${totalDisplay}</p>
                     <div class="flex items-center justify-end gap-1 mt-2">
                         <button class="decrease-qty p-1.5 text-slate-400 hover:text-red-500 transition-colors">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
