@@ -554,8 +554,10 @@ export class POS {
 
             // Scanner
             const btnScan = document.getElementById('pos-scan-btn');
+            const btnScanMobile = document.getElementById('mobile-scan-btn');
             const btnCloseScan = document.getElementById('close-pos-scanner');
             if (btnScan) btnScan.addEventListener('click', () => this.startScanner());
+            if (btnScanMobile) btnScanMobile.addEventListener('click', () => this.startScanner());
             if (btnCloseScan) btnCloseScan.addEventListener('click', () => this.stopScanner());
 
             // Category Filters Horizontal Scroll with Mouse Wheel
