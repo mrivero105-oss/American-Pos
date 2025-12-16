@@ -1,5 +1,6 @@
 import { api as API } from './api.js';
 import { getImageUrl } from './config.js';
+import { currencySettings } from './utils.js';
 
 export const Products = {
     version: 'v192',
@@ -312,6 +313,12 @@ export const Products = {
         if (isSoldByWeightCheckbox) isSoldByWeightCheckbox.checked = false;
         if (stockUnitContainer) stockUnitContainer.classList.add('hidden');
         if (stockUnitSelect) stockUnitSelect.value = 'kg';
+
+        // Hide Precio Bs field when in USD-only mode
+        const priceBsContainer = document.getElementById('price-bs-container');
+        if (priceBsContainer) {
+            priceBsContainer.style.display = currencySettings.isBsEnabled() ? '' : 'none';
+        }
 
         // Reset pricing fields
         if (this.dom.packageType) this.dom.packageType.value = '';
