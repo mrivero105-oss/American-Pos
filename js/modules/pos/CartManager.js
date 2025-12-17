@@ -321,7 +321,7 @@ export class CartManager {
         const isWeighted = item.isWeighted || item.measurement === 'kg';
         const step = isWeighted ? '0.001' : '1';
         const quantityDisplay = isWeighted ? parseFloat(item.quantity).toFixed(3) : item.quantity;
-        const weightTag = isWeighted ? '<span class="text-xs bg-blue-100 text-blue-800 px-1 rounded ml-1">Peso</span>' : '';
+        const weightTag = isWeighted ? '<span class="inline-flex items-center gap-1 text-[10px] bg-blue-500/10 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full font-bold ml-2"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/></svg>Peso</span>' : '';
         const imageUri = getImageUrl(item.imageUri);
 
         // Currency-aware pricing
@@ -333,56 +333,55 @@ export class CartManager {
             ? formatBs(item.price * item.quantity * this.pos.exchangeRate)
             : `$${(parseFloat(item.price) * item.quantity).toFixed(2)}`;
 
-        // Adaptive Font Sizing (Length checks on formatted string)
-        let priceClass = 'text-base tracking-tight';
-        if (priceDisplay.length > 14) priceClass = 'text-[0.65rem] tracking-tighter'; // Extra small for huge numbers
-        else if (priceDisplay.length > 11) priceClass = 'text-xs tracking-tight';
-        else if (priceDisplay.length > 9) priceClass = 'text-sm tracking-tight';
-
-        let totalClass = 'text-lg tracking-tight';
-        if (totalDisplay.length > 15) totalClass = 'text-xs tracking-tighter';
-        else if (totalDisplay.length > 12) totalClass = 'text-sm tracking-tight';
-        else if (totalDisplay.length > 10) totalClass = 'text-base tracking-tight';
-
-        // Secondary price (show USD below Bs, or hide if USD-only)
+        // Secondary price (show USD below Bs)
         const secondaryPrice = showBs
-            ? `<span class="text-blue-600 dark:text-blue-400 font-bold text-xs md:text-sm">$${parseFloat(item.price).toFixed(2)} c/u</span>`
+            ? `<span class="text-[10px] text-blue-500 dark:text-blue-400 font-medium">$${parseFloat(item.price).toFixed(2)}/u</span>`
             : '';
 
         return `
-        <div class="cart-item flex flex-col p-3 mb-2 bg-slate-50 dark:bg-slate-700/50 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-500 transition-colors" data-id="${item.id}">
-            <!-- Name Row -->
-            <div class="w-full mb-2 border-b border-slate-200 dark:border-slate-600 pb-2">
-                 <h4 class="font-bold text-slate-900 dark:text-white text-sm md:text-base break-words leading-tight">${item.name} ${weightTag}</h4>
-            </div>
+        <div class="cart-item group relative bg-gradient-to-br from-white to-slate-50 dark:from-slate-800 dark:to-slate-800/50 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 hover:border-blue-400 dark:hover:border-blue-500 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden mb-3" data-id="${item.id}">
+            <!-- Hover gradient overlay -->
+            <div class="absolute inset-0 bg-gradient-to-br from-blue-500/0 to-indigo-500/0 group-hover:from-blue-500/5 group-hover:to-indigo-500/5 transition-all duration-300 pointer-events-none"></div>
             
-            <!-- Content Row -->
-            <div class="flex justify-between items-center w-full">
-                <div class="flex items-center gap-2 md:gap-3 flex-1">
-                    <img src="${imageUri}" alt="${item.name}" class="w-12 h-12 md:w-16 md:h-16 object-cover rounded-md border border-slate-200 dark:border-slate-600">
+            <div class="relative p-3">
+                <!-- Header: Name + Image -->
+                <div class="flex items-start gap-3 mb-3">
+                    <div class="relative flex-shrink-0">
+                        <img src="${imageUri}" alt="${item.name}" 
+                            class="w-16 h-16 object-cover rounded-xl border-2 border-slate-200 dark:border-slate-600 group-hover:border-blue-400 dark:group-hover:border-blue-500 shadow-sm transition-all">
+                        <div class="absolute -top-1 -right-1 bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow-lg">${quantityDisplay}</div>
+                    </div>
                     <div class="flex-1 min-w-0">
-                        <div class="text-sm md:text-base text-slate-500 dark:text-slate-400 flex flex-col gap-0.5 md:gap-1">
-                            <span class="flex items-center flex-wrap">
-                                <span class="font-bold text-slate-700 dark:text-slate-200 text-xs md:text-base tracking-tight truncate max-w-[80px] md:max-w-none">${priceDisplay}</span>
-                                <span class="mx-1 md:mx-2 text-xs md:text-base">x</span>
-                                <input type="number" class="qty-input w-12 md:w-16 px-1 py-1 text-center border rounded bg-white dark:bg-slate-600 dark:text-white text-sm md:text-lg font-medium" 
-                                    value="${quantityDisplay}" step="${step}" min="${step}">
+                        <h4 class="font-bold text-slate-900 dark:text-white text-sm leading-tight mb-1 line-clamp-2">${item.name}${weightTag}</h4>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span class="inline-flex items-center gap-1 text-xs font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-lg">
+                                ${priceDisplay}
+                                ${secondaryPrice ? `<span class="text-slate-400 dark:text-slate-500">•</span>` : ''}
+                                ${secondaryPrice}
                             </span>
-                            ${secondaryPrice}
                         </div>
                     </div>
                 </div>
-                <div class="text-right pl-1 md:pl-2">
-                    <p class="font-bold text-slate-900 dark:text-white text-sm md:text-lg tracking-tight">${totalDisplay}</p>
-                    <div class="flex items-center justify-end gap-1 mt-2">
-                        <button class="decrease-qty p-1.5 text-slate-400 hover:text-red-500 transition-colors">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
+
+                <!-- Footer: Quantity Controls + Total -->
+                <div class="flex items-center justify-between pt-3 border-t border-slate-200/60 dark:border-slate-700/60">
+                    <!-- Quantity Pills -->
+                    <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-700/50 rounded-full p-1">
+                        <button class="decrease-qty w-7 h-7 flex items-center justify-center rounded-full bg-white dark:bg-slate-600 text-slate-600 dark:text-slate-300 hover:bg-gradient-to-br hover:from-red-500 hover:to-orange-500 hover:text-white transition-all shadow-sm hover:shadow-md">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M20 12H4"/></svg>
                         </button>
-                        <button class="increase-qty p-1.5 text-slate-400 hover:text-green-500 transition-colors">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                        <input type="number" class="qty-input w-14 px-2 py-1 text-center bg-transparent text-sm font-bold text-slate-900 dark:text-white border-0 focus:outline-none focus:ring-0" 
+                            value="${quantityDisplay}" step="${step}" min="${step}">
+                        <button class="increase-qty w-7 h-7 flex items-center justify-center rounded-full bg-white dark:bg-slate-600 text-slate-600 dark:text-slate-300 hover:bg-gradient-to-br hover:from-emerald-500 hover:to-teal-500 hover:text-white transition-all shadow-sm hover:shadow-md">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 4v16m8-8H4"/></svg>
                         </button>
-                        <button class="remove-item p-1.5 text-slate-400 hover:text-red-500 transition-colors ml-1">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    </div>
+
+                    <!-- Total + Delete -->
+                    <div class="flex items-center gap-2">
+                        <p class="font-black text-lg text-transparent bg-clip-text bg-gradient-to-r from-slate-900 to-slate-700 dark:from-white dark:to-slate-300">${totalDisplay}</p>
+                        <button class="remove-item w-8 h-8 flex items-center justify-center rounded-full text-slate-400 hover:bg-gradient-to-br hover:from-red-500 hover:to-red-600 hover:text-white transition-all hover:shadow-lg">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                         </button>
                     </div>
                 </div>
