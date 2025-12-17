@@ -291,7 +291,22 @@ export class CashControlManager {
         // Print function
         window.printZReport = () => {
             const printWindow = window.open('', '_blank');
-            printWindow.document.write(\`<html><head><title>Corte Z</title><style>body{font-family:'Courier New',monospace;padding:20px;max-width:300px;margin:0 auto}h2{text-align:center;margin:0}hr{border:none;border-top:1px dashed #000;margin:10px 0}.r{text-align:right}.b{font-weight:bold}</style></head><body><h2>CORTE Z</h2><p style="text-align:center">\${new Date().toLocaleString()}</p><hr><p>Ventas: \${shiftData.salesCount||0}</p><p>Total: $\${(shiftData.totalSalesAmount||0).toFixed(2)}</p><p>Duración: \${durationStr}</p><hr><p>Fondo: $\${(shiftData.startingCash||0).toFixed(2)}</p><p>+ Efectivo: $\${(shiftData.cashSalesTotal||0).toFixed(2)}</p><p>+ Depósitos: $\${(shiftData.totalIn||0).toFixed(2)}</p><p>- Retiros: $\${(shiftData.totalOut||0).toFixed(2)}</p><p>- Gastos: $\${(shiftData.totalExpenses||0).toFixed(2)}</p><hr><p class="b">ESPERADO: $\${(shiftData.expectedCash||0).toFixed(2)}</p><p class="b">REAL: $\${(shiftData.actualCash||0).toFixed(2)}</p><p class="b">DIFERENCIA: \${diff>=0?'+':''}$\${diff.toFixed(2)}</p><hr><p style="text-align:center">*** FIN DEL CORTE ***</p></body></html>\`);
+            const printHtml = '<html><head><title>Corte Z</title><style>body{font-family:Courier New,monospace;padding:20px;max-width:300px;margin:0 auto}h2{text-align:center;margin:0}hr{border:none;border-top:1px dashed #000;margin:10px 0}.b{font-weight:bold}</style></head><body>' +
+                '<h2>CORTE Z</h2>' +
+                '<p style="text-align:center">' + new Date().toLocaleString() + '</p><hr>' +
+                '<p>Ventas: ' + (shiftData.salesCount || 0) + '</p>' +
+                '<p>Total: $' + (shiftData.totalSalesAmount || 0).toFixed(2) + '</p>' +
+                '<p>Duracion: ' + durationStr + '</p><hr>' +
+                '<p>Fondo: $' + (shiftData.startingCash || 0).toFixed(2) + '</p>' +
+                '<p>+ Efectivo: $' + (shiftData.cashSalesTotal || 0).toFixed(2) + '</p>' +
+                '<p>+ Depositos: $' + (shiftData.totalIn || 0).toFixed(2) + '</p>' +
+                '<p>- Retiros: $' + (shiftData.totalOut || 0).toFixed(2) + '</p>' +
+                '<p>- Gastos: $' + (shiftData.totalExpenses || 0).toFixed(2) + '</p><hr>' +
+                '<p class="b">ESPERADO: $' + (shiftData.expectedCash || 0).toFixed(2) + '</p>' +
+                '<p class="b">REAL: $' + (shiftData.actualCash || 0).toFixed(2) + '</p>' +
+                '<p class="b">DIFERENCIA: ' + (diff >= 0 ? '+' : '') + '$' + diff.toFixed(2) + '</p><hr>' +
+                '<p style="text-align:center">*** FIN DEL CORTE ***</p></body></html>';
+            printWindow.document.write(printHtml);
             printWindow.document.close();
             printWindow.print();
         };
