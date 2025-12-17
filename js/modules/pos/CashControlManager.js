@@ -59,8 +59,8 @@ export class CashControlManager {
             if (movementBtn) movementBtn.classList.remove('hidden');
             if (xReportBtn) xReportBtn.classList.remove('hidden');
             if (statusIndicator) {
-                statusIndicator.textContent = 'ABIERTA';
-                statusIndicator.className = 'px-1.5 py-0.5 rounded text-[10px] font-bold bg-green-500/10 text-green-500 border border-green-500/20';
+                statusIndicator.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> ABIERTA';
+                statusIndicator.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 flex items-center gap-1';
             }
         } else {
             // Shift is CLOSED
@@ -69,8 +69,8 @@ export class CashControlManager {
             if (movementBtn) movementBtn.classList.add('hidden');
             if (xReportBtn) xReportBtn.classList.add('hidden');
             if (statusIndicator) {
-                statusIndicator.textContent = 'CERRADA';
-                statusIndicator.className = 'px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-500/10 text-red-500 border border-red-500/20';
+                statusIndicator.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span> CERRADA';
+                statusIndicator.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-700 text-slate-400 flex items-center gap-1';
             }
         }
     }
