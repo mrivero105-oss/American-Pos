@@ -2618,35 +2618,56 @@
                         </p>
                     </div>
 
+                    <!-- Currency Toggle -->
+                    <div class="flex rounded-xl overflow-hidden border-2 border-slate-200 dark:border-slate-600">
+                        <button type="button" id="open-cash-usd-btn" onclick="window.setOpenCashCurrency('USD')"
+                            class="flex-1 py-2 text-sm font-bold bg-emerald-600 text-white transition-colors">
+                            $ USD
+                        </button>
+                        <button type="button" id="open-cash-bs-btn" onclick="window.setOpenCashCurrency('BS')"
+                            class="flex-1 py-2 text-sm font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors">
+                            Bs.S Bolívares
+                        </button>
+                    </div>
+
                     <!-- Amount Input -->
                     <div>
                         <label class="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
                             💵 Monto Inicial en Caja
                         </label>
                         <div class="relative">
-                            <span
+                            <span id="open-cash-symbol"
                                 class="absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-bold text-slate-400">$</span>
                             <input type="number" id="open-cash-amount" step="0.01" min="0" placeholder="0.00"
-                                class="w-full pl-10 pr-4 py-4 border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-slate-900 dark:text-white text-3xl font-bold text-center">
+                                class="w-full pl-12 pr-4 py-4 border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-slate-900 dark:text-white text-3xl font-bold text-center">
                         </div>
-                        <p class="text-xs text-slate-500 mt-2 text-center">Puede ingresar 0 si la caja está vacía</p>
+                        <!-- Conversion Display -->
+                        <div id="open-cash-conversion" class="text-center mt-2 text-sm text-slate-500 hidden">
+                            ≈ <span id="open-cash-converted">$0.00</span>
+                        </div>
+                        <p class="text-xs text-slate-500 mt-1 text-center">Puede ingresar 0 si la caja está vacía</p>
+                        <input type="hidden" id="open-cash-currency" value="USD">
                     </div>
 
-                    <!-- Quick amounts -->
-                    <div class="flex gap-2">
-                        <button type="button" onclick="document.getElementById('open-cash-amount').value='50'"
+                    <!-- Quick amounts (dynamic) -->
+                    <div id="open-cash-quick-amounts" class="flex gap-2">
+                        <button type="button"
+                            onclick="document.getElementById('open-cash-amount').value='50'; window.updateOpenCashConversion();"
                             class="flex-1 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors text-sm font-medium">
                             $50
                         </button>
-                        <button type="button" onclick="document.getElementById('open-cash-amount').value='100'"
+                        <button type="button"
+                            onclick="document.getElementById('open-cash-amount').value='100'; window.updateOpenCashConversion();"
                             class="flex-1 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors text-sm font-medium">
                             $100
                         </button>
-                        <button type="button" onclick="document.getElementById('open-cash-amount').value='200'"
+                        <button type="button"
+                            onclick="document.getElementById('open-cash-amount').value='200'; window.updateOpenCashConversion();"
                             class="flex-1 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors text-sm font-medium">
                             $200
                         </button>
-                        <button type="button" onclick="document.getElementById('open-cash-amount').value='500'"
+                        <button type="button"
+                            onclick="document.getElementById('open-cash-amount').value='500'; window.updateOpenCashConversion();"
                             class="flex-1 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors text-sm font-medium">
                             $500
                         </button>

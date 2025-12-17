@@ -78,16 +78,94 @@ export class CashControlManager {
     showOpenModal() {
         ui.toggleModal('open-cash-modal', true);
         document.getElementById('open-cash-amount').value = '';
+
+        // Check if Solo USD mode
+        const currencies = JSON.parse(localStorage.getItem('currency_settings') || '["USD","BS"]');
+        const isSoloUSD = currencies.length === 1 && currencies[0] === 'USD';
+
+        // Hide currency toggle in Solo USD mode
+        const usdBtn = document.getElementById('open-cash-usd-btn');
+        const bsBtn = document.getElementById('open-cash-bs-btn');
+        const currencyToggle = usdBtn?.parentElement;
+
+        if (currencyToggle) {
+            currencyToggle.style.display = isSoloUSD ? 'none' : 'flex';
+        }
+
+        // Reset to USD
+        window.setOpenCashCurrency = (currency) => {
+            const symbol = document.getElementById('open-cash-symbol');
+            const currencyInput = document.getElementById('open-cash-currency');
+            const usdBtnEl = document.getElementById('open-cash-usd-btn');
+            const bsBtnEl = document.getElementById('open-cash-bs-btn');
+            const conversionDiv = document.getElementById('open-cash-conversion');
+            const quickAmounts = document.getElementById('open-cash-quick-amounts');
+
+            currencyInput.value = currency;
+
+            if (currency === 'USD') {
+                symbol.textContent = '$';
+                usdBtnEl.className = 'flex-1 py-2 text-sm font-bold bg-emerald-600 text-white transition-colors';
+                bsBtnEl.className = 'flex-1 py-2 text-sm font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors';
+                conversionDiv.classList.add('hidden');
+                quickAmounts.innerHTML = `
+                    <button type="button" onclick="document.getElementById('open-cash-amount').value='50'; window.updateOpenCashConversion();" class="flex-1 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors text-sm font-medium">$50</button>
+                    <button type="button" onclick="document.getElementById('open-cash-amount').value='100'; window.updateOpenCashConversion();" class="flex-1 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors text-sm font-medium">$100</button>
+                    <button type="button" onclick="document.getElementById('open-cash-amount').value='200'; window.updateOpenCashConversion();" class="flex-1 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors text-sm font-medium">$200</button>
+                    <button type="button" onclick="document.getElementById('open-cash-amount').value='500'; window.updateOpenCashConversion();" class="flex-1 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors text-sm font-medium">$500</button>
+                `;
+            } else {
+                symbol.textContent = 'Bs';
+                bsBtnEl.className = 'flex-1 py-2 text-sm font-bold bg-emerald-600 text-white transition-colors';
+                usdBtnEl.className = 'flex-1 py-2 text-sm font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors';
+                conversionDiv.classList.remove('hidden');
+                const rate = this.pos?.exchangeRate || 1;
+                quickAmounts.innerHTML = `
+                    <button type="button" onclick="document.getElementById('open-cash-amount').value='${(50 * rate).toFixed(0)}'; window.updateOpenCashConversion();" class="flex-1 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors text-sm font-medium">Bs ${(50 * rate).toFixed(0)}</button>
+                    <button type="button" onclick="document.getElementById('open-cash-amount').value='${(100 * rate).toFixed(0)}'; window.updateOpenCashConversion();" class="flex-1 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors text-sm font-medium">Bs ${(100 * rate).toFixed(0)}</button>
+                    <button type="button" onclick="document.getElementById('open-cash-amount').value='${(200 * rate).toFixed(0)}'; window.updateOpenCashConversion();" class="flex-1 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors text-sm font-medium">Bs ${(200 * rate).toFixed(0)}</button>
+                    <button type="button" onclick="document.getElementById('open-cash-amount').value='${(500 * rate).toFixed(0)}'; window.updateOpenCashConversion();" class="flex-1 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors text-sm font-medium">Bs ${(500 * rate).toFixed(0)}</button>
+                `;
+            }
+            window.updateOpenCashConversion();
+        };
+
+        window.updateOpenCashConversion = () => {
+            const amount = parseFloat(document.getElementById('open-cash-amount').value) || 0;
+            const currency = document.getElementById('open-cash-currency').value;
+            const converted = document.getElementById('open-cash-converted');
+            const rate = this.pos?.exchangeRate || 1;
+
+            if (currency === 'BS') {
+                converted.textContent = '$' + (amount / rate).toFixed(2) + ' USD';
+            } else {
+                converted.textContent = 'Bs.' + (amount * rate).toFixed(2);
+            }
+        };
+
+        // Set default
+        window.setOpenCashCurrency('USD');
+
+        // Listen for input changes
+        document.getElementById('open-cash-amount').addEventListener('input', window.updateOpenCashConversion);
+
         document.getElementById('open-cash-amount').focus();
     }
 
     async handleOpenShift() {
         const amountInput = document.getElementById('open-cash-amount');
-        const amount = parseFloat(amountInput.value);
+        let amount = parseFloat(amountInput.value);
+        const currency = document.getElementById('open-cash-currency')?.value || 'USD';
 
         if (isNaN(amount) || amount < 0) {
             ui.showNotification('Ingrese un monto válido', 'error');
             return;
+        }
+
+        // Convert Bs to USD if entered in Bs
+        if (currency === 'BS') {
+            const rate = this.pos?.exchangeRate || 1;
+            amount = amount / rate;
         }
 
         try {
