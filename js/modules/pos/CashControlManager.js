@@ -112,6 +112,15 @@ export class CashControlManager {
         document.getElementById('expected-cash-display').textContent = formatBs(expectedInBs);
         document.getElementById('close-cash-actual').value = '';
 
+        // Populate stats
+        const salesEl = document.getElementById('close-stats-sales');
+        const totalEl = document.getElementById('close-stats-total');
+        const cashEl = document.getElementById('close-stats-cash');
+
+        if (salesEl) salesEl.textContent = this.currentShift.salesCount || 0;
+        if (totalEl) totalEl.textContent = '$' + (this.currentShift.totalSalesAmount || 0).toFixed(0);
+        if (cashEl) cashEl.textContent = '$' + (this.currentShift.cashSalesTotal || 0).toFixed(0);
+
         ui.toggleModal('close-cash-modal', true);
         document.getElementById('close-cash-actual').focus();
     }
