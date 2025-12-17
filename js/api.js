@@ -539,6 +539,22 @@ export const api = {
             handleAuthError(res);
             if (!res.ok) throw new Error('Error al obtener reporte diario');
             return res.json();
+        },
+        getXReport: async () => {
+            const res = await fetchWithTimeout(`${API_BASE_URL}/cash/x-report`, {
+                headers: await getAuthHeaders()
+            });
+            handleAuthError(res);
+            if (!res.ok) throw new Error('Error al obtener corte X');
+            return res.json();
+        },
+        getHistory: async () => {
+            const res = await fetchWithTimeout(`${API_BASE_URL}/cash/history`, {
+                headers: await getAuthHeaders()
+            });
+            handleAuthError(res);
+            if (!res.ok) throw new Error('Error al obtener historial');
+            return res.json();
         }
     },
     dashboard: {
