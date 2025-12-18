@@ -12,6 +12,52 @@
 
     <!-- Global Error Handler & Boot Diagnostics - Must be first -->
     <script>
+        // Detect if running as installed PWA
+        const isPWA = window.matchMedia('(display-mode: standalone)').matches ||
+            window.navigator.standalone === true;
+
+        // PWA Recovery: If app hasn't loaded successfully in 5 seconds, force recovery
+        if (isPWA) {
+            let bootCompleted = false;
+
+            setTimeout(function () {
+                if (!bootCompleted && !window.app) {
+                    console.error('[PWA] Boot timeout - forcing recovery');
+
+                    // Check if this is a repeated failure
+                    const failCount = parseInt(localStorage.getItem('pwa_boot_fail_count') || '0');
+
+                    if (failCount >= 2) {
+                        // After 2 failures, completely reset
+                        localStorage.clear();
+                        if ('caches' in window) {
+                            caches.keys().then(keys => {
+                                keys.forEach(key => caches.delete(key));
+                            });
+                        }
+                        if ('serviceWorker' in navigator) {
+                            navigator.serviceWorker.getRegistrations().then(regs => {
+                                regs.forEach(reg => reg.unregister());
+                            });
+                        }
+                        document.body.innerHTML = '<div style="position: fixed; inset: 0; background: #fee; color: #c00; padding: 20px; font-family: sans-serif; display: flex; align-items: center; justify-content: center; text-align: center;"><div><h1 style="font-size: 20px; margin-bottom: 10px;">🔄 Reparación Completa</h1><p style="margin-bottom: 15px;">La app se ha resetea do completamente.<br>Por favor, <strong>cierra la app</strong> y ábrela de nuevo.</p><button onclick="window.close();" style="padding: 12px 24px; background: #c00; color: white; border: none; border-radius: 6px; font-size: 16px;">Cerrar App</button></div></div>';
+                    } else {
+                        // First failure - just reload
+                        localStorage.setItem('pwa_boot_fail_count', String(failCount + 1));
+                        location.reload();
+                    }
+                }
+            }, 5000);
+
+            // Reset fail count on successful boot
+            window.addEventListener('load', function () {
+                if (window.app) {
+                    bootCompleted = true;
+                    localStorage.setItem('pwa_boot_fail_count', '0');
+                }
+            });
+        }
+
         // Create visible diagnostic overlay
         const diagDiv = document.createElement('div');
         diagDiv.id = 'boot-diag';
@@ -34,7 +80,7 @@
         };
 
         // Log immediately
-        window.bootLog('→ HTML loaded');
+        window.bootLog('→ HTML loaded' + (isPWA ? ' [PWA]' : ''));
 
         // Global error handler
         window.addEventListener('error', function (e) {
@@ -43,7 +89,7 @@
 
             const errorDiv = document.createElement('div');
             errorDiv.style.cssText = 'position: fixed; inset: 0; background: #fee; color: #c00; padding: 20px; font-family: monospace; z-index: 99999; display: flex; align-items: center; justify-content: center; text-align: center;';
-            errorDiv.innerHTML = '<div><h1 style="font-size: 24px; margin-bottom: 10px;">⚠️ Error al cargar</h1><p style="margin-bottom: 5px;">' + (e.error ? e.error.message : e.message) + '</p><p style="font-size: 12px; opacity: 0.7;">Archivo: ' + (e.filename || 'desconocido') + '<br>Línea: ' + (e.lineno || '?') + '</p><button onclick="localStorage.clear(); location.reload();" style="margin-top: 15px; padding: 10px 20px; background: #c00; color: white; border: none; border-radius: 4px; cursor: pointer;">Borrar Caché y Recargar</button></div>';
+            errorDiv.innerHTML = '<div><h1 style="font-size: 24px; margin-bottom: 10px;">⚠️ Error al cargar</h1><p style="margin-bottom: 5px;">' + (e.error ? e.error.message : e.message) + '</p><p style="font-size: 12px; opacity: 0.7;">Archivo: ' + (e.filename || 'desconocido') + '<br>Línea: ' + (e.lineno || '?') + '</p><button onclick="localStorage.clear(); if(\'serviceWorker\' in navigator) navigator.serviceWorker.getRegistrations().then(r => r.forEach(x => x.unregister())); location.reload();" style="margin-top: 15px; padding: 10px 20px; background: #c00; color: white; border: none; border-radius: 4px; cursor: pointer;">Reparar y Recargar</button></div>';
             document.body.appendChild(errorDiv);
         });
 
