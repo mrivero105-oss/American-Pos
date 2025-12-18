@@ -1,22 +1,23 @@
 // Debug module MUST be imported first to override console.log before any other code
 import './debug.js';
-import { POS } from './pos.v4.js?v=351';
-import { Dashboard } from './dashboard.js?v=223';
-import { SalesHistory } from './sales.js?v=223';
-import { Settings } from './settings.js?v=223';
-import { CustomersView } from './modules/dashboard/CustomersView.js?v=223';
-import { UsersManager } from './modules/admin/UsersManager.js?v=223';
-import { Products } from './products.js?v=223';
-import { authService } from './auth.js?v=223';
+import { POS } from './pos.v4.js';
+import { Dashboard } from './dashboard.js';
+import { SalesHistory } from './sales.js';
+import { Settings } from './settings.js';
+import { CustomersView } from './modules/dashboard/CustomersView.js';
+import { UsersManager } from './modules/admin/UsersManager.js';
+import { Products } from './products.js';
+import { authService } from './auth.js';
 import { SwipeManager } from './swipe-manager.js';
-import { SuppliersView } from './modules/dashboard/SuppliersView.js?v=224';
-import { PurchaseOrdersView } from './modules/dashboard/PurchaseOrdersView.js?v=224';
+import { SuppliersView } from './modules/dashboard/SuppliersView.js';
+import { PurchaseOrdersView } from './modules/dashboard/PurchaseOrdersView.js';
 import { currencySettings } from './utils.js';
 
 const APP_VERSION = 'v224';
 
 class App {
     constructor() {
+        if (window.bootLog) window.bootLog('→ App constructor');
         this.views = {
             pos: new POS(),
             dashboard: new Dashboard(),
@@ -33,6 +34,7 @@ class App {
     }
 
     async init() {
+        if (window.bootLog) window.bootLog('→ App.init()');
         // Check Authentication
         if (!authService.isAuthenticated()) {
             window.location.href = 'login.html';
@@ -152,6 +154,7 @@ class App {
         });
 
         // Initial view
+        if (window.bootLog) window.bootLog('→ Products.init()');
         this.views.products.init();
 
         // Determine initial view: Hash -> LocalStorage -> Default
@@ -167,6 +170,7 @@ class App {
             initialView = savedView;
         }
 
+        if (window.bootLog) window.bootLog('→ switchView(' + initialView + ')');
         this.switchView(initialView);
     }
 
@@ -386,4 +390,11 @@ class App {
 }
 
 // Global App Instance
-window.app = new App();
+if (window.bootLog) window.bootLog('→ Creating App...');
+try {
+    window.app = new App();
+    if (window.bootLog) window.bootLog('✓ BOOT COMPLETE');
+} catch (error) {
+    console.error('FATAL: App initialization failed', error);
+    document.body.innerHTML = `<div style="position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: #fee; color: #c00; padding: 20px; font-family: monospace; text-align: center;"><div><h1>Error al iniciar</h1><p>${error.message}</p><p style="font-size: 12px; margin-top: 10px;">Por favor, actualiza la página o borra la caché.</p></div></div>`;
+}

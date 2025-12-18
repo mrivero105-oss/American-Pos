@@ -1,6 +1,6 @@
 import { api as API } from './api.js';
 import { getImageUrl } from './config.js';
-import { currencySettings } from './utils.js';
+import { currencySettings, debounce } from './utils.js';
 
 export const Products = {
     version: 'v192',
@@ -96,7 +96,7 @@ export const Products = {
         }
 
         this.dom.productsList.innerHTML = products.map(product => `
-            <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden hover:shadow-lg transition-all duration-300 group">
+            <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden hover:shadow-lg transition-all duration-300 group">
                 <div class="aspect-square w-full relative bg-slate-100 overflow-hidden">
                     <img src="${getImageUrl(product.imageUri)}" 
                          alt="${product.name}" 
@@ -105,38 +105,38 @@ export const Products = {
                          onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDQwIDQwIj4KICA8cmVjdCB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIGZpbGw9IiNlMmU4ZjAiLz4KICA8cGF0aCBkPSJNMjAgMThjLTIuMjEgMC00IDEuNzktNCA0czEuNzkgNCA0IDQgNCAxLjc5IDQgNC0xLjc5IDQtNCA0em0wLTJjMy4zMSAwIDYtMi42OSA2LTZzLTIuNjktNi02LTYtNiAyLjY5LTYgNiAyLjY5IDYgNiA2eiIgZmlsbD0iIzk0YTNiOCIvPgo8L3N2Zz4='">
                     
                     <!-- Stock Badge -->
-                    <span class="absolute top-1.5 right-1.5 px-1.5 py-0.5 text-[10px] md:text-xs font-bold rounded-md ${product.stock > 5 ? 'bg-emerald-500/90 text-white' : product.stock > 0 ? 'bg-amber-500/90 text-white' : 'bg-red-500/90 text-white'} backdrop-blur-sm shadow">
+                    <span class="absolute top-1 right-1 px-1 py-0.5 text-[9px] md:text-[10px] font-bold rounded-md ${product.stock > 5 ? 'bg-emerald-500/90 text-white' : product.stock > 0 ? 'bg-amber-500/90 text-white' : 'bg-red-500/90 text-white'} backdrop-blur-sm shadow">
                         ${product.stock}
                     </span>
 
                     <!-- Mobile Action Buttons - Always Visible -->
-                    <div class="absolute bottom-1.5 right-1.5 flex gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                        <button onclick="window.editProduct('${product.id}')" class="p-1.5 md:p-2 bg-white/90 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors shadow-md backdrop-blur-sm" title="Editar">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                    <div class="absolute bottom-1 right-1 flex gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                        <button onclick="window.editProduct('${product.id}')" class="p-1 md:p-1.5 bg-white/90 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors shadow-md backdrop-blur-sm" title="Editar">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
                         </button>
-                        <button onclick="window.deleteProduct('${product.id}')" class="p-1.5 md:p-2 bg-white/90 rounded-lg text-red-600 hover:bg-red-50 transition-colors shadow-md backdrop-blur-sm" title="Eliminar">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        <button onclick="window.deleteProduct('${product.id}')" class="p-1 md:p-1.5 bg-white/90 rounded-lg text-red-600 hover:bg-red-50 transition-colors shadow-md backdrop-blur-sm" title="Eliminar">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                         </button>
                     </div>
                 </div>
 
-                <div class="p-2 md:p-3">
-                    <span class="inline-block px-1.5 py-0.5 text-[9px] md:text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-slate-100 dark:bg-slate-700/50 dark:text-slate-400 rounded mb-1">
+                <div class="p-2 flex flex-col gap-1">
+                    <span class="inline-block px-1.5 py-0.5 text-[clamp(8px,0.8vw,10px)] font-bold uppercase tracking-wider text-slate-500 bg-slate-100 dark:bg-slate-700/50 dark:text-slate-400 rounded-md w-fit mb-0.5">
                         ${product.category || 'General'}
                     </span>
                     
-                    <h3 class="font-bold text-slate-800 dark:text-white text-sm md:text-base leading-tight truncate" title="${product.name}">${product.name}</h3>
+                    <h3 class="font-bold text-slate-800 dark:text-white text-[clamp(11px,1.1vw,14px)] leading-tight truncate" title="${product.name}">${product.name}</h3>
                     
-                    <div class="flex justify-between items-end mt-1.5 md:mt-2">
+                    <div class="flex justify-between items-end mt-1">
                          ${currencySettings.isUsdEnabled() ? `
                          <div class="flex flex-col">
-                            <span class="text-lg md:text-xl font-bold text-emerald-600 dark:text-emerald-400">$${parseFloat(product.price).toFixed(2)}</span>
+                            <span class="text-[clamp(12px,1.1vw,15px)] font-bold text-emerald-600 dark:text-emerald-400">$${parseFloat(product.price).toFixed(2)}</span>
                         </div>
                         ` : ''}
                          ${currencySettings.isBsEnabled() ? `
                          <div class="flex flex-col ${currencySettings.isUsdEnabled() ? 'items-end' : ''}">
-                            <span class="text-[10px] text-slate-400">Bs</span>
-                            <span class="${currencySettings.isUsdEnabled() ? 'text-xs font-medium text-slate-500' : 'text-lg font-bold text-slate-900 dark:text-white'}">${(parseFloat(product.price) * (this.exchangeRate || 1)).toFixed(2)}</span>
+                            <span class="text-[9px] text-slate-400">Bs</span>
+                            <span class="${currencySettings.isUsdEnabled() ? 'text-[clamp(9px,0.9vw,11px)] font-medium text-slate-500' : 'text-[clamp(12px,1.2vw,14px)] font-bold text-slate-900 dark:text-white'}">${(parseFloat(product.price) * (this.exchangeRate || 1)).toFixed(2)}</span>
                         </div>
                         ` : ''}
                     </div>
@@ -201,15 +201,19 @@ export const Products = {
         });
 
         // Search
-        this.dom.searchInput?.addEventListener('input', (e) => {
+        this.dom.searchInput?.addEventListener('input', debounce((e) => {
             const term = e.target.value.toLowerCase();
             const filtered = this.products.filter(p =>
                 p.name.toLowerCase().includes(term) ||
                 (p.category && p.category.toLowerCase().includes(term)) ||
                 (p.barcode && p.barcode.includes(term))
             );
-            this.renderProductList(filtered);
-        });
+
+            // Use requestAnimationFrame for smoother UI update
+            requestAnimationFrame(() => {
+                this.renderProductList(filtered);
+            });
+        }, 300));
 
         // Barcode Scanner
         const btnScan = document.getElementById('scan-barcode-btn');

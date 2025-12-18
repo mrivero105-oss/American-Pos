@@ -224,7 +224,7 @@ export class UsersManager {
     }
 
     toggleDropdown(id, btn) {
-        const dropdown = document.getElementById(`dropdown - ${id} `);
+        const dropdown = document.getElementById(`dropdown-${id}`);
         // Close others
         if (this.activeDropdown && this.activeDropdown !== id) {
             this.closeAllDropdowns();
@@ -240,8 +240,8 @@ export class UsersManager {
                 let left = rect.right - dropdownWidth;
                 if (top + 200 > window.innerHeight) top = rect.top - 200;
                 dropdown.style.position = 'fixed';
-                dropdown.style.top = `${top} px`;
-                dropdown.style.left = `${left} px`;
+                dropdown.style.top = `${top}px`;
+                dropdown.style.left = `${left}px`;
             }
         } else {
             dropdown.classList.add('hidden');

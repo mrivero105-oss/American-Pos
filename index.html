@@ -10,8 +10,49 @@
     <link rel="apple-touch-icon" href="/assets/logo.jpg">
     <meta name="theme-color" content="#0f172a">
 
-    <!-- Tailwind CSS -->
-    <!-- Tailwind CSS -->
+    <!-- Global Error Handler & Boot Diagnostics - Must be first -->
+    <script>
+        // Create visible diagnostic overlay
+        const diagDiv = document.createElement('div');
+        diagDiv.id = 'boot-diag';
+        diagDiv.style.cssText = 'position: fixed; top: 10px; right: 10px; background: rgba(0,0,0,0.8); color: #0f0; padding: 10px; font-family: monospace; font-size: 10px; z-index: 99998; max-width: 200px; border-radius: 4px; display: none;';
+
+        window.bootLog = function (msg) {
+            console.log('[BOOT]', msg);
+            if (!document.body.contains(diagDiv)) {
+                document.body.appendChild(diagDiv);
+            }
+            diagDiv.style.display = 'block';
+            diagDiv.innerHTML += msg + '<br>';
+
+            // Auto-hide after successful boot
+            if (msg.includes('✓ BOOT COMPLETE')) {
+                setTimeout(() => {
+                    diagDiv.style.display = 'none';
+                }, 3000);
+            }
+        };
+
+        // Log immediately
+        window.bootLog('→ HTML loaded');
+
+        // Global error handler
+        window.addEventListener('error', function (e) {
+            console.error('BOOT ERROR:', e.error);
+            window.bootLog('✗ ERROR: ' + (e.error ? e.error.message : e.message));
+
+            const errorDiv = document.createElement('div');
+            errorDiv.style.cssText = 'position: fixed; inset: 0; background: #fee; color: #c00; padding: 20px; font-family: monospace; z-index: 99999; display: flex; align-items: center; justify-content: center; text-align: center;';
+            errorDiv.innerHTML = '<div><h1 style="font-size: 24px; margin-bottom: 10px;">⚠️ Error al cargar</h1><p style="margin-bottom: 5px;">' + (e.error ? e.error.message : e.message) + '</p><p style="font-size: 12px; opacity: 0.7;">Archivo: ' + (e.filename || 'desconocido') + '<br>Línea: ' + (e.lineno || '?') + '</p><button onclick="localStorage.clear(); location.reload();" style="margin-top: 15px; padding: 10px 20px; background: #c00; color: white; border: none; border-radius: 4px; cursor: pointer;">Borrar Caché y Recargar</button></div>';
+            document.body.appendChild(errorDiv);
+        });
+
+        // DOM ready
+        document.addEventListener('DOMContentLoaded', function () {
+            window.bootLog('→ DOMContentLoaded');
+        });
+    </script>
+
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com?v=1"></script>
     <style>
@@ -34,6 +75,41 @@
             #held-sales-drawer:not([style*="display: flex"]),
             #held-sales-drawer:not([style*="display: block"]) {
                 display: none !important;
+            }
+
+            /* Eliminate 300ms click delay on mobile */
+            button,
+            a,
+            .product-card,
+            .category-btn {
+                touch-action: manipulation;
+            }
+
+            /* Performance: Reduce rendering complexity on mobile */
+            .product-card {
+                content-visibility: auto;
+                contain-intrinsic-size: 100px 150px;
+                /* Approximate card size */
+            }
+
+            /* Disable expensive effects on high-frequency elements on mobile */
+            .backdrop-blur-md,
+            .backdrop-blur-sm,
+            .glassmorphism {
+                backdrop-filter: none !important;
+                -webkit-backdrop-filter: none !important;
+                background-color: rgba(255, 255, 255, 0.95) !important;
+            }
+
+            .dark .backdrop-blur-md,
+            .dark .backdrop-blur-sm,
+            .dark .glassmorphism {
+                background-color: rgba(30, 41, 59, 0.95) !important;
+            }
+
+            /* Global Modal Optimization */
+            .content-visibility-auto {
+                content-visibility: auto;
             }
         }
     </style>
@@ -481,6 +557,7 @@
                 { inputId: 'sales-search-input', clearId: 'sales-search-clear' },
                 { inputId: 'suppliers-search', clearId: 'suppliers-search-clear' },
                 { inputId: 'search-product-manage', clearId: 'search-product-manage-clear' },
+                { inputId: 'mobile-search-input', clearId: 'mobile-search-clear' },
             ];
 
             searchPairs.forEach(pair => {
@@ -560,6 +637,14 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                 </svg>
+                <button type="button" id="mobile-search-clear"
+                    class="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-white hidden"
+                    title="Borrar">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
+                        </path>
+                    </svg>
+                </button>
             </div>
 
             <!-- Scanner -->
@@ -874,7 +959,7 @@
 
     <!-- BULK UPLOAD MODAL -->
     <div id="bulk-upload-modal" style="display: none;"
-        class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center backdrop-blur-sm p-4">
+        class="fixed inset-0 bg-black bg-opacity-50 hidden z-[70] flex items-center justify-center backdrop-blur-sm p-4 content-visibility-auto">
         <!-- ... existing bulk upload content ... -->
         <div
             class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden transform transition-all flex flex-col">
@@ -927,7 +1012,7 @@
 
     <!-- CUSTOMER MANAGEMENT MODAL -->
     <div id="customer-modal" style="display: none;"
-        class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center backdrop-blur-sm p-4">
+        class="fixed inset-0 bg-black bg-opacity-50 hidden z-[70] flex items-center justify-center backdrop-blur-sm p-4 content-visibility-auto">
         <div
             class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-lg overflow-hidden transform transition-all flex flex-col">
             <div
@@ -1012,7 +1097,7 @@
 
     <!-- Credit History Modal -->
     <div id="credit-history-modal" style="display: none;"
-        class="hidden fixed inset-0 bg-black bg-opacity-50 z-[70] flex items-center justify-center p-4">
+        class="hidden fixed inset-0 bg-black bg-opacity-50 z-[70] flex items-center justify-center p-4 content-visibility-auto">
         <div
             class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden">
             <!-- Header -->
@@ -1080,7 +1165,7 @@
 
     <!-- VIEW: USERS (Admin) -->
     <section id="view-users"
-        class="view-section h-full flex flex-col hidden fixed inset-0 z-40 bg-slate-100 dark:bg-slate-900 md:ml-64 lg:ml-72">
+        class="view-section h-full flex flex-col hidden fixed inset-0 z-40 bg-slate-100 dark:bg-slate-900 md:ml-64 lg:ml-72 content-visibility-auto">
         <div
             class="bg-white dark:bg-slate-800 p-4 border-b border-slate-200 dark:border-slate-700 flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
             <div>
@@ -1124,7 +1209,7 @@
 
     <!-- USER MODAL -->
     <div id="user-modal" style="display: none;"
-        class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        class="fixed inset-0 z-[70] bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 hidden content-visibility-auto">
         <div
             class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all select-none">
             <div
@@ -1207,7 +1292,7 @@
 
     <!-- TRIAL MODE MODAL -->
     <div id="trial-modal" style="display: none;"
-        class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+        class="fixed inset-0 z-[70] bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 hidden content-visibility-auto">
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
             <div
                 class="p-4 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
@@ -1244,7 +1329,7 @@
     <!-- Weight/Price Modal -->
     <!-- Weight/Price Modal -->
     <div id="weight-modal"
-        class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+        class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden z-[70] flex items-center justify-center p-4 content-visibility-auto">
         <div
             class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden transform transition-all scale-100">
             <div
@@ -1433,17 +1518,64 @@
                     </div>
                 </div>
 
-                <!-- Category Filter Bar -->
-                <div class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-2 py-3 flex items-center gap-3 z-10 min-h-[60px] whitespace-nowrap hover-scroll overflow-x-auto"
-                    id="category-filters">
-                    <!-- Categories injected via JS -->
+                <!-- Category Filter Bar (Professional Version) -->
+                <div class="relative group/cat-bar">
+                    <!-- Left Gradient Mask (Indicates more items to the left) -->
+                    <div
+                        class="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-white dark:from-slate-900 to-transparent z-20 pointer-events-none opacity-0 group-hover/cat-bar:opacity-100 transition-opacity">
+                    </div>
+
+                    <div class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 py-3 flex items-center gap-3 z-10 min-h-[64px] whitespace-nowrap overflow-x-auto no-scrollbar scroll-smooth"
+                        id="category-filters">
+                        <!-- Categories injected via JS -->
+                    </div>
+
+                    <!-- Right Gradient Mask (Indicates more items to the right) -->
+                    <div
+                        class="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white dark:from-slate-900 to-transparent z-20 pointer-events-none opacity-100 group-hover/cat-bar:opacity-100 transition-opacity">
+                    </div>
                 </div>
+
+                <style>
+                    /* Professional UI Utilities */
+                    .no-scrollbar::-webkit-scrollbar {
+                        display: none;
+                    }
+
+                    .no-scrollbar {
+                        -ms-overflow-style: none;
+                        scrollbar-width: none;
+                    }
+
+                    @keyframes shimmer {
+                        100% {
+                            transform: translateX(100%);
+                        }
+                    }
+
+                    .animate-shimmer {
+                        animation: shimmer 2s infinite;
+                    }
+
+                    .active-ring {
+                        position: relative;
+                    }
+
+                    .active-ring::after {
+                        content: '';
+                        position: absolute;
+                        inset: -2px;
+                        border: 2px solid rgb(99 102 241 / 0.5);
+                        border-radius: 14px;
+                        opacity: 1;
+                    }
+                </style>
 
                 <!-- Grid -->
                 <div id="main-content-area"
                     class="flex-1 overflow-y-auto p-2 md:p-4 bg-slate-200 dark:bg-slate-900 transition-all duration-300 ease-in-out mr-0 hover-scroll">
                     <div id="product-grid"
-                        class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 md:gap-3 pb-20 md:pb-0">
+                        class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5 gap-3 pb-20 md:pb-0">
                     </div>
                 </div>
             </div>
@@ -1565,12 +1697,13 @@
         <!-- VIEW: SALES HISTORY -->
         <section id="view-sales"
             class="view-section hidden h-full overflow-y-auto p-4 md:p-8 bg-slate-50 dark:bg-slate-900">
-            <div class="p-6 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
-                <h2 class="text-xl font-bold text-slate-800 dark:text-white">Historial de Ventas</h2>
-                <div class="flex gap-4">
-                    <div class="relative">
+            <div
+                class="p-6 border-b border-slate-200 dark:border-slate-800 flex flex-col md:flex-row md:justify-between items-start md:items-center gap-4">
+                <div class="flex flex-col md:flex-row items-start md:items-center gap-4 flex-1">
+                    <h2 class="text-xl font-bold text-slate-800 dark:text-white">Historial de Ventas</h2>
+                    <div class="relative w-full md:w-80">
                         <input type="text" id="sales-search-input" placeholder="Buscar por Doc, Cliente o Producto..."
-                            class="pl-10 pr-10 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 w-64 md:w-80">
+                            class="pl-10 pr-10 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 w-full">
                         <svg class="w-5 h-5 text-slate-400 absolute left-3 top-2.5" fill="none" stroke="currentColor"
                             viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -1585,9 +1718,9 @@
                             </svg>
                         </button>
                     </div>
-                    <input type="date" id="sales-date-filter"
-                        class="px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500">
                 </div>
+                <input type="date" id="sales-date-filter"
+                    class="px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500">
             </div>
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
@@ -1633,8 +1766,8 @@
             <div class="mb-4 md:mb-6">
                 <h2 class="text-xl md:text-3xl font-bold text-slate-900 dark:text-white mb-3">Gestión de Productos</h2>
 
-                <!-- Search Bar - Full Width -->
-                <div class="relative mb-3">
+                <!-- Search Bar - Adjusted Width -->
+                <div class="relative mb-3 max-w-md">
                     <input type="text" id="search-product-manage" placeholder="Buscar producto..."
                         class="w-full pl-4 pr-10 py-2.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl focus:ring-2 focus:ring-blue-500 text-sm">
                     <button type="button" id="search-product-manage-clear"
@@ -1679,7 +1812,7 @@
             </div>
 
             <div id="products-grid-container"
-                class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
+                class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-2">
                 <!-- JS Injected Cards -->
             </div>
         </section>
@@ -2153,7 +2286,7 @@
         </div>
         <!-- PRODUCT FORM MODAL (NEW) -->
         <div id="product-form-modal" style="display: none;"
-            class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center backdrop-blur-sm p-4">
+            class="fixed inset-0 bg-black bg-opacity-50 hidden z-[70] flex items-center justify-center backdrop-blur-sm p-4 content-visibility-auto">
             <div
                 class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-lg h-[90vh] flex flex-col transform transition-all">
                 <div
@@ -2380,7 +2513,7 @@
         </div>
         <!-- INPUT MODAL -->
         <div id="input-modal" style="display: none;"
-            class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center backdrop-blur-sm p-4">
+            class="fixed inset-0 bg-black bg-opacity-50 hidden z-[70] flex items-center justify-center backdrop-blur-sm p-4 content-visibility-auto">
             <div
                 class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all">
                 <div class="p-6">
@@ -2442,7 +2575,7 @@
 
         <!-- SALE DETAILS MODAL -->
         <div id="sale-details-modal" style="display: none;"
-            class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center backdrop-blur-sm p-4">
+            class="fixed inset-0 bg-black bg-opacity-50 hidden z-[70] flex items-center justify-center backdrop-blur-sm p-4 content-visibility-auto">
             <div
                 class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all">
                 <div
@@ -2457,68 +2590,13 @@
             </div>
         </div>
 
-        <!-- WEIGHT MODAL -->
-        <div id="weight-modal" style="display: none;"
-            class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center backdrop-blur-sm p-4">
-            <div
-                class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all">
-                <div
-                    class="p-4 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-700">
-                    <h3 class="font-bold text-lg text-slate-800 dark:text-white">Venta por Peso/Precio</h3>
-                    <button id="close-weight-modal"
-                        class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-2xl leading-none">&times;</button>
-                </div>
-                <div class="p-6">
-                    <h4 id="weight-modal-product-name"
-                        class="text-xl font-bold text-slate-800 dark:text-white mb-4 text-center">Producto</h4>
 
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Peso
-                            (Kg/L)</label>
-                        <input type="number" id="weight-input" step="0.001" min="0" placeholder="0.000"
-                            class="w-full px-4 py-3 text-lg font-bold border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 text-slate-900 dark:text-white">
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-4 mb-6">
-                        <div>
-                            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Precio
-                                Total ($)</label>
-                            <input type="number" id="weight-price-usd" step="0.01" min="0" placeholder="0.00"
-                                class="w-full px-4 py-3 text-lg font-bold border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg focus:ring-2 focus:ring-green-500 text-slate-900 dark:text-white">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Precio
-                                Total (Bs)</label>
-                            <input type="number" id="weight-price-bs" step="0.01" min="0" placeholder="0.00"
-                                class="w-full px-4 py-3 text-lg font-bold border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-lg focus:ring-2 focus:ring-yellow-500 text-slate-900 dark:text-white">
-                        </div>
-                    </div>
-
-                    <div class="mb-6 p-3 bg-slate-50 dark:bg-slate-700/50 rounded-lg flex justify-between items-center">
-                        <span class="text-slate-600 dark:text-slate-400">Precio Unitario:</span>
-                        <span id="weight-modal-unit-price" class="font-bold text-slate-900 dark:text-white">$0.00 /
-                            Kg</span>
-                    </div>
-
-                    <div class="flex gap-3">
-                        <button id="cancel-weight-btn"
-                            class="flex-1 px-4 py-3 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors font-medium">
-                            Cancelar
-                        </button>
-                        <button type="button" id="confirm-weight-btn"
-                            class="flex-1 px-4 py-3 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors font-bold shadow-lg">
-                            Agregar
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
         <!-- Main App Logic -->
-        <script type="module" src="js/app.js?v=357"></script>
+        <script type="module" src="js/app.js?v=411"></script>
 
         <!-- PAYMENT MODAL -->
         <div id="payment-modal" style="display: none;"
-            class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center backdrop-blur-sm p-4">
+            class="fixed inset-0 bg-black bg-opacity-50 hidden z-[70] flex items-center justify-center backdrop-blur-sm p-4 content-visibility-auto">
             <div
                 class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden transform transition-all flex flex-col max-h-[90vh]">
 
@@ -2625,7 +2703,7 @@
 
         <!-- CUSTOMER SELECTION MODAL -->
         <div id="customer-selection-modal" style="display: none;"
-            class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center backdrop-blur-sm p-4">
+            class="fixed inset-0 bg-black bg-opacity-50 hidden z-[70] flex items-center justify-center backdrop-blur-sm p-4 content-visibility-auto">
             <div
                 class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all flex flex-col max-h-[80vh]">
                 <div
@@ -2657,7 +2735,7 @@
 
         <!-- Open Cash Modal (Enhanced) -->
         <div id="open-cash-modal" style="display: none;"
-            class="fixed inset-0 bg-black/70 hidden z-50 flex items-center justify-center backdrop-blur-sm p-4">
+            class="fixed inset-0 bg-black/70 hidden z-[70] flex items-center justify-center backdrop-blur-sm p-4 content-visibility-auto">
             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
                 <!-- Header -->
                 <div class="bg-gradient-to-r from-emerald-600 to-teal-600 p-5 text-white">
@@ -2768,7 +2846,7 @@
 
         <!-- Close Cash Modal (Enhanced) -->
         <div id="close-cash-modal" style="display: none;"
-            class="fixed inset-0 bg-black/70 hidden z-50 flex items-center justify-center backdrop-blur-sm p-4">
+            class="fixed inset-0 bg-black/70 hidden z-[70] flex items-center justify-center backdrop-blur-sm p-4 content-visibility-auto">
             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
                 <!-- Header -->
                 <div class="bg-gradient-to-r from-red-600 to-orange-600 p-4 text-white">
@@ -2842,7 +2920,7 @@
 
         <!-- Cash Movement Modal -->
         <div id="cash-movement-modal" style="display: none;"
-            class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center backdrop-blur-sm p-4">
+            class="fixed inset-0 bg-black bg-opacity-50 hidden z-[70] flex items-center justify-center backdrop-blur-sm p-4 content-visibility-auto">
             <div
                 class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all">
                 <div class="p-6">
@@ -2891,7 +2969,7 @@
 
         <!-- EMAIL INPUT MODAL -->
         <div id="email-input-modal" style="display: none;"
-            class="fixed inset-0 bg-black bg-opacity-50 hidden z-[70] flex items-center justify-center backdrop-blur-sm p-4">
+            class="fixed inset-0 bg-black bg-opacity-50 hidden z-[70] flex items-center justify-center backdrop-blur-sm p-4 content-visibility-auto">
             <div
                 class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all">
                 <div class="p-6">
@@ -2916,7 +2994,7 @@
         </div>
         <!-- MOBILE CART SIDEBAR -->
         <aside id="mobile-cart-sidebar" style="display: none;"
-            class="fixed inset-y-0 right-0 z-50 bg-white dark:bg-slate-900 shadow-2xl flex flex-col h-full border-l border-slate-200 dark:border-slate-800 md:hidden">
+            class="fixed inset-y-0 right-0 z-[60] bg-white dark:bg-slate-900 shadow-2xl flex flex-col h-full border-l border-slate-200 dark:border-slate-800 md:hidden content-visibility-auto">
             <div
                 class="px-3 py-3 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950">
                 <h2 class="text-base font-bold text-slate-800 dark:text-white flex items-center gap-2">
@@ -2925,7 +3003,7 @@
                             d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z">
                         </path>
                     </svg>
-                    Carrito de Compras <span class="text-xs ml-2 opacity-50">v351</span>
+                    Carrito de Compras
                 </h2>
                 <button id="close-mobile-cart-btn"
                     class="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition-colors relative z-50">
@@ -2943,9 +3021,7 @@
              Let's check the desktop layout first to avoid ID conflicts.) -->
             <div class="flex-1 overflow-y-auto p-4 space-y-3" id="mobile-cart-items-container">
                 <!-- Items will be cloned or rendered here for mobile -->
-                <div class="text-center text-slate-500 mt-10">
-                    <p>Usa la vista de escritorio para ver el carrito completo por ahora.</p>
-                </div>
+
             </div>
 
             <div
@@ -3013,7 +3089,7 @@
         <!-- HELD SALES DRAWER -->
         <!-- HELD SALES DRAWER (Transplanted v350 - Fixed) -->
         <div id="held-sales-drawer"
-            class="fixed top-0 right-0 w-full md:w-96 h-full bg-white dark:bg-slate-900 shadow-2xl transform translate-x-full transition-transform duration-300 z-[2147483647] flex flex-col pointer-events-auto">
+            class="fixed top-0 right-0 w-full md:w-96 h-full bg-white dark:bg-slate-900 shadow-2xl transform translate-x-full transition-transform duration-300 z-[60] flex flex-col pointer-events-auto">
             <div
                 class="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 flex justify-between items-center">
                 <h2 class="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
@@ -3055,7 +3131,7 @@
             </button>
 
             <div id="cart-sidebar"
-                class="pointer-events-auto w-80 md:w-80 lg:w-96 h-full bg-white dark:bg-slate-900 shadow-2xl flex flex-col">
+                class="pointer-events-auto w-80 md:w-80 xl:w-96 h-full bg-white dark:bg-slate-900 shadow-2xl flex flex-col">
 
                 <div
                     class="p-4 md:p-5 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 flex justify-between items-center">
@@ -3290,7 +3366,7 @@
         </script>
         <!-- CONFIRMATION MODAL -->
         <div id="confirmation-modal" style="display: none;"
-            class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-[2147483650] flex items-center justify-center p-4">
+            class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-[100] flex items-center justify-center p-4 content-visibility-auto">
             <div
                 class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all scale-100">
                 <div class="p-6 text-center">
@@ -3323,7 +3399,7 @@
 
         <!-- PRICE CHECK MODAL (Moved to end of body) -->
         <div id="price-check-modal" style="display: none;"
-            class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-[9999] flex items-center justify-center p-4">
+            class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-[70] flex items-center justify-center p-4 content-visibility-auto">
             <div
                 class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden transform transition-all scale-100">
                 <div
@@ -3456,7 +3532,7 @@
             </div>
         </div>
 
-        <script type="module" src="js/pos.v4.js?v=382"></script> <!-- Updated Version -->
+
 </body>
 
 </html>

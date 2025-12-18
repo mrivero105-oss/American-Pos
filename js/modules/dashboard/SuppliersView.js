@@ -1,4 +1,5 @@
 import { api } from '../../api.js';
+import { debounce } from '../../utils.js';
 
 export class SuppliersView {
     constructor() {
@@ -28,7 +29,9 @@ export class SuppliersView {
 
     bindEvents() {
         if (this.dom.searchInput) {
-            this.dom.searchInput.addEventListener('input', (e) => this.filterSuppliers(e.target.value));
+            this.dom.searchInput.addEventListener('input', debounce((e) => {
+                this.filterSuppliers(e.target.value);
+            }, 300));
         }
 
         if (this.dom.addBtn) {

@@ -16,6 +16,7 @@ import { sounds } from './sounds.js';
 
 export class POS {
     constructor() {
+        if (window.bootLog) window.bootLog('→ POS constructor');
         window.pos = this;
         this.cart = [];
         this.products = [];
@@ -118,13 +119,23 @@ export class POS {
 
             this.showLoading(); // Show loading overlay
 
-            // Restore Cart
-            if (this.cartManager) {
-                this.cartManager.loadCart();
+            // Restore Cart Safely
+            try {
+                if (this.cartManager) {
+                    this.cartManager.loadCart();
+                }
+            } catch (err) {
+                console.error('POS: Error loading cart from storage', err);
+                this.cart = [];
             }
 
             this.bindEvents();
+            if (window.bootLog) window.bootLog('→ POS.bindEvents() done');
             console.log('POS: bindEvents finished');
+
+            // Initial render of cart (after events are bound but before heavy async loading)
+            this.renderCart();
+            console.log('POS: initial renderCart finished');
 
             // Global event delegation for held sales (in case drawer is moved)
             this.bindGlobalHeldSalesEvents();
@@ -527,9 +538,19 @@ export class POS {
 
             // Price Check Input
             if (this.dom.priceCheckInput) {
-                this.dom.priceCheckInput.addEventListener('input', (e) => {
+                this.dom.priceCheckInput.addEventListener('input', debounce((e) => {
                     const query = e.target.value;
                     this.searchPriceCheck(query);
+                }, 300));
+
+                this.dom.priceCheckInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const query = e.target.value.trim();
+                        if (query) {
+                            this.searchPriceCheck(query, true); // Direct search on enter
+                        }
+                    }
                 });
             }
 
@@ -1687,22 +1708,52 @@ export class POS {
             this.dom.priceCheckList.classList.add('hidden');
             this.dom.priceCheckList.innerHTML = '';
         }
+        if (this.dom.priceCheckPlaceholder) {
+            this.dom.priceCheckPlaceholder.classList.remove('hidden');
+        }
         this.priceCheckSelectedIndex = -1;
     }
 
-    searchPriceCheck(query) {
-        if (!query) {
+    async searchPriceCheck(query, forceSelectIfOne = false) {
+        if (!query || query.trim().length < 2) {
             if (this.dom.priceCheckList) this.dom.priceCheckList.classList.add('hidden');
+            if (this.dom.priceCheckPlaceholder) this.dom.priceCheckPlaceholder.classList.remove('hidden');
             return;
         }
 
-        const lowerQuery = query.toLowerCase();
-        const results = this.products.filter(p =>
-            p.name.toLowerCase().includes(lowerQuery) ||
-            (p.barcode && p.barcode.includes(query))
-        ).slice(0, 5); // Limit to 5 results
+        const q = query.trim().toLowerCase();
 
-        this.displayPriceCheckList(results);
+        // 1. Local Search (Instant)
+        let results = this.products.filter(p =>
+            p.name.toLowerCase().includes(q) ||
+            (p.barcode && p.barcode.toLowerCase() === q)
+        ).slice(0, 10);
+
+        // 2. If no local results or barcode might match, try API
+        if (results.length < 3) {
+            try {
+                // Show a subtle indicator or just wait
+                const apiResults = await api.products.getAll(1, 10, null, q);
+                const apiProds = Array.isArray(apiResults) ? apiResults : (apiResults.products || []);
+
+                // Merge
+                const existingIds = new Set(results.map(r => r.id));
+                apiProds.forEach(p => {
+                    if (!existingIds.has(p.id) && results.length < 10) {
+                        results.push(p);
+                    }
+                });
+            } catch (err) {
+                console.error('Price check API search failed:', err);
+            }
+        }
+
+        // 3. Handle results
+        if (forceSelectIfOne && results.length === 1) {
+            this.selectPriceCheckProduct(results[0].id);
+        } else {
+            this.displayPriceCheckList(results);
+        }
     }
 
     displayPriceCheckList(products) {
@@ -1710,30 +1761,35 @@ export class POS {
 
         if (products.length === 0) {
             this.dom.priceCheckList.classList.add('hidden');
+            if (this.dom.priceCheckPlaceholder) this.dom.priceCheckPlaceholder.classList.remove('hidden');
             return;
         }
 
         this.dom.priceCheckList.innerHTML = products.map((p, index) => `
-        <div class="price-check-item p-3 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer border-b border-slate-100 dark:border-slate-700 last:border-0 flex justify-between items-center"
-             data-id="${p.id}"
-             onclick="if(window.pos) window.pos.selectPriceCheckProduct('${p.id}')">
-            <div>
-                <div class="font-bold text-slate-800 dark:text-white text-sm">${p.name}</div>
-                <div class="text-xs text-slate-500 dark:text-slate-400">${p.barcode || 'Sin código'}</div>
+        <div class="price-check-item p-4 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 cursor-pointer border-b border-slate-100 dark:border-slate-700 last:border-0 flex justify-between items-center transition-colors"
+             data-id="${p.id}">
+            <div class="flex-1">
+                <div class="font-bold text-slate-800 dark:text-white text-base">${p.name}</div>
+                <div class="text-xs text-slate-500 dark:text-slate-400 font-mono">${p.barcode || 'Sin código'}</div>
             </div>
-            <div class="font-bold text-slate-900 dark:text-white">$${parseFloat(p.price).toFixed(2)}</div>
+            <div class="text-right">
+                <div class="font-bold text-emerald-600 dark:text-emerald-400 text-lg">$${parseFloat(p.price).toFixed(2)}</div>
+                <div class="text-[10px] text-slate-400">STOCK: ${p.stock}</div>
+            </div>
         </div>
     `).join('');
 
         this.dom.priceCheckList.classList.remove('hidden');
+        if (this.dom.priceCheckPlaceholder) this.dom.priceCheckPlaceholder.classList.add('hidden');
+        if (this.dom.priceCheckResult) this.dom.priceCheckResult.classList.add('hidden');
+
         this.priceCheckSelectedIndex = -1;
 
-        // Keep event listeners as backup/primary
+        // Re-bind listeners for the newly injected items
         this.dom.priceCheckList.querySelectorAll('.price-check-item').forEach(item => {
             item.addEventListener('click', (e) => {
-                e.stopPropagation(); // Prevent bubbling issues
+                e.preventDefault();
                 const id = item.dataset.id;
-                console.log('Event listener click:', id);
                 this.selectPriceCheckProduct(id);
             });
         });
@@ -1905,10 +1961,10 @@ export class POS {
             mainContent.style.setProperty('margin-right', '0px', 'important');
         } else {
             // Cart is open AND desktop, add margin based on screen size
-            if (window.innerWidth >= 1024) {
-                mainContent.style.setProperty('margin-right', '24rem', 'important'); // 384px
+            if (window.innerWidth >= 1280) {
+                mainContent.style.setProperty('margin-right', '24rem', 'important'); // 384px (XL)
             } else {
-                mainContent.style.setProperty('margin-right', '20rem', 'important'); // 320px
+                mainContent.style.setProperty('margin-right', '20rem', 'important'); // 320px (MD/LG)
             }
         }
     }

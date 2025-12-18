@@ -58,7 +58,6 @@ export class CartManager {
             this.pos.cart.push(newItem);
         }
         console.log('POS: Cart content before save:', this.pos.cart);
-        this.saveCart();
         this.renderCart();
     }
 
@@ -70,7 +69,6 @@ export class CartManager {
             '¿Estás seguro de que deseas eliminar todos los productos del carrito?',
             () => {
                 this.pos.cart = [];
-                this.saveCart();
                 this.renderCart();
                 ui.showNotification('Carrito vaciado', 'success');
             },
@@ -193,43 +191,21 @@ export class CartManager {
             console.error('POS: Error updating mobile totals:', e);
         }
 
-        // Render Desktop Cart
-        // REVERSE ORDER: Newest items first (LIFO)
-        // Note: reversedCart was defined below for mobile, but let's hoist it or redefine it.
-        // Actually, I inserted it in the mobile block (lines 151+).
-        // Since I can't easily see the variable scope from previous replace without context, I will define it again securely or hoist it.
-        // But wait, the previous replace put 'const reversedCart = ...' INSIDE the renderCart method, before 'if (this.pos.dom.mobileCartItems)'.
-        // So it IS available here if I put it before both blocks.
-        // However, in the file view, line 151 was "Render Mobile Cart".
-        // My previous replace targeted line 151.
-        // This block (142-149) is BEFORE line 151.
-        // So I need to define it here first.
-
-        const reversedCartDesktop = this.pos.cart.slice(0).reverse();
+        const reversedCart = this.pos.cart.slice().reverse();
 
         if (this.pos.dom.cartItems) {
             if (this.pos.cart.length === 0) {
                 this.pos.dom.cartItems.innerHTML = '<div class="text-center text-slate-400 py-8">Carrito vacío</div>';
             } else {
-                this.pos.dom.cartItems.innerHTML = reversedCartDesktop.map(item => this.renderCartItem(item)).join('');
+                this.pos.dom.cartItems.innerHTML = reversedCart.map(item => this.renderCartItem(item)).join('');
             }
         }
 
         // Render Mobile Cart
-        // REVERSE ORDER: Newest items first (LIFO)
-        const reversedCart = this.pos.cart.slice(0).reverse();
-
         if (this.pos.dom.mobileCartItems) {
             if (this.pos.cart.length === 0) {
                 this.pos.dom.mobileCartItems.innerHTML = '<div class="text-center text-slate-400 py-8">Carrito vacío</div>';
             } else {
-                this.pos.dom.mobileCartItems.innerHTML = reversedCart.map(item => this.renderCartItem(item)).join('');
-            }
-        } else {
-            // Try to find it again dynamically
-            const mobileContainer = document.getElementById('mobile-cart-items-container');
-            if (mobileContainer) {
-                this.pos.dom.mobileCartItems = mobileContainer;
                 this.pos.dom.mobileCartItems.innerHTML = reversedCart.map(item => this.renderCartItem(item)).join('');
             }
         }

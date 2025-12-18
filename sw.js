@@ -1,4 +1,4 @@
-const CACHE_NAME = 'american-pos-v394-offline';
+const CACHE_NAME = 'american-pos-v412-offline';
 
 // Assets to cache immediately on install (App Shell)
 const ASSETS_TO_CACHE = [
@@ -12,13 +12,29 @@ const ASSETS_TO_CACHE = [
     './js/config.js',
     './js/pos.v4.js',
     './js/products.js',
+    './js/dashboard.js',
+    './js/sales.js',
+    './js/settings.js',
+    './js/customers.js',
     './js/debug.js',
+    './js/utils.js',
+    './js/ui.js',
+    './js/sounds.js',
+    './js/swipe-manager.js',
     './js/modules/pos/CartManager.js',
     './js/modules/pos/SalesManager.js',
     './js/modules/pos/CustomerManager.js',
     './js/modules/pos/ProductManager.js',
+    './js/modules/pos/CheckoutManager.js',
+    './js/modules/pos/ReceiptManager.js',
+    './js/modules/pos/WeightModal.js',
+    './js/modules/pos/Scanner.js',
+    './js/modules/pos/CashControlManager.js',
+    './js/modules/pos/RefundManager.js',
     './js/modules/admin/UsersManager.js',
-    // Add other critical modules here if needed
+    './js/modules/dashboard/CustomersView.js',
+    './js/modules/dashboard/SuppliersView.js',
+    './js/modules/dashboard/PurchaseOrdersView.js'
 ];
 
 // Install Event - Pre-cache critical assets
@@ -28,9 +44,19 @@ self.addEventListener('install', (event) => {
     self.skipWaiting();
 
     event.waitUntil(
-        caches.open(CACHE_NAME).then((cache) => {
+        caches.open(CACHE_NAME).then(async (cache) => {
             console.log(`[SW ${CACHE_NAME}] Caching app shell`);
-            return cache.addAll(ASSETS_TO_CACHE);
+            // Cache files individually to avoid failing if one is missing
+            const cachePromises = ASSETS_TO_CACHE.map(async (url) => {
+                try {
+                    await cache.add(url);
+                    console.log(`[SW ${CACHE_NAME}] Cached: ${url}`);
+                } catch (error) {
+                    console.warn(`[SW ${CACHE_NAME}] Failed to cache ${url}:`, error);
+                }
+            });
+            await Promise.allSettled(cachePromises);
+            console.log(`[SW ${CACHE_NAME}] Cache complete`);
         })
     );
 });
@@ -69,7 +95,7 @@ self.addEventListener('fetch', (event) => {
     // 2. Images: CACHE FIRST, fallback to Network
     if (event.request.destination === 'image' || requestUrl.href.includes('/product_images/')) {
         event.respondWith(
-            caches.match(event.request).then((cachedResponse) => {
+            caches.match(event.request, { ignoreSearch: true }).then((cachedResponse) => {
                 if (cachedResponse) {
                     return cachedResponse;
                 }
@@ -92,22 +118,24 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // 3. HTML and JS files: NETWORK FIRST! (Critical for updates!)
-    // This ensures users always get the latest code when online.
+    // 3. HTML and JS files: STALE-WHILE-REVALIDATE (Optimized for Mobile Speed)
+    // Serve from cache immediately, update in background.
     if (event.request.destination === 'document' || requestUrl.pathname.endsWith('.html') || requestUrl.pathname.endsWith('.js')) {
         event.respondWith(
-            fetch(event.request).then((networkResponse) => {
-                // Cache the new version for offline use
-                if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
-                    const responseToCache = networkResponse.clone();
-                    caches.open(CACHE_NAME).then((cache) => {
-                        cache.put(event.request, responseToCache);
-                    });
-                }
-                return networkResponse;
-            }).catch(() => {
-                // Network failed, fallback to cache
-                return caches.match(event.request);
+            caches.match(event.request, { ignoreSearch: true }).then((cachedResponse) => {
+                const fetchPromise = fetch(event.request).then((networkResponse) => {
+                    if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+                        const responseToCache = networkResponse.clone();
+                        caches.open(CACHE_NAME).then((cache) => {
+                            cache.put(event.request, responseToCache);
+                        });
+                    }
+                    return networkResponse;
+                }).catch(() => {
+                    // Fail silently, we have cachedResponse
+                });
+
+                return cachedResponse || fetchPromise;
             })
         );
         return;
@@ -116,7 +144,7 @@ self.addEventListener('fetch', (event) => {
     // 4. Other Static Assets (CSS, fonts, etc.): STALE-WHILE-REVALIDATE
     // Serve from cache immediately, but update cache from network in background
     event.respondWith(
-        caches.match(event.request).then((cachedResponse) => {
+        caches.match(event.request, { ignoreSearch: true }).then((cachedResponse) => {
             const fetchPromise = fetch(event.request).then((networkResponse) => {
                 // Update cache with new version
                 if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {

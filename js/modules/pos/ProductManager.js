@@ -457,31 +457,31 @@ export class ProductManager {
             : 'border-transparent hover:scale-105';
 
         return `
-                <div class="product-card group cursor-pointer relative transition-all duration-200 rounded-xl border-2 ${highlightClass}" 
-                     onclick="pos.productManager.selectProduct('${product.id}')"
-                     data-id="${product.id}" id="product-card-${absoluteIndex}">
-                    
-                    <div class="aspect-square overflow-hidden bg-transparent relative rounded-xl">
-                        <img src="${imageUri}" alt="${product.name}" loading="lazy" class="w-full h-full object-contain p-1 group-hover:scale-105 transition-transform duration-500">
-                        ${availabilityBadge}
-                        ${stockDisplay}
-                        <button class="add-to-cart-btn absolute bottom-2 right-2 w-8 h-8 bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 rounded-full hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-500 dark:hover:text-white transition-all flex items-center justify-center shadow-lg border border-slate-100 dark:border-slate-600 z-10 active:scale-90"
-                            ${!isAvailable ? 'disabled' : ''} onclick="event.stopPropagation(); pos.productManager.selectProduct('${product.id}')">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path>
-                            </svg>
-                        </button>
-                        <span class="absolute ${isWeighted ? 'bottom-1' : 'top-1'} ${isWeighted ? 'left-1' : 'left-1'} bg-black/50 text-white text-[9px] px-1.5 py-0.5 rounded backdrop-blur-sm font-mono opacity-0 group-hover:opacity-100 transition-opacity">#${product.id}</span>
-                    </div>
+            <div class="product-card group cursor-pointer relative transition-all rounded-2xl border-2 ${highlightClass}" 
+                 onclick="pos.productManager.selectProduct('${product.id}')"
+                 data-id="${product.id}" id="product-card-${absoluteIndex}">
+                
+                <div class="aspect-square overflow-hidden bg-white dark:bg-slate-800 relative rounded-2xl">
+                    <img src="${imageUri}" alt="${product.name}" loading="lazy" class="w-full h-full object-contain p-1 transform-gpu transition-transform duration-300">
+                    ${availabilityBadge}
+                    ${stockDisplay}
+                    <button class="add-to-cart-btn absolute bottom-2 right-2 w-8 h-8 bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 rounded-full hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-500 dark:hover:text-white transition-all flex items-center justify-center shadow-lg border border-slate-100 dark:border-slate-600 z-10 active:scale-95"
+                        ${!isAvailable ? 'disabled' : ''} onclick="event.stopPropagation(); pos.productManager.selectProduct('${product.id}')">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path>
+                        </svg>
+                    </button>
+                    <span class="absolute ${isWeighted ? 'bottom-1' : 'top-1'} left-1 bg-black/50 text-white text-[9px] px-1.5 py-0.5 rounded backdrop-blur-sm font-mono opacity-0 group-hover:opacity-100 transition-opacity hidden sm:block">#${product.id}</span>
+                </div>
 
-                    <div class="p-1 flex flex-col gap-0.5">
-                        <h3 class="font-bold text-slate-800 dark:text-slate-100 text-[11px] leading-tight line-clamp-2 h-7" title="${product.name}">${product.name}</h3>
-                        <div class="flex items-baseline gap-1">
-                            <span class="text-sm font-extrabold text-indigo-600 dark:text-indigo-400">${currencySettings.isUsdEnabled() ? '$' + parseFloat(product.price).toFixed(2) : formatBs(product.price * this.pos.exchangeRate)}${isWeighted ? '/kg' : ''}</span>
-                        </div>
+                <div class="p-1.5 flex flex-col gap-1">
+                    <h3 class="font-bold text-slate-800 dark:text-slate-100 text-[clamp(11px,1.1vw,13px)] leading-tight line-clamp-2 min-h-[2.5rem]" title="${product.name}">${product.name}</h3>
+                    <div class="flex items-baseline gap-1">
+                        <span class="text-[clamp(13px,1.2vw,16px)] font-extrabold text-indigo-600 dark:text-indigo-400">${currencySettings.isUsdEnabled() ? '$' + parseFloat(product.price).toFixed(2) : formatBs(product.price * this.pos.exchangeRate)}${isWeighted ? '/kg' : ''}</span>
                     </div>
                 </div>
-            `;
+            </div>
+        `;
     }
 
 
@@ -650,12 +650,7 @@ export class ProductManager {
         // Clear existing
         this.pos.dom.categoryFilters.innerHTML = '';
 
-        // Use backend stats if available, otherwise fallback to local (likely incomplete but safe)
         const stats = this.categoryStats || {};
-        // If stats is empty (first load fail), maybe try to derive from products locally as backup
-        // But if paginated, local length is misleading.
-        // Let's rely on stats.
-
         const total = this.categoryStatsTotal || this.pos.products.length;
 
         // Get categories from stats OR local (fallback)
@@ -663,47 +658,81 @@ export class ProductManager {
         if (this.categoryStats && Object.keys(this.categoryStats).length > 0) {
             uniqueCategories = Object.keys(stats).sort();
         } else {
-            const rawCategories = this.pos.products.map(p => p.category || 'Sin Categoría');
+            const rawCategories = this.pos.products.map(p => p.category || 'General');
             uniqueCategories = [...new Set(rawCategories)].sort();
         }
 
         const categories = ['Todas', ...uniqueCategories];
 
+        // Icon Mapping Helper
+        const getCategoryIcon = (cat) => {
+            const lower = cat.toLowerCase();
+            if (lower === 'todas') return '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>';
+            if (lower.includes('alimento')) return '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 15.546c-.523 0-1.046.151-1.5.454a2.704 2.704 0 01-3 0 2.703 2.703 0 00-3 0 2.703 2.703 0 01-3 0 2.703 2.703 0 00-3 0 2.703 2.703 0 01-3 0 2.701 2.701 0 01-1.5-.454M9 6v2m3-2v2m3-2v2M9 3h.01M12 3h.01M15 3h.01M21 21v-7a2 2 0 00-2-2H5a2 2 0 00-2 2v7h18z"></path></svg>';
+            if (lower.includes('bebi')) return '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"></path></svg>';
+            if (lower.includes('farma')) return '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.023.547l-1.3 1.3L12 21l8.673-4.273-1.3-1.3zM12 9V4m0 5h5m-5 0H7m5 0v5m0-5a2 2 0 110-4 2 2 0 010 4z"></path></svg>';
+            if (lower.includes('higiene') || lower.includes('personal')) return '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+            if (lower.includes('charcu')) return '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A10.003 10.003 0 0012 3c1.268 0 2.39.234 3.411.656m-1.306 1.45L13 5m2.95 3.47a10.002 10.002 0 012.318 3.522M15 11l1-2"></path></svg>';
+            if (lower.includes('recar')) return '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>';
+            return '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>';
+        };
+
         categories.forEach(cat => {
             const count = cat === 'Todas' ? total : (stats[cat] || 0);
             const label = cat === 'Todas' ? 'Todas' : (cat.charAt(0).toUpperCase() + cat.slice(1));
+            const icon = getCategoryIcon(cat);
 
             const btn = document.createElement('button');
 
-            // Initial class - Use activeCategory to determine which is active
-            const baseClass = "category-btn px-3 py-1.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap flex items-center gap-1.5 shrink-0";
-            const activeClass = "bg-slate-900 text-white dark:bg-blue-600";
-            const inactiveClass = "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700";
+            const baseClass = "category-btn group relative px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-300 whitespace-nowrap flex items-center gap-2.5 shrink-0 overflow-hidden";
+            const activeClass = "bg-slate-900 text-white dark:bg-indigo-600 dark:text-white shadow-lg shadow-indigo-500/20 scale-105 active-ring";
+            const inactiveClass = "bg-white/50 dark:bg-slate-800/40 text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200 border border-slate-200/50 dark:border-slate-700/50 backdrop-blur-md";
 
-            // Determine if this category is the active one
             const isActive = (this.activeCategory === null && cat === 'Todas') || (this.activeCategory === cat);
             btn.className = `${baseClass} ${isActive ? activeClass : inactiveClass}`;
             btn.dataset.category = cat;
 
             btn.innerHTML = `
-                <span>${label}</span>
-                <span class="bg-white/20 px-1.5 py-0.5 rounded-full text-xs opacity-80">${count}</span>
+                <span class="relative z-10 opacity-70 group-hover:opacity-100 transition-opacity">${icon}</span>
+                <span class="relative z-10">${label}</span>
+                <span class="relative z-10 px-1.5 py-0.5 rounded-lg text-[10px] font-bold ${isActive ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400'} transition-colors">
+                    ${count}
+                </span>
+                ${isActive ? '<div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full animate-shimmer"></div>' : ''}
             `;
 
             btn.addEventListener('click', () => {
+                if (this.activeCategory === cat) return; // Skip if already active
+
                 this.filterByCategory(cat);
 
-                // Update classes
+                // Update classes for all buttons
                 this.pos.dom.categoryFilters.querySelectorAll('.category-btn').forEach(b => {
                     const bCat = b.dataset.category;
-                    b.className = `${baseClass} ${bCat === cat ? activeClass : inactiveClass}`;
+                    const bIsActive = bCat === cat;
+                    b.className = `${baseClass} ${bIsActive ? activeClass : inactiveClass}`;
+
+                    // Update the badge colors inside
+                    const badge = b.querySelector('span:last-child');
+                    if (badge) {
+                        badge.className = `relative z-10 px-1.5 py-0.5 rounded-lg text-[10px] font-bold ${bIsActive ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400'} transition-colors`;
+                    }
+
+                    // Remove shimmer if not active
+                    const shimmer = b.querySelector('.animate-shimmer');
+                    if (shimmer && !bIsActive) shimmer.remove();
+                    // Add shimmer if active
+                    if (bIsActive && !shimmer) {
+                        const newShimmer = document.createElement('div');
+                        newShimmer.className = 'absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full animate-shimmer';
+                        b.appendChild(newShimmer);
+                    }
                 });
             });
 
             this.pos.dom.categoryFilters.appendChild(btn);
         });
 
-        // Ensure toggle button state is correct on load
         this.pos.updateCartToggleState();
     }
 

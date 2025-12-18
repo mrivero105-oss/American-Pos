@@ -465,15 +465,15 @@ export class CashControlManager {
         if (data.paymentBreakdown) {
             breakdownHtml = Object.entries(data.paymentBreakdown)
                 .map(([method, amount]) => `
-                < div class= "flex justify-between py-1" >
+                <div class="flex justify-between py-1">
                         <span class="text-slate-500">${paymentLabels[method] || method}</span>
                         <span class="font-medium">$${amount.toFixed(2)}</span>
-                    </div >
+                    </div>
                 `).join('');
         }
 
         const html = `
-                < div class= "fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" >
+                <div class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                 <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
                     <div class="p-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
                         <h3 class="text-xl font-bold text-slate-900 dark:text-white">Corte ${type}</h3>
@@ -511,7 +511,7 @@ export class CashControlManager {
                         </div>
                     </div>
                 </div>
-            </div >
+            </div>
                 `;
         document.body.insertAdjacentHTML('beforeend', html);
     }
@@ -521,17 +521,17 @@ export class CashControlManager {
             const diff = s.difference || 0;
             const diffClass = diff === 0 ? 'text-green-600' : (diff > 0 ? 'text-blue-600' : 'text-red-600');
             return `
-                < tr class= "border-b border-slate-100 dark:border-slate-700" >
+                <tr class="border-b border-slate-100 dark:border-slate-700">
                     <td class="py-2 text-sm">${new Date(s.closedAt).toLocaleDateString()}</td>
                     <td class="py-2 text-sm">${new Date(s.openedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${new Date(s.closedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
                     <td class="py-2 text-sm font-medium">$${(s.expectedCash || 0).toFixed(2)}</td>
                     <td class="py-2 text-sm font-medium ${diffClass}">$${diff.toFixed(2)}</td>
-                </tr >
+                </tr>
                 `;
         }).join('');
 
         const html = `
-                < div class= "fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" >
+                <div class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                 <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
                     <div class="p-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
                         <h3 class="text-xl font-bold text-slate-900 dark:text-white">Historial de Cierres</h3>
@@ -555,7 +555,7 @@ export class CashControlManager {
                         </table>
                     </div>
                 </div>
-            </div >
+            </div>
                 `;
         document.body.insertAdjacentHTML('beforeend', html);
     }
