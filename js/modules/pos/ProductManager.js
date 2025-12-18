@@ -477,7 +477,7 @@ export class ProductManager {
                 <div class="p-1.5 flex flex-col gap-1">
                     <h3 class="font-bold text-slate-800 dark:text-slate-100 text-[clamp(11px,1.1vw,13px)] leading-tight line-clamp-2 min-h-[2.5rem]" title="${product.name}">${product.name}</h3>
                     <div class="flex items-baseline gap-1">
-                        <span class="text-[clamp(13px,1.2vw,16px)] font-extrabold text-indigo-600 dark:text-indigo-400">${currencySettings.isUsdEnabled() ? '$' + parseFloat(product.price).toFixed(2) : formatBs(product.price * this.pos.exchangeRate)}${isWeighted ? '/kg' : ''}</span>
+                        <span class="text-[clamp(13px,1.2vw,16px)] font-extrabold text-indigo-600 dark:text-indigo-400">${currencySettings.isUsdEnabled() ? '$' + parseFloat(product.price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 }) : formatBs(product.price * this.pos.exchangeRate)}${isWeighted ? '/kg' : ''}</span>
                     </div>
                 </div>
             </div>

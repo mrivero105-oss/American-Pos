@@ -1,7 +1,9 @@
 export const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
         style: 'currency',
-        currency: 'USD'
+        currency: 'USD',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 4
     }).format(amount);
 };
 
@@ -70,7 +72,7 @@ export const roundBsNearest = (amount) => {
  * @returns {number} Rounded amount
  */
 export const roundUsd = (amount) => {
-    return Math.round(amount * 100) / 100;
+    return Math.round(amount * 10000) / 10000;
 };
 
 /**

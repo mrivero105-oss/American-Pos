@@ -128,9 +128,9 @@ export const Products = {
                     <h3 class="font-bold text-slate-800 dark:text-white text-[clamp(11px,1.1vw,14px)] leading-tight truncate" title="${product.name}">${product.name}</h3>
                     
                     <div class="flex justify-between items-end mt-1">
-                         ${currencySettings.isUsdEnabled() ? `
+                          ${currencySettings.isUsdEnabled() ? `
                          <div class="flex flex-col">
-                            <span class="text-[clamp(12px,1.1vw,15px)] font-bold text-emerald-600 dark:text-emerald-400">$${parseFloat(product.price).toFixed(2)}</span>
+                            <span class="text-[clamp(12px,1.1vw,15px)] font-bold text-emerald-600 dark:text-emerald-400">$${parseFloat(product.price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</span>
                         </div>
                         ` : ''}
                          ${currencySettings.isBsEnabled() ? `
@@ -241,7 +241,7 @@ export const Products = {
         this.dom.inputPriceBs?.addEventListener('input', (e) => {
             const bs = parseFloat(e.target.value);
             if (!isNaN(bs) && this.dom.inputPrice) {
-                this.dom.inputPrice.value = (bs / this.exchangeRate).toFixed(2);
+                this.dom.inputPrice.value = (bs / this.exchangeRate).toFixed(4); // Use 4 decimals for USD accuracy
             }
         });
     },
@@ -722,19 +722,7 @@ export const Products = {
         alert(`${this.products.length} productos exportados exitosamente`);
     },
 
-    async loadProducts() {
-        try {
-            const products = await API.products.getAll();
-            this.products = products || [];
-            console.log('Products loaded:', this.products);
-            this.renderProductList(this.products);
-        } catch (error) {
-            console.error('Error loading products:', error);
-            if (this.dom.productsList) {
-                this.dom.productsList.innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center text-red-500">Error al cargar productos</td></tr>';
-            }
-        }
-    },
+
 
     // Advanced Pricing Methods
     handlePackageTypeChange() {
@@ -821,8 +809,8 @@ export const Products = {
         const salePrice = this.calculateSalePrice(unitCost);
 
         // Update display
-        this.dom.calculatedUnitCost.textContent = `$${unitCost.toFixed(2)} `;
-        this.dom.calculatedSalePrice.textContent = `$${salePrice.toFixed(2)} `;
+        this.dom.calculatedUnitCost.textContent = `$${unitCost.toFixed(4)} `;
+        this.dom.calculatedSalePrice.textContent = `$${salePrice.toFixed(4)} `;
 
         // Show/hide calculated values
         if (unitCost > 0 && salePrice > 0) {
@@ -833,9 +821,10 @@ export const Products = {
     },
 
     applyCalculatedPrice() {
-        const salePrice = parseFloat(this.dom.calculatedSalePrice.textContent.replace('$', ''));
+        const salePriceText = this.dom.calculatedSalePrice.textContent.replace('$', '').trim();
+        const salePrice = parseFloat(salePriceText);
         if (salePrice > 0) {
-            this.dom.inputPrice.value = salePrice.toFixed(2);
+            this.dom.inputPrice.value = salePrice.toFixed(4);
             alert('Precio aplicado correctamente');
         }
     }

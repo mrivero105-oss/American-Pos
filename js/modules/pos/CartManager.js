@@ -122,7 +122,7 @@ export class CartManager {
         const itemCount = this.pos.cart.reduce((sum, item) => sum + item.quantity, 0);
 
         // Update UI Totals
-        if (this.pos.dom.cartTotal) this.pos.dom.cartTotal.textContent = `$${total.toFixed(2)}`;
+        if (this.pos.dom.cartTotal) this.pos.dom.cartTotal.textContent = `$${total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`;
         if (this.pos.dom.cartTotalBs) {
             if (showBs) {
                 this.pos.dom.cartTotalBs.textContent = formatBs(totalBs);
@@ -157,7 +157,7 @@ export class CartManager {
             const mobileTotalEl = document.getElementById('mobile-cart-total');
             const mobileTotalUsdRow = document.getElementById('mobile-cart-total-usd-row');
             if (mobileTotalEl) {
-                const formatted = `$${(total || 0).toFixed(2)}`;
+                const formatted = `$${(total || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`;
                 console.log('POS: Updating mobile total USD. Element:', mobileTotalEl, 'Value:', formatted);
                 mobileTotalEl.textContent = formatted;
             }
@@ -304,14 +304,14 @@ export class CartManager {
         const showBs = currencySettings.isBsEnabled();
         const priceDisplay = showBs
             ? formatBs(item.price * this.pos.exchangeRate)
-            : `$${parseFloat(item.price).toFixed(2)}`;
+            : `$${parseFloat(item.price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`;
         const totalDisplay = showBs
             ? formatBs(item.price * item.quantity * this.pos.exchangeRate)
-            : `$${(parseFloat(item.price) * item.quantity).toFixed(2)}`;
+            : `$${(parseFloat(item.price) * item.quantity).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`;
 
         // Secondary price (show USD below Bs)
         const secondaryPrice = showBs
-            ? `<span class="text-[10px] text-blue-500 dark:text-blue-400 font-medium">$${parseFloat(item.price).toFixed(2)}/u</span>`
+            ? `<span class="text-[10px] text-blue-500 dark:text-blue-400 font-medium">$${parseFloat(item.price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}/u</span>`
             : '';
 
         return `

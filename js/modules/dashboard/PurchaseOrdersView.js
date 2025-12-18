@@ -151,7 +151,7 @@ export class PurchaseOrdersView {
                 ${this.products.map(p => `<option value="${p.id}" data-name="${p.name}">${p.name}</option>`).join('')}
             </select>
             <input type="number" class="w-20 px-2 py-1 border border-slate-300 dark:border-slate-600 rounded text-sm bg-white dark:bg-slate-700 dark:text-white po-quantity" min="1" value="1" placeholder="Cant." required>
-            <input type="number" class="w-24 px-2 py-1 border border-slate-300 dark:border-slate-600 rounded text-sm bg-white dark:bg-slate-700 dark:text-white po-cost" min="0" step="0.01" value="0" placeholder="Costo $" required>
+            <input type="number" class="w-24 px-2 py-1 border border-slate-300 dark:border-slate-600 rounded text-sm bg-white dark:bg-slate-700 dark:text-white po-cost" min="0" step="any" value="0" placeholder="Costo $" required>
             <button type="button" class="text-red-500 hover:text-red-700 p-1 remove-item-btn">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
             </button>

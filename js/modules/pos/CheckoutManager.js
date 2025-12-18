@@ -300,11 +300,7 @@ export class CheckoutManager {
                             <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                 <span class="text-slate-400 dark:text-slate-500 font-bold sm:text-sm text-xs">${icon}</span>
                             </div>
-                            <input type="number" 
-                                data-id="${input.id}" 
-                                data-currency="${input.currency}" 
-                                class="payment-input w-full pl-8 pr-3 py-1.5 text-sm sm:text-base font-medium rounded-md border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm focus:outline-none focus:ring-0 border-0 ring-1 ring-inset ring-slate-300 dark:ring-slate-600 focus:ring-2 focus:ring-inset focus:ring-indigo-500" 
-                                step="0.01" min="0" placeholder="${input.placeholder}">
+                                step="any" min="0" placeholder="${input.placeholder}">
                         </div>
 
                         ${showRef ? `

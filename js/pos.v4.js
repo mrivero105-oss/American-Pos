@@ -1773,7 +1773,7 @@ export class POS {
                 <div class="text-xs text-slate-500 dark:text-slate-400 font-mono">${p.barcode || 'Sin código'}</div>
             </div>
             <div class="text-right">
-                <div class="font-bold text-emerald-600 dark:text-emerald-400 text-lg">$${parseFloat(p.price).toFixed(2)}</div>
+                <div class="font-bold text-emerald-600 dark:text-emerald-400 text-lg">$${parseFloat(p.price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</div>
                 <div class="text-[10px] text-slate-400">STOCK: ${p.stock}</div>
             </div>
         </div>
@@ -1823,7 +1823,7 @@ export class POS {
                 <div class="grid ${currencySettings.isBsEnabled() ? 'grid-cols-2' : 'grid-cols-1'} gap-4 w-full mb-4">
                     <div class="bg-slate-50 dark:bg-slate-700 p-3 rounded-lg">
                         <p class="text-xs text-slate-500 dark:text-slate-400 uppercase font-bold">Precio USD</p>
-                        <p class="text-2xl font-extrabold text-slate-900 dark:text-white">$${parseFloat(product.price).toFixed(2)}</p>
+                        <p class="text-2xl font-extrabold text-slate-900 dark:text-white">$${parseFloat(product.price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</p>
                     </div>
                     ${currencySettings.isBsEnabled() ? `
                     <div class="bg-slate-50 dark:bg-slate-700 p-3 rounded-lg">
