@@ -1,4 +1,4 @@
-const CACHE_NAME = 'american-pos-v417-offline';
+const CACHE_NAME = 'american-pos-v418-offline';
 
 // Assets to cache immediately on install (App Shell)
 const ASSETS_TO_CACHE = [
@@ -84,6 +84,11 @@ self.addEventListener('activate', (event) => {
 // Fetch Event - The Brains of the Offline Operation
 self.addEventListener('fetch', (event) => {
     const requestUrl = new URL(event.request.url);
+
+    // 0. Ignore non-http/https requests (chrome-extension, etc.)
+    if (!requestUrl.protocol.startsWith('http')) {
+        return; // Let browser handle these normally
+    }
 
     // 1. API Requests: NETWORK ONLY
     // We never want to cache API responses (sales, users, products data)
