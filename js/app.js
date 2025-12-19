@@ -96,19 +96,59 @@ class App {
             }
         }
 
-        // Logout Button
+        // Logout Button with inline professional confirmation modal
         const logoutBtn = document.getElementById('logout-btn');
         if (logoutBtn) {
             logoutBtn.onclick = async (e) => {
                 e.preventDefault();
                 e.stopImmediatePropagation();
-                const confirmed = await ui.showConfirm({
-                    title: 'Cerrar Sesión',
-                    message: '¿Estás seguro de que deseas cerrar sesión? Tendrás que volver a iniciar sesión para acceder al sistema.',
-                    confirmText: 'Cerrar Sesión',
-                    cancelText: 'Cancelar',
-                    type: 'danger'
+
+                // Inline showConfirm implementation (bypasses ui.js CDN cache issue)
+                const confirmed = await new Promise((resolve) => {
+                    const existing = document.getElementById('confirm-modal-global');
+                    if (existing) existing.remove();
+
+                    const modal = document.createElement('div');
+                    modal.id = 'confirm-modal-global';
+                    modal.className = 'fixed inset-0 z-[100] flex items-center justify-center p-4';
+                    modal.innerHTML = `
+                        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" id="confirm-overlay"></div>
+                        <div class="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden transform">
+                            <div class="p-6 text-center">
+                                <div class="mx-auto flex items-center justify-center w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 mb-4">
+                                    <svg class="w-10 h-10 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+                                    </svg>
+                                </div>
+                                <h3 class="text-xl font-bold text-slate-900 dark:text-white mb-2">Cerrar Sesión</h3>
+                                <p class="text-slate-600 dark:text-slate-400 text-sm">¿Estás seguro de que deseas cerrar sesión? Tendrás que volver a iniciar sesión.</p>
+                            </div>
+                            <div class="flex border-t border-slate-200 dark:border-slate-700">
+                                <button id="confirm-modal-cancel" class="flex-1 px-4 py-3.5 text-slate-700 dark:text-slate-300 font-medium hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors border-r border-slate-200 dark:border-slate-700">
+                                    Cancelar
+                                </button>
+                                <button id="confirm-modal-confirm" class="flex-1 px-4 py-3.5 text-white font-medium bg-red-600 hover:bg-red-700 transition-colors">
+                                    Cerrar Sesión
+                                </button>
+                            </div>
+                        </div>
+                    `;
+
+                    document.body.appendChild(modal);
+                    setTimeout(() => document.getElementById('confirm-modal-confirm')?.focus(), 100);
+
+                    const cleanup = (result) => { modal.remove(); resolve(result); };
+                    document.getElementById('confirm-modal-cancel').onclick = () => cleanup(false);
+                    document.getElementById('confirm-modal-confirm').onclick = () => cleanup(true);
+                    document.getElementById('confirm-overlay').onclick = () => cleanup(false);
+
+                    const handleKeydown = (e) => {
+                        if (e.key === 'Escape') cleanup(false);
+                        if (e.key === 'Enter') cleanup(true);
+                    };
+                    document.addEventListener('keydown', handleKeydown, { once: true });
                 });
+
                 if (confirmed) {
                     await authService.logout();
                 }
