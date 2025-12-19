@@ -1,4 +1,4 @@
-// UI Module v2.0 - Added showConfirm() for professional confirmation dialogs
+// UI Module v2.1 - showConfirm() for professional confirmation dialogs - Build: 2024.12.19
 export const ui = {
     showNotification: (message, type = 'success') => {
         const container = document.getElementById('notification-container');
