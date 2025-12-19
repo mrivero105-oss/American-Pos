@@ -12,6 +12,7 @@ import { SwipeManager } from './swipe-manager.js';
 import { SuppliersView } from './modules/dashboard/SuppliersView.js';
 import { PurchaseOrdersView } from './modules/dashboard/PurchaseOrdersView.js';
 import { currencySettings } from './utils.js';
+import { ui } from './ui.js';
 
 const APP_VERSION = 'v224';
 
@@ -101,7 +102,14 @@ class App {
             logoutBtn.onclick = async (e) => {
                 e.preventDefault();
                 e.stopImmediatePropagation();
-                if (confirm('¿Estás seguro de que deseas cerrar sesión?')) {
+                const confirmed = await ui.showConfirm({
+                    title: 'Cerrar Sesión',
+                    message: '¿Estás seguro de que deseas cerrar sesión? Tendrás que volver a iniciar sesión para acceder al sistema.',
+                    confirmText: 'Cerrar Sesión',
+                    cancelText: 'Cancelar',
+                    type: 'danger'
+                });
+                if (confirmed) {
                     await authService.logout();
                 }
             };
