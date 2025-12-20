@@ -201,9 +201,23 @@ export class CashControlManager {
 
         if (!this.currentShift) return;
 
-        // expectedCash is in USD from backend, convert to Bs for display
-        const expectedInBs = (this.currentShift.expectedCash || 0) * (this.pos.exchangeRate || 1);
-        document.getElementById('expected-cash-display').textContent = formatBs(expectedInBs);
+        // Check if Solo USD mode
+        const currencies = JSON.parse(localStorage.getItem('currency_settings') || '["USD","BS"]');
+        const isSoloUSD = currencies.length === 1 && currencies[0] === 'USD';
+
+        // Display expected cash in appropriate currency
+        const expectedUSD = this.currentShift.expectedCash || 0;
+        if (isSoloUSD) {
+            // Solo USD mode: show in USD
+            document.getElementById('expected-cash-display').textContent = formatCurrency(expectedUSD);
+            console.log('💵 Close modal: Solo USD mode - showing expected in USD:', expectedUSD);
+        } else {
+            // Dual currency mode: show in Bs
+            const expectedInBs = expectedUSD * (this.pos.exchangeRate || 1);
+            document.getElementById('expected-cash-display').textContent = formatBs(expectedInBs);
+            console.log('💵 Close modal: Dual currency mode - showing expected in Bs:', expectedInBs);
+        }
+
         document.getElementById('close-cash-actual').value = '';
 
         // Populate stats
@@ -223,9 +237,13 @@ export class CashControlManager {
         const actualInput = document.getElementById('close-cash-actual');
         let actual = parseFloat(actualInput.value);
 
+        // Check if Solo USD mode
+        const currencies = JSON.parse(localStorage.getItem('currency_settings') || '["USD","BS"]');
+        const isSoloUSD = currencies.length === 1 && currencies[0] === 'USD';
+
         // Get the currency input (should be added to HTML)
         const currencyInput = document.getElementById('close-cash-currency');
-        const currency = currencyInput?.value || 'BS'; // Default to BS since we display expected in Bs
+        const currency = currencyInput?.value || (isSoloUSD ? 'USD' : 'BS'); // Default based on mode
 
         if (isNaN(actual) || actual < 0) {
             ui.showNotification('Ingrese un monto válido', 'error');
@@ -238,6 +256,8 @@ export class CashControlManager {
             const rate = this.pos?.exchangeRate || 1;
             actual = actual / rate; // Convert Bs to USD
             console.log(`Converting ${actualInput.value} Bs to $${actual.toFixed(2)} USD at rate ${rate}`);
+        } else {
+            console.log(`Close cash: Using USD amount directly: $${actual.toFixed(2)}`);
         }
 
         try {
