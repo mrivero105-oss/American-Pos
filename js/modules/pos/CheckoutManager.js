@@ -95,16 +95,7 @@ export class CheckoutManager {
             if (fieldsContainer) this.pos.dom.paymentFields = fieldsContainer;
         }
 
-        // Auto-fill amount for Cash USD
-        if (fieldsContainer) {
-            const cashUsdInput = fieldsContainer.querySelector('input[data-id="cash_usd"]');
-            if (cashUsdInput) {
-                cashUsdInput.value = total.toFixed(2);
-                this.calculateChange();
-            }
-        } else {
-            console.error('CheckoutManager: Payment Fields container NOT found');
-        }
+        // Quick-fill buttons will handle amount population
 
         // Show payment form, hide receipt
         if (this.pos.dom.paymentFormContent) this.pos.dom.paymentFormContent.classList.remove('hidden');
@@ -307,6 +298,14 @@ export class CheckoutManager {
                                 </svg>
                             </button>
                         </div>
+                        ${(input.id === 'cash_usd' || input.id === 'cash_ves') ? `
+                        <button type="button" class="quick-fill-btn w-full py-1 px-2 text-xs font-medium rounded border transition-colors ${isUsd
+                        ? 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-900/30'
+                        : 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-900/30'
+                    }" data-target="${input.id}" data-amount-type="${input.currency}">
+                            <span class="font-bold">${icon}</span> <span class="quick-fill-amount"></span>
+                        </button>
+                        ` : ''}
 
                         ${showRef ? `
                         <div class="relative">
@@ -364,6 +363,36 @@ export class CheckoutManager {
                     input.value = '';
                     input.dispatchEvent(new Event('input'));
                     input.focus();
+                }
+            });
+        });
+
+        // Populate and bind quick-fill buttons  
+        const total = this.pos.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        const totalBs = roundBsUp(total * this.pos.exchangeRate);
+
+        this.pos.dom.paymentFields.querySelectorAll('.quick-fill-btn').forEach(btn => {
+            const amountType = btn.dataset.amountType;
+            const targetId = btn.dataset.target;
+            const amountSpan = btn.querySelector('.quick-fill-amount');
+
+            // Set the amount text
+            if (amountType === 'USD') {
+                amountSpan.textContent = total.toFixed(2);
+            } else if (amountType === 'VES') {
+                amountSpan.textContent = totalBs.toLocaleString('es-VE');
+            }
+
+            // Handle click
+            btn.addEventListener('click', () => {
+                const input = this.pos.dom.paymentFields.querySelector(`input[data-id="${targetId}"]`);
+                if (input) {
+                    if (amountType === 'USD') {
+                        input.value = total.toFixed(2);
+                    } else if (amountType === 'VES') {
+                        input.value = totalBs;
+                    }
+                    input.dispatchEvent(new Event('input'));
                 }
             });
         });
