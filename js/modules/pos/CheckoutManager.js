@@ -289,18 +289,23 @@ export class CheckoutManager {
             const iconBg = isUsd ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400';
 
             html += `
-                <div class="payment-input-group bg-slate-50 dark:bg-slate-700/30 p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 transition-colors ${borderColor}">
-                    <div class="flex justify-between items-center mb-1.5 ">
+                <div class="payment-input-group bg-slate-50 dark:bg-slate-700/30 p-2 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 transition-colors ${borderColor}">
+                    <div class="flex justify-between items-center mb-1">
                         <label class="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wide truncate pr-2" title="${input.name}">${input.name}</label>
                         <span class="text-[10px] px-1.5 py-0.5 rounded font-bold ${iconBg}">${input.currency}</span>
                     </div>
                     
                     <div class="space-y-2">
                         <div class="relative">
-                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <span class="text-slate-400 dark:text-slate-500 font-bold sm:text-sm text-xs">${icon}</span>
+                            <div class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
+                                <span class="text-slate-400 dark:text-slate-500 font-bold text-xs">${icon}</span>
                             </div>
-                            <input type="number" class="payment-input w-full pl-8 pr-3 py-2 text-sm sm:text-base rounded-md border-0 ring-1 ring-inset ring-slate-300 dark:ring-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-inset focus:ring-indigo-500" data-currency="${input.currency}" data-id="${input.id}" step="any" min="0" placeholder="${input.placeholder}" />
+                            <input type="number" class="payment-input w-full pl-7 pr-8 py-1.5 text-sm rounded-md border-0 ring-1 ring-inset ring-slate-300 dark:ring-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-inset focus:ring-indigo-500" data-currency="${input.currency}" data-id="${input.id}" step="any" min="0" placeholder="${input.placeholder}" />
+                            <button type="button" class="clear-input-btn absolute inset-y-0 right-0 pr-2 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors opacity-0" data-for="${input.id}">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                            </button>
                         </div>
 
                         ${showRef ? `
@@ -320,7 +325,20 @@ export class CheckoutManager {
 
         // Bind events
         this.pos.dom.paymentFields.querySelectorAll('.payment-input').forEach(input => {
-            input.addEventListener('input', () => this.calculateChange());
+            const clearBtn = input.parentElement.querySelector('.clear-input-btn');
+
+            // Toggle clear button visibility
+            const toggleClearBtn = () => {
+                if (clearBtn) {
+                    clearBtn.classList.toggle('opacity-0', !input.value);
+                    clearBtn.classList.toggle('opacity-100', !!input.value);
+                }
+            };
+
+            input.addEventListener('input', () => {
+                toggleClearBtn();
+                this.calculateChange();
+            });
 
             // Add focus effect to parent group
             input.addEventListener('focus', function () {
@@ -328,6 +346,22 @@ export class CheckoutManager {
             });
             input.addEventListener('blur', function () {
                 this.closest('.payment-input-group').classList.remove('ring-2', 'ring-indigo-500/20', 'border-indigo-400');
+            });
+
+            // Initial toggle
+            toggleClearBtn();
+        });
+
+        // Bind clear button clicks
+        this.pos.dom.paymentFields.querySelectorAll('.clear-input-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const inputId = btn.dataset.for;
+                const input = this.pos.dom.paymentFields.querySelector(`input[data-id="${inputId}"]`);
+                if (input) {
+                    input.value = '';
+                    input.dispatchEvent(new Event('input'));
+                    input.focus();
+                }
             });
         });
 
