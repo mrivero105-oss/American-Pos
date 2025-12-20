@@ -1,6 +1,7 @@
 import { api } from './api.js';
 import { ui } from './ui.js';
 import { currencySettings } from './utils.js';
+import { thermalPrinter } from './modules/pos/ThermalPrinter.js';
 
 export class Settings {
     constructor() {
@@ -36,7 +37,21 @@ export class Settings {
             // Backup
             downloadBackupBtn: document.getElementById('download-backup-btn'),
             restoreBackupBtn: document.getElementById('restore-backup-btn'),
-            restoreFileInput: document.getElementById('restore-file-input')
+            restoreFileInput: document.getElementById('restore-file-input'),
+
+            // Thermal Printer
+            printerEnabled: document.getElementById('printer-enabled'),
+            printerAutoPrint: document.getElementById('printer-auto-print'),
+            printerConnectionType: document.getElementById('printer-connection-type'),
+            printerNetworkSettings: document.getElementById('printer-network-settings'),
+            printerNetworkIP: document.getElementById('printer-network-ip'),
+            printerNetworkPort: document.getElementById('printer-network-port'),
+            paperWidthBtns: document.querySelectorAll('.paper-width-btn'),
+            printerLogoFile: document.getElementById('printer-logo-file'),
+            printerLogoPreview: document.getElementById('printer-logo-preview'),
+            printerOpenDrawer: document.getElementById('printer-open-drawer'),
+            testPrinterBtn: document.getElementById('test-printer-btn'),
+            connectPrinterBtn: document.getElementById('connect-printer-btn')
         };
     }
 
@@ -69,6 +84,22 @@ export class Settings {
 
         // Initialize payment methods array
         this.paymentMethods = [];
+
+        // Thermal Printer Events
+        this.dom.printerEnabled?.addEventListener('change', (e) => this.updatePrinterConfig({ enabled: e.target.checked }));
+        this.dom.printerAutoPrint?.addEventListener('change', (e) => this.updatePrinterConfig({ autoPrint: e.target.checked }));
+        this.dom.printerConnectionType?.addEventListener('change', (e) => this.handleConnectionTypeChange(e.target.value));
+        this.dom.printerNetworkIP?.addEventListener('change', (e) => this.updatePrinterConfig({ networkIP: e.target.value }));
+        this.dom.printerNetworkPort?.addEventListener('change', (e) => this.updatePrinterConfig({ networkPort: parseInt(e.target.value) }));
+        this.dom.printerOpenDrawer?.addEventListener('change', (e) => this.updatePrinterConfig({ openCashDrawer: e.target.checked }));
+        this.dom.printerLogoFile?.addEventListener('change', (e) => this.handlePrinterLogoChange(e));
+        this.dom.testPrinterBtn?.addEventListener('click', () => this.testPrinter());
+        this.dom.connectPrinterBtn?.addEventListener('click', () => this.connectPrinter());
+
+        // Paper width buttons
+        this.dom.paperWidthBtns?.forEach(btn => {
+            btn.addEventListener('click', () => this.selectPaperWidth(btn));
+        });
     }
 
     async loadSettings() {
@@ -123,6 +154,9 @@ export class Settings {
             // Store payment methods locally and render
             this.paymentMethods = paymentMethods || [];
             this.renderPaymentMethods();
+
+            // Load thermal printer settings
+            this.loadPrinterSettings();
         } catch (error) {
             console.error('Error loading settings:', error);
             ui.showNotification('Error loading settings', 'error');
@@ -387,5 +421,155 @@ export class Settings {
             }
         };
         reader.readAsText(file);
+    }
+
+    // --- THERMAL PRINTER METHODS ---
+
+    loadPrinterSettings() {
+        const config = thermalPrinter.config;
+
+        if (this.dom.printerEnabled) this.dom.printerEnabled.checked = config.enabled;
+        if (this.dom.printerAutoPrint) this.dom.printerAutoPrint.checked = config.autoPrint;
+        if (this.dom.printerConnectionType) this.dom.printerConnectionType.value = config.connectionType;
+        if (this.dom.printerNetworkIP) this.dom.printerNetworkIP.value = config.networkIP;
+        if (this.dom.printerNetworkPort) this.dom.printerNetworkPort.value = config.networkPort;
+        if (this.dom.printerOpenDrawer) this.dom.printerOpenDrawer.checked = config.openCashDrawer;
+
+        // Update business info from API settings
+        thermalPrinter.updateConfig({
+            businessName: this.dom.businessName?.value || '',
+            businessNIF: this.dom.businessTaxId?.value || '',
+            businessAddress: this.dom.businessAddress?.value || '',
+            businessPhone: this.dom.businessPhone?.value || ''
+        });
+
+        // Show/hide network settings
+        this.handleConnectionTypeChange(config.connectionType);
+
+        // Select paper width
+        this.dom.paperWidthBtns?.forEach(btn => {
+            if (parseInt(btn.dataset.width) === config.paperWidth) {
+                this.selectPaperWidth(btn);
+            }
+        });
+
+        // Show logo preview if exists
+        if (config.logo && this.dom.printerLogoPreview) {
+            const img = this.dom.printerLogoPreview.querySelector('img');
+            if (img) {
+                img.src = config.logo;
+                this.dom.printerLogoPreview.classList.remove('hidden');
+            }
+        }
+    }
+
+    updatePrinterConfig(updates) {
+        thermalPrinter.updateConfig(updates);
+        ui.showNotification('Configuración actualizada', 'success');
+    }
+
+    handleConnectionTypeChange(type) {
+        thermalPrinter.updateConfig({ connectionType: type });
+
+        // Show/hide network settings
+        if (this.dom.printerNetworkSettings) {
+            if (type === 'network') {
+                this.dom.printerNetworkSettings.classList.remove('hidden');
+            } else {
+                this.dom.printerNetworkSettings.classList.add('hidden');
+            }
+        }
+    }
+
+    selectPaperWidth(selectedBtn) {
+        const width = parseInt(selectedBtn.dataset.width);
+
+        // Update UI
+        this.dom.paperWidthBtns?.forEach(btn => {
+            btn.classList.remove('border-green-500', 'bg-green-50', 'dark:bg-green-900/20', 'text-green-700', 'dark:text-green-400');
+            btn.classList.add('border-slate-300', 'dark:border-slate-600', 'bg-white', 'dark:bg-slate-700', 'text-slate-700', 'dark:text-slate-300');
+        });
+
+        selectedBtn.classList.remove('border-slate-300', 'dark:border-slate-600', 'bg-white', 'dark:bg-slate-700', 'text-slate-700', 'dark:text-slate-300');
+        selectedBtn.classList.add('border-green-500', 'bg-green-50', 'dark:bg-green-900/20', 'text-green-700', 'dark:text-green-400');
+
+        // Update config
+        thermalPrinter.updateConfig({ paperWidth: width });
+        ui.showNotification(`Ancho de papel: ${width}mm`, 'success');
+    }
+
+    handlePrinterLogoChange(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        if (!file.type.startsWith('image/')) {
+            ui.showNotification('Selecciona una imagen válida', 'error');
+            return;
+        }
+
+        if (file.size > 200 * 1024) {
+            ui.showNotification('La imagen es muy grande. Máximo 200KB para impresión térmica', 'error');
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const base64 = event.target.result;
+            thermalPrinter.updateConfig({ logo: base64 });
+
+            // Show preview
+            if (this.dom.printerLogoPreview) {
+                const img = this.dom.printerLogoPreview.querySelector('img');
+                if (img) {
+                    img.src = base64;
+                    this.dom.printerLogoPreview.classList.remove('hidden');
+                }
+            }
+
+            ui.showNotification('Logo cargado correctamente', 'success');
+        };
+        reader.readAsDataURL(file);
+    }
+
+    async connectPrinter() {
+        if (!thermalPrinter.config.enabled) {
+            ui.showNotification('Habilita la impresora primero', 'warning');
+            return;
+        }
+
+        this.dom.connectPrinterBtn.disabled = true;
+        this.dom.connectPrinterBtn.textContent = 'Conectando...';
+
+        const connected = await thermalPrinter.connect();
+
+        this.dom.connectPrinterBtn.disabled = false;
+        this.dom.connectPrinterBtn.innerHTML = `
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+            </svg>
+            ${connected ? 'Reconectar' : 'Conectar Impresora'}
+        `;
+    }
+
+    async testPrinter() {
+        if (!thermalPrinter.config.enabled) {
+            ui.showNotification('Habilita la impresora primero', 'warning');
+            return;
+        }
+
+        this.dom.testPrinterBtn.disabled = true;
+        this.dom.testPrinterBtn.textContent = 'Imprimiendo...';
+
+        try {
+            await thermalPrinter.printTestReceipt();
+        } finally {
+            this.dom.testPrinterBtn.disabled = false;
+            this.dom.testPrinterBtn.innerHTML = `
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                Imprimir Prueba
+            `;
+        }
     }
 }
