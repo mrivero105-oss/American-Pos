@@ -14,7 +14,7 @@ import { PurchaseOrdersView } from './modules/dashboard/PurchaseOrdersView.js';
 import { currencySettings } from './utils.js';
 import { ui } from './ui.js';
 
-const APP_VERSION = 'v225'; // Updated with showConfirm modal
+const APP_VERSION = 'v226'; // Fixed payment modal and logout modal logic
 
 class App {
     constructor() {
