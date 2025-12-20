@@ -291,16 +291,16 @@ export class ThermalPrinter {
             await this.sendCommand(this.ESC.LINE_FEED);
             await this.printLine('-');
 
-            sale.items.forEach(item => {
+            for (const item of sale.items) {
                 const name = item.name.substring(0, this.config.paperWidth === 58 ? 20 : 30);
                 const qty = `${item.quantity}x`;
                 const subtotal = `$${(item.price * item.quantity).toFixed(2)}`;
 
-                this.printText(name, 'left');
-                this.sendCommand(this.ESC.LINE_FEED);
-                this.printText(`  ${qty.padEnd(6)}${subtotal.padStart(12)}`, 'left');
-                this.sendCommand(this.ESC.LINE_FEED);
-            });
+                await this.printText(name, 'left');
+                await this.sendCommand(this.ESC.LINE_FEED);
+                await this.printText(`  ${qty.padEnd(6)}${subtotal.padStart(12)}`, 'left');
+                await this.sendCommand(this.ESC.LINE_FEED);
+            }
 
             await this.printLine('-');
 
@@ -320,12 +320,12 @@ export class ThermalPrinter {
             await this.sendCommand(this.ESC.LINE_FEED);
 
             if (sale.paymentMethods && sale.paymentMethods.length > 0) {
-                sale.paymentMethods.forEach(pm => {
+                for (const pm of sale.paymentMethods) {
                     const method = pm.method.replace('_', ' ').toUpperCase();
                     const amount = pm.currency === 'USD' ? `$${pm.amount.toFixed(2)}` : `Bs ${pm.amount.toFixed(2)}`;
                     await this.printText(`${method}:`.padEnd(20) + amount.padStart(12), 'left');
                     await this.sendCommand(this.ESC.LINE_FEED);
-                });
+                }
             }
 
             await this.printLine('=');
