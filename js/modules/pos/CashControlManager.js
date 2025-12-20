@@ -490,8 +490,13 @@ export class CashControlManager {
 
     async showHistory() {
         try {
-            const shifts = await api.cash.getHistory();
-            this.showHistoryModal(shifts);
+            const response = await api.cash.getHistory();
+
+            // Check if response has debug info
+            const debugInfo = response.debug;
+            const shifts = response.shifts || response; // Handle both formats
+
+            this.showHistoryModal(shifts, debugInfo);
         } catch (error) {
             console.error('Error getting history:', error);
             ui.showNotification(error.message, 'error');
@@ -564,7 +569,7 @@ export class CashControlManager {
         document.body.insertAdjacentHTML('beforeend', html);
     }
 
-    showHistoryModal(shifts) {
+    showHistoryModal(shifts, debugInfo) {
         const rows = shifts.map(s => {
             const diff = s.difference || 0;
             const diffClass = diff === 0 ? 'text-green-600' : (diff > 0 ? 'text-blue-600' : 'text-red-600');
@@ -578,6 +583,27 @@ export class CashControlManager {
                 `;
         }).join('');
 
+        // Create debug section HTML if debug info is available
+        let debugHtml = '';
+        if (debugInfo) {
+            const sampleUsers = debugInfo.sampleUserIdsInDB?.slice(0, 5).map(s =>
+                `<div class="text-xs">• userId: <code class="bg-slate-200 dark:bg-slate-700 px-1 rounded">${s.userId}</code> (${new Date(s.date).toLocaleDateString()})</div>`
+            ).join('');
+
+            debugHtml = `
+                <div class="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg">
+                    <div class="text-sm font-bold text-yellow-800 dark:text-yellow-200 mb-2">🔍 DEBUG INFO</div>
+                    <div class="text-xs space-y-1 text-yellow-900 dark:text-yellow-100">
+                        <div><strong>Tu userId:</strong> <code class="bg-yellow-200 dark:bg-yellow-800 px-1 rounded">${debugInfo.requestedUserId}</code></div>
+                        <div><strong>Total cierres en DB:</strong> ${debugInfo.totalShiftsInDB}</div>
+                        <div><strong>Cierres para tu usuario:</strong> ${debugInfo.shiftsForThisUser}</div>
+                        <div class="mt-2"><strong>Muestra de userIds en DB:</strong></div>
+                        ${sampleUsers}
+                    </div>
+                </div>
+            `;
+        }
+
         const html = `
                 <div class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                 <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -588,6 +614,7 @@ export class CashControlManager {
                         </button>
                     </div>
                     <div class="p-4">
+                        ${debugHtml}
                         <table class="w-full">
                             <thead>
                                 <tr class="text-left text-xs text-slate-500 uppercase">
