@@ -300,11 +300,7 @@ export class CheckoutManager {
                             <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                 <span class="text-slate-400 dark:text-slate-500 font-bold sm:text-sm text-xs">${icon}</span>
                             </div>
-                            <input type="number" 
-                                class="payment-input w-full pl-8 pr-3 py-2 text-sm sm:text-base rounded-md border-0 ring-1 ring-inset ring-slate-300 dark:ring-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-inset focus:ring-indigo-500"
-                                data-currency="${input.currency}"
-                                data-id="${input.id}"
-                                step="any" min="0" placeholder="${input.placeholder}">
+                            <input type="number" class="payment-input w-full pl-8 pr-3 py-2 text-sm sm:text-base rounded-md border-0 ring-1 ring-inset ring-slate-300 dark:ring-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-inset focus:ring-indigo-500" data-currency="${input.currency}" data-id="${input.id}" step="any" min="0" placeholder="${input.placeholder}" />
                         </div>
 
                         ${showRef ? `
@@ -312,10 +308,7 @@ export class CheckoutManager {
                             <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                 <span class="text-slate-400 dark:text-slate-500 text-xs">#</span>
                             </div>
-                            <input type="text" 
-                                data-ref-for="${input.id}"
-                                class="payment-ref w-full pl-8 pr-3 py-1.5 text-xs sm:text-sm rounded-md border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm focus:outline-none focus:ring-0 border-0 ring-1 ring-inset ring-slate-300 dark:ring-slate-600 focus:ring-2 focus:ring-inset focus:ring-indigo-500" 
-                                placeholder="Referencia">
+                            <input type="text" data-ref-for="${input.id}" class="payment-ref w-full pl-8 pr-3 py-1.5 text-xs sm:text-sm rounded-md border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm focus:outline-none focus:ring-0 border-0 ring-1 ring-inset ring-slate-300 dark:ring-slate-600 focus:ring-2 focus:ring-inset focus:ring-indigo-500" placeholder="Referencia" />
                         </div>
                         ` : ''}
                     </div>
