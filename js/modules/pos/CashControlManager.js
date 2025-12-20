@@ -492,6 +492,16 @@ export class CashControlManager {
         try {
             const response = await api.cash.getHistory();
 
+            // TEMP DEBUG: Log the full response to console
+            console.log('='.repeat(80));
+            console.log('🔍 CASH HISTORY API RESPONSE:');
+            console.log('='.repeat(80));
+            console.log('Full response:', JSON.stringify(response, null, 2));
+            console.log('Has debug?', !!response.debug);
+            console.log('Has shifts?', !!response.shifts);
+            console.log('Is array?', Array.isArray(response));
+            console.log('='.repeat(80));
+
             // Check if response has debug info
             const debugInfo = response.debug;
             const shifts = response.shifts || response; // Handle both formats
