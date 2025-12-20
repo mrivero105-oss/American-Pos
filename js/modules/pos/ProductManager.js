@@ -622,7 +622,7 @@ export class ProductManager {
         const isWeighted = product.isSoldByWeight === 1 || product.isSoldByWeight === '1' || product.isSoldByWeight === true;
 
         // Use only 'stock' field for all products (stockQuantity has been removed)
-        const stock = product.stock !== undefined ? parseFloat(product.stock) : 0;
+        const stock = product.stockQuantity !== undefined ? parseFloat(product.stockQuantity) : 0;
 
         if (stock > 0) {
             this.pos.cartManager.addToCart(product);
