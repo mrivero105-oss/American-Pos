@@ -143,8 +143,14 @@ export class CashControlManager {
             }
         };
 
-        // Set default
+        // Set default to USD
         window.setOpenCashCurrency('USD');
+
+        // Force hide toggle again after setup if in Solo USD mode
+        // This ensures it stays hidden even if setOpenCashCurrency tries to show it
+        if (isSoloUSD && currencyToggle) {
+            currencyToggle.style.display = 'none';
+        }
 
         // Listen for input changes
         document.getElementById('open-cash-amount').addEventListener('input', window.updateOpenCashConversion);
