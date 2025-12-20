@@ -68,25 +68,9 @@
             });
         }
 
-        // Create visible diagnostic overlay
-        const diagDiv = document.createElement('div');
-        diagDiv.id = 'boot-diag';
-        diagDiv.style.cssText = 'position: fixed; top: 10px; right: 10px; background: rgba(0,0,0,0.8); color: #0f0; padding: 10px; font-family: monospace; font-size: 10px; z-index: 99998; max-width: 200px; border-radius: 4px; display: none;';
-
+        // Boot diagnostic disabled
         window.bootLog = function (msg) {
-            console.log('[BOOT]', msg);
-            if (!document.body.contains(diagDiv)) {
-                document.body.appendChild(diagDiv);
-            }
-            diagDiv.style.display = 'block';
-            diagDiv.innerHTML += msg + '<br>';
-
-            // Auto-hide after successful boot
-            if (msg.includes('✓ BOOT COMPLETE')) {
-                setTimeout(() => {
-                    diagDiv.style.display = 'none';
-                }, 3000);
-            }
+            // Disabled for production
         };
 
         // Log immediately
