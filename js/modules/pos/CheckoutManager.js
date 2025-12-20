@@ -301,7 +301,7 @@ export class CheckoutManager {
                                 <span class="text-slate-400 dark:text-slate-500 font-bold text-xs">${icon}</span>
                             </div>
                             <input type="number" class="payment-input w-full pl-7 pr-8 py-1.5 text-sm rounded-md border-0 ring-1 ring-inset ring-slate-300 dark:ring-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-inset focus:ring-indigo-500" data-currency="${input.currency}" data-id="${input.id}" step="any" min="0" placeholder="${input.placeholder}" />
-                            <button type="button" class="clear-input-btn absolute inset-y-0 right-0 pr-2 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors opacity-0" data-for="${input.id}">
+                            <button type="button" class="clear-input-btn absolute inset-y-0 right-0 pr-2 flex items-center text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors hidden" data-for="${input.id}">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                                 </svg>
@@ -330,8 +330,11 @@ export class CheckoutManager {
             // Toggle clear button visibility
             const toggleClearBtn = () => {
                 if (clearBtn) {
-                    clearBtn.classList.toggle('opacity-0', !input.value);
-                    clearBtn.classList.toggle('opacity-100', !!input.value);
+                    if (input.value && input.value !== '0') {
+                        clearBtn.classList.remove('hidden');
+                    } else {
+                        clearBtn.classList.add('hidden');
+                    }
                 }
             };
 
