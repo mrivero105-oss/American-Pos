@@ -83,13 +83,22 @@ export class CashControlManager {
         const currencies = JSON.parse(localStorage.getItem('currency_settings') || '["USD","BS"]');
         const isSoloUSD = currencies.length === 1 && currencies[0] === 'USD';
 
+        console.log('🔍 Opening cash modal. Solo USD mode:', isSoloUSD, 'Currencies:', currencies);
+
         // Hide currency toggle in Solo USD mode
         const usdBtn = document.getElementById('open-cash-usd-btn');
         const bsBtn = document.getElementById('open-cash-bs-btn');
         const currencyToggle = usdBtn?.parentElement;
 
-        if (currencyToggle) {
-            currencyToggle.style.display = isSoloUSD ? 'none' : 'flex';
+        console.log('🔍 Currency toggle element found:', !!currencyToggle);
+
+        if (currencyToggle && isSoloUSD) {
+            // Use setProperty with important to override any CSS
+            currencyToggle.style.setProperty('display', 'none', 'important');
+            console.log('✅ Currency toggle hidden (Solo USD mode)');
+        } else if (currencyToggle) {
+            currencyToggle.style.setProperty('display', 'flex', 'important');
+            console.log('✅ Currency toggle visible (Dual currency mode)');
         }
 
         // Reset to USD
@@ -149,7 +158,8 @@ export class CashControlManager {
         // Force hide toggle again after setup if in Solo USD mode
         // This ensures it stays hidden even if setOpenCashCurrency tries to show it
         if (isSoloUSD && currencyToggle) {
-            currencyToggle.style.display = 'none';
+            currencyToggle.style.setProperty('display', 'none', 'important');
+            console.log('🔒 Currency toggle re-hidden after setup (Solo USD mode)');
         }
 
         // Listen for input changes
