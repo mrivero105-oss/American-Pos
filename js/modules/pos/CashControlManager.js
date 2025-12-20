@@ -18,7 +18,7 @@ export class CashControlManager {
             this.currentShift = await api.cash.getCurrentShift();
         } catch (error) {
             console.error('Error checking shift:', error);
-            ui.showNotification('Error de conexión con Caja: ' + error.message, 'warning');
+            // Don't show notification - this is a background check
             this.currentShift = null;
         } finally {
             this.updateUI();
