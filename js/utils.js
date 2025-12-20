@@ -80,7 +80,25 @@ export const roundUsd = (amount) => {
  * Tracks which currencies are enabled for the current user
  */
 export const currencySettings = {
-    _enabled: ['USD', 'VES'], // Default to both
+    _enabled: null, // Will be loaded from localStorage or default
+
+    /**
+     * Initialize - Load from localStorage if available
+     */
+    init() {
+        const stored = localStorage.getItem('currency_settings');
+        if (stored) {
+            try {
+                this._enabled = JSON.parse(stored);
+                console.log('Currency settings loaded from localStorage:', this._enabled);
+            } catch (e) {
+                console.error('Error parsing currency_settings from localStorage:', e);
+                this._enabled = ['USD', 'VES']; // Default to both
+            }
+        } else {
+            this._enabled = ['USD', 'VES']; // Default to both
+        }
+    },
 
     /**
      * Set enabled currencies from user data
@@ -92,6 +110,9 @@ export const currencySettings = {
         } else {
             this._enabled = ['USD', 'VES']; // Default to both
         }
+
+        // CRITICAL: Save to localStorage so CashControlManager and other components can read it
+        localStorage.setItem('currency_settings', JSON.stringify(this._enabled));
         console.log('Currency settings updated:', this._enabled);
     },
 
@@ -100,6 +121,7 @@ export const currencySettings = {
      * @returns {boolean}
      */
     isUsdEnabled() {
+        if (!this._enabled) this.init();
         return this._enabled.includes('USD');
     },
 
@@ -108,6 +130,7 @@ export const currencySettings = {
      * @returns {boolean}
      */
     isBsEnabled() {
+        if (!this._enabled) this.init();
         return this._enabled.includes('VES') || this._enabled.includes('BS');
     },
 
@@ -135,3 +158,6 @@ export const currencySettings = {
         return this.isUsdEnabled() && this.isBsEnabled();
     }
 };
+
+// Initialize on module load
+currencySettings.init();
