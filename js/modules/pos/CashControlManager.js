@@ -205,11 +205,23 @@ export class CashControlManager {
 
     async handleCloseShift() {
         const actualInput = document.getElementById('close-cash-actual');
-        const actual = parseFloat(actualInput.value);
+        let actual = parseFloat(actualInput.value);
+
+        // Get the currency input (should be added to HTML)
+        const currencyInput = document.getElementById('close-cash-currency');
+        const currency = currencyInput?.value || 'BS'; // Default to BS since we display expected in Bs
 
         if (isNaN(actual) || actual < 0) {
             ui.showNotification('Ingrese un monto válido', 'error');
             return;
+        }
+
+        // CRITICAL: Convert Bs to USD before sending to backend
+        // Backend stores everything in USD, so we must convert
+        if (currency === 'BS') {
+            const rate = this.pos?.exchangeRate || 1;
+            actual = actual / rate; // Convert Bs to USD
+            console.log(`Converting ${actualInput.value} Bs to $${actual.toFixed(2)} USD at rate ${rate}`);
         }
 
         try {
