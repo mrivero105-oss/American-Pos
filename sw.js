@@ -1,4 +1,4 @@
-const CACHE_NAME = 'american-pos-v424-offline';
+const CACHE_NAME = 'american-pos-v425-offline';
 
 // Assets to cache immediately on install (App Shell)
 const ASSETS_TO_CACHE = [

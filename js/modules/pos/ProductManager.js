@@ -555,7 +555,9 @@ export class ProductManager {
 
         const pageOfIndex = Math.floor(this.highlightedIndex / this.itemsPerPage) + 1;
         if (pageOfIndex !== this.currentPage) {
-            this.changePage(pageOfIndex);
+            // Update page and re-render
+            this.currentPage = pageOfIndex;
+            this.renderProducts(this.currentFilteredProducts, false);
         } else {
             // Optimize: Toggle classes directly
             const highlightClasses = ['border-blue-600', 'dark:border-blue-400', 'bg-indigo-50/30', 'dark:bg-indigo-900/20', 'shadow-xl', 'scale-[1.02]', 'z-20'];
