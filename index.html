@@ -346,6 +346,123 @@
             font-family: 'Outfit', sans-serif;
         }
 
+        /* ====== SOFT LIGHT MODE THEME ====== */
+        /* Override pure white backgrounds with soft off-white tones */
+        :root {
+            --soft-bg-primary: #f8f9fb;
+            /* Very soft gray-blue */
+            --soft-bg-secondary: #f1f3f7;
+            /* Slightly darker soft gray */
+            --soft-bg-card: #ffffff;
+            /* Keep cards white but muted by surrounding */
+            --soft-border: #e2e5eb;
+            /* Softer border color */
+            --soft-text: #3d4654;
+            /* Softer text color */
+        }
+
+        /* Only apply to non-dark mode */
+        html:not(.dark) body {
+            background-color: var(--soft-bg-secondary) !important;
+        }
+
+        /* Main content areas */
+        html:not(.dark) .bg-slate-50,
+        html:not(.dark) .bg-gray-50 {
+            background-color: var(--soft-bg-primary) !important;
+        }
+
+        /* Sidebar and header - use soft tones */
+        html:not(.dark) #sidebar {
+            background-color: #f5f6f8 !important;
+            border-color: var(--soft-border) !important;
+        }
+
+        html:not(.dark) header {
+            background-color: #f5f6f8 !important;
+        }
+
+        /* Category bar / filter bar */
+        html:not(.dark) .bg-white:not(.dark\\:bg-slate-800):not(.dark\\:bg-slate-700):not(.dark\\:bg-slate-900) {
+            background-color: #fafbfc !important;
+        }
+
+        /* Card backgrounds - very subtle off-white */
+        html:not(.dark) [class*="rounded-xl"].bg-white,
+        html:not(.dark) [class*="rounded-2xl"].bg-white,
+        html:not(.dark) [class*="rounded-lg"].bg-white {
+            background-color: #fcfcfd !important;
+        }
+
+        /* Product grid background */
+        html:not(.dark) #product-grid-container {
+            background-color: var(--soft-bg-secondary) !important;
+        }
+
+        /* Cart panel */
+        html:not(.dark) #cart-container,
+        html:not(.dark) .desktop-cart-container {
+            background-color: #f9fafb !important;
+        }
+
+        /* Soften borders throughout */
+        html:not(.dark) [class*="border-slate-200"] {
+            border-color: var(--soft-border) !important;
+        }
+
+        html:not(.dark) [class*="border-slate-100"] {
+            border-color: #e8eaef !important;
+        }
+
+        /* Input fields - keep white but with softer border */
+        html:not(.dark) input[type="text"],
+        html:not(.dark) input[type="number"],
+        html:not(.dark) input[type="search"],
+        html:not(.dark) select,
+        html:not(.dark) textarea {
+            background-color: #ffffff !important;
+            border-color: #d8dce3 !important;
+        }
+
+        /* Reduce shadow intensity */
+        html:not(.dark) .shadow-sm {
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03) !important;
+        }
+
+        html:not(.dark) .shadow {
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05) !important;
+        }
+
+        html:not(.dark) .shadow-lg {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05) !important;
+        }
+
+        /* Modal overlays - softer backdrop */
+        html:not(.dark) .bg-black.bg-opacity-50 {
+            background-color: rgba(55, 65, 81, 0.4) !important;
+        }
+
+        /* Soften primary colors for less eye strain */
+        html:not(.dark) .text-slate-900 {
+            color: var(--soft-text) !important;
+        }
+
+        html:not(.dark) .text-slate-800 {
+            color: #475569 !important;
+        }
+
+        /* Keep buttons vibrant but slightly muted */
+        html:not(.dark) .bg-indigo-600 {
+            background-color: #5c6bc0 !important;
+        }
+
+        html:not(.dark) .bg-emerald-600,
+        html:not(.dark) .bg-green-600 {
+            background-color: #4db6ac !important;
+        }
+
+        /* ====== END SOFT LIGHT MODE THEME ====== */
+
         /* Custom Scrollbar */
         ::-webkit-scrollbar {
             width: 8px;
@@ -912,7 +1029,9 @@
                                     </path>
                                 </svg>
                             </div>
-                            <span class="text-sm font-bold text-white">CAJA</span>
+                            <div>
+                                <h2 class="text-sm font-bold text-white">CAJA</h2>
+                            </div>
                         </div>
                         <span id="cash-status-indicator"
                             class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-700 text-slate-400 flex items-center gap-1">
@@ -1424,42 +1543,43 @@
     <main class="flex-1 flex flex-col h-full overflow-hidden relative pt-16 md:pt-0">
 
         <!-- VIEW: CUSTOMERS -->
-        <section id="view-customers" class="view-section h-full flex flex-col hidden overflow-hidden">
-            <div
-                class="bg-white dark:bg-slate-900 p-4 shadow-sm z-10 flex flex-col md:flex-row justify-between items-center gap-4 border-b dark:border-slate-800">
+        <section id="view-customers" class="view-section hidden p-4 md:p-8 animate-fade-in space-y-6">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h2 class="text-2xl font-extrabold text-slate-800 dark:text-white">Gestión de Productos</h2>
-                    <p class="text-sm text-slate-500 dark:text-slate-400">Administra tu base de datos de productos <span
-                            class="bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded text-[10px] ml-2">v416.3</span>
-                    </p>
+                    <h2
+                        class="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-700 dark:from-white dark:to-slate-300">
+                        Gestión de Clientes</h2>
+                    <p class="text-slate-500 dark:text-slate-400 mt-1">Administra tu base de datos de clientes y
+                        créditos</p>
                 </div>
-                <div class="flex gap-3 w-full md:w-auto">
-                    <div class="relative flex-1 md:w-64">
-                        <input type="text" id="customers-search" placeholder="Buscar cliente..."
-                            class="w-full pl-10 pr-10 py-2 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 dark:bg-slate-800 dark:text-white">
-                        <svg class="w-5 h-5 text-slate-400 absolute left-3 top-2.5" fill="none" stroke="currentColor"
-                            viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                        </svg>
-                        <button type="button" id="customers-search-clear"
-                            class="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-white hidden"
-                            title="Borrar">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M6 18L18 6M6 6l12 12"></path>
-                            </svg>
-                        </button>
-                    </div>
-                    <button id="add-customer-btn"
-                        class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-bold shadow-md flex items-center gap-2 whitespace-nowrap">
+            </div>
+            <div class="flex gap-3 w-full md:w-auto">
+                <div class="relative flex-1 md:w-64">
+                    <input type="text" id="customers-search" placeholder="Buscar cliente..."
+                        class="w-full pl-10 pr-10 py-2 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 dark:bg-slate-800 dark:text-white">
+                    <svg class="w-5 h-5 text-slate-400 absolute left-3 top-2.5" fill="none" stroke="currentColor"
+                        viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                    <button type="button" id="customers-search-clear"
+                        class="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-white hidden"
+                        title="Borrar">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4">
-                            </path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M6 18L18 6M6 6l12 12"></path>
                         </svg>
-                        Nuevo Cliente
                     </button>
                 </div>
+                <button id="add-customer-btn"
+                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-bold shadow-md flex items-center gap-2 whitespace-nowrap">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4">
+                        </path>
+                    </svg>
+                    Nuevo Cliente
+                </button>
+            </div>
             </div>
 
             <div class="flex-1 overflow-auto bg-slate-50 dark:bg-slate-900 p-4">
@@ -1629,7 +1749,7 @@
         <section id="view-dashboard"
             class="view-section hidden h-full overflow-y-auto p-4 md:p-8 bg-slate-50 dark:bg-slate-900">
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 md:mb-8 gap-4">
-                <h2 class="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white">Resumen del Negocio</h2>
+                <h2 class="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white">Resumen de Ventas</h2>
 
                 <!-- Time Range Selector -->
                 <div
@@ -3581,6 +3701,7 @@
             </div>
         </div>
 
+
         <!-- PRICE CHECK MODAL (Moved to end of body) -->
         <div id="price-check-modal" style="display: none;"
             class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-[70] flex items-center justify-center p-4 content-visibility-auto">
@@ -3603,9 +3724,9 @@
                 <div class="p-6">
                     <!-- Search Input -->
                     <div class="mb-6 relative">
-                        <input type="text" id="price-check-input"
-                            class="w-full pl-10 pr-4 py-4 text-lg border-2 border-slate-200 dark:border-slate-600 rounded-xl focus:outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/20 transition-all bg-white dark:bg-slate-700 dark:text-white font-medium"
-                            placeholder="Escanear código o buscar producto...">
+                        <input type="text" id="price-check-input" autocomplete="off"
+                            class="w-full pl-12 pr-4 py-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white text-lg focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-sm"
+                            placeholder="Escanea o escribe el nombre del producto...">
                         <svg class="w-6 h-6 text-slate-400 absolute left-3 top-4" fill="none" stroke="currentColor"
                             viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
