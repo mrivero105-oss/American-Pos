@@ -446,10 +446,10 @@ export class Settings {
         // Show/hide network settings
         this.handleConnectionTypeChange(config.connectionType);
 
-        // Select paper width
+        // Select paper width (silent = true to avoid notification on load)
         this.dom.paperWidthBtns?.forEach(btn => {
             if (parseInt(btn.dataset.width) === config.paperWidth) {
-                this.selectPaperWidth(btn);
+                this.selectPaperWidth(btn, true);
             }
         });
 
@@ -481,7 +481,7 @@ export class Settings {
         }
     }
 
-    selectPaperWidth(selectedBtn) {
+    selectPaperWidth(selectedBtn, silent = false) {
         const width = parseInt(selectedBtn.dataset.width);
 
         // Update UI
@@ -495,7 +495,9 @@ export class Settings {
 
         // Update config
         thermalPrinter.updateConfig({ paperWidth: width });
-        ui.showNotification(`Ancho de papel: ${width}mm`, 'success');
+        if (!silent) {
+            ui.showNotification(`Ancho de papel: ${width}mm`, 'success');
+        }
     }
 
     handlePrinterLogoChange(e) {
