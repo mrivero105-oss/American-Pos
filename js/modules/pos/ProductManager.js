@@ -14,6 +14,7 @@ export class ProductManager {
         this.apiLimit = 48; // API Pagination Limit
         this.currentFilteredProducts = [];
         this.highlightedIndex = -1;
+        this.fetchRequestId = 0;
         this.bindEvents();
     }
 
@@ -140,7 +141,7 @@ export class ProductManager {
         console.log('POS: Background refresh starting...');
         try {
             // Fetch all products silently
-            const response = await api.products.getAll(1, 500); // Get up to 500 in background
+            const response = await api.products.getAll(1, 0); // Get all products (0 = unlimited)
             let products = [];
 
             if (Array.isArray(response)) {
@@ -193,13 +194,15 @@ export class ProductManager {
         this.pos.dom.productGrid.innerHTML = skeletons;
     }
 
-    async fetchProductsPage(page) {
-        if (this.isLoading) return;
+    async fetchProductsPage(page, force = false) {
+        if (this.isLoading && !force) return;
+
+        const currentRequestId = ++this.fetchRequestId;
         this.isLoading = true;
         this.showLoadingSentinel(true);
 
         try {
-            console.log(`POS: Fetching products page ${page} (Category: ${this.activeCategory}, Search: ${this.activeQuery})`);
+            console.log(`POS: Fetching products page ${page} (Category: ${this.activeCategory}, Search: ${this.activeQuery}, ReqID: ${currentRequestId})`);
 
             // Pass filters to API
             const response = await api.products.getAll(
@@ -208,6 +211,12 @@ export class ProductManager {
                 this.activeCategory,
                 this.activeQuery
             );
+
+            // Race Condition Check: If a newer request started, abort this one
+            if (currentRequestId !== this.fetchRequestId) {
+                console.log(`POS: Request ${currentRequestId} aborted by newer request ${this.fetchRequestId}`);
+                return;
+            }
 
             // Handle new response structure OR legacy array
             let products = [];
@@ -791,7 +800,8 @@ export class ProductManager {
         this.setupIntersectionObserver();
 
         // Fetch (Debounce is handled by caller usually, but here we call API directly)
-        await this.fetchProductsPage(this.apiPage);
+        // Force load to bypass isLoading lock from previous search keystrokes
+        await this.fetchProductsPage(this.apiPage, true);
     }
 
     handleGridClick(e) {

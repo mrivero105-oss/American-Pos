@@ -19,6 +19,40 @@ export class CustomerManager {
         console.log('POS: CustomerManager ready (Remote Search Mode)');
     }
 
+    async loadSuggestedCustomers(container) {
+        if (!container) return;
+
+        // Show loading in container
+        container.innerHTML = '<div class="p-3 text-slate-500 text-center text-sm">Cargando sugerencias...</div>';
+        container.classList.remove('hidden');
+
+        try {
+            // Fetch top 3 customers (Page 1, Limit 3)
+            // In future, backend could support `sort=sales_volume`
+            const response = await api.customers.getAll(1, 3, '');
+
+            let results = [];
+            if (Array.isArray(response)) {
+                results = response;
+            } else {
+                results = response.customers || [];
+            }
+
+            if (results.length > 0) {
+                this.renderCustomerSearchResults(results, container);
+                // Optional: Add a small header? The render function overwrites innerHTML, 
+                // so we might want to prepend a header if render logic allows, or just leave it as list.
+                // For now, standard list is fine.
+            } else {
+                container.innerHTML = '<div class="p-3 text-slate-400 text-center text-sm italic">Sin clientes recientes</div>';
+            }
+
+        } catch (error) {
+            console.error('POS: Error loading suggestions', error);
+            container.innerHTML = '<div class="p-3 text-red-400 text-center text-sm">Error cargando sugerencias</div>';
+        }
+    }
+
     async searchCustomers(query) {
         if (!query || query.length < 2) {
             if (this.pos.dom.customerSearchResults) this.pos.dom.customerSearchResults.classList.add('hidden');

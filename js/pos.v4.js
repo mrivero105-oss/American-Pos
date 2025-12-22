@@ -400,6 +400,11 @@ export class POS {
 
         this.lastScanTime = 0;
 
+        // Price Check Navigation State
+        this.priceCheckSelectedIndex = -1;
+        this.currentPriceCheckResults = [];
+        this.currentPriceCheckProduct = null;
+
         // Fallback/Retry for critical elements if not found immediately
         if (!this.dom.priceCheckBtn) {
             console.warn('POS: price-check-btn not found by ID, trying querySelector');
@@ -467,10 +472,15 @@ export class POS {
 
             // Search Input
             if (this.dom.searchInput) {
-                this.dom.searchInput.addEventListener('input', debounce((e) => {
-                    const query = e.target.value;
+                // Create debounced search function
+                const debouncedSearch = debounce((query) => {
                     this.filterProducts(query);
-                }, 300));
+                }, 300);
+
+                this.dom.searchInput.addEventListener('input', (e) => {
+                    e.stopPropagation();
+                    debouncedSearch(e.target.value);
+                });
 
                 // Jump to grid on Enter OR add to cart if barcode matches
                 this.dom.searchInput.addEventListener('keydown', (e) => {
@@ -503,12 +513,17 @@ export class POS {
 
             // Mobile Search Input
             if (this.dom.mobileSearchInput) {
-                this.dom.mobileSearchInput.addEventListener('input', debounce((e) => {
-                    const query = e.target.value;
+                // Create debounced search function
+                const debouncedMobileSearch = debounce((query) => {
                     // Sync with desktop input
                     if (this.dom.searchInput) this.dom.searchInput.value = query;
                     this.filterProducts(query);
-                }, 300));
+                }, 300);
+
+                this.dom.mobileSearchInput.addEventListener('input', (e) => {
+                    e.stopPropagation();
+                    debouncedMobileSearch(e.target.value);
+                });
 
                 this.dom.mobileSearchInput.addEventListener('keydown', (e) => {
                     if (e.key === 'Enter') {
@@ -538,18 +553,60 @@ export class POS {
 
             // Price Check Input
             if (this.dom.priceCheckInput) {
-                this.dom.priceCheckInput.addEventListener('input', debounce((e) => {
-                    const query = e.target.value;
+                // Create debounced search function
+                const debouncedPriceCheck = debounce((query) => {
                     this.searchPriceCheck(query);
-                }, 300));
+                }, 300);
+
+                this.dom.priceCheckInput.addEventListener('input', (e) => {
+                    e.stopPropagation(); // Stop bubbling immediately
+                    debouncedPriceCheck(e.target.value);
+                });
 
                 this.dom.priceCheckInput.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter') {
+                    // STOP PROPAGATION to prevent global listeners (like ProductManager or Document) 
+                    // from intercepting keys while typing in this specific modal.
+                    e.stopPropagation();
+
+                    // Navigation
+                    if (e.key === 'ArrowDown') {
                         e.preventDefault();
+                        if (this.currentPriceCheckResults.length > 0) {
+                            this.priceCheckSelectedIndex = Math.min(this.priceCheckSelectedIndex + 1, this.currentPriceCheckResults.length - 1);
+                            this.highlightPriceCheckItem(this.priceCheckSelectedIndex);
+                        }
+                    } else if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        if (this.currentPriceCheckResults.length > 0) {
+                            this.priceCheckSelectedIndex = Math.max(this.priceCheckSelectedIndex - 1, 0);
+                            this.highlightPriceCheckItem(this.priceCheckSelectedIndex);
+                        }
+                    } else if (e.key === 'Enter') {
+                        e.preventDefault();
+
+                        // Scenario 1: Product Details are Open -> Add to Cart
+                        if (!this.dom.priceCheckResult.classList.contains('hidden') && this.currentPriceCheckProduct) {
+                            this.addToCart(this.currentPriceCheckProduct);
+                            this.closePriceCheck();
+                            return;
+                        }
+
+                        // Scenario 2: Selecting from List
+                        if (this.priceCheckSelectedIndex !== -1 && this.currentPriceCheckResults[this.priceCheckSelectedIndex]) {
+                            const selectedId = this.currentPriceCheckResults[this.priceCheckSelectedIndex].id;
+                            this.selectPriceCheckProduct(selectedId);
+                            return;
+                        }
+
+                        // Scenario 3: Initial Search (Default)
                         const query = e.target.value.trim();
                         if (query) {
-                            this.searchPriceCheck(query, true); // Direct search on enter
+                            this.searchPriceCheck(query, true);
                         }
+                    } else if (e.key === 'Escape') {
+                        // Explicitly handle Escape for this input to close the modal
+                        e.preventDefault();
+                        this.closePriceCheck();
                     }
                 });
             }
@@ -1267,9 +1324,12 @@ export class POS {
                 this.dom.searchCustomerCheckout.focus();
             }
 
-            // Render List
+            // Render List with Suggestions
             if (this.customerManager && this.dom.customerSelectionList) {
-                this.customerManager.renderCustomerSearchResults(this.customers, this.dom.customerSelectionList);
+                // Clear previous results first
+                this.dom.customerSelectionList.innerHTML = '';
+                // Load suggestions
+                this.customerManager.loadSuggestedCustomers(this.dom.customerSelectionList);
             }
         }
     }
@@ -1759,6 +1819,11 @@ export class POS {
     displayPriceCheckList(products) {
         if (!this.dom.priceCheckList) return;
 
+        // Store for navigation
+        this.currentPriceCheckResults = products;
+        this.priceCheckSelectedIndex = -1;
+        this.currentPriceCheckProduct = null;
+
         if (products.length === 0) {
             this.dom.priceCheckList.classList.add('hidden');
             if (this.dom.priceCheckPlaceholder) this.dom.priceCheckPlaceholder.classList.remove('hidden');
@@ -1767,7 +1832,7 @@ export class POS {
 
         this.dom.priceCheckList.innerHTML = products.map((p, index) => `
         <div class="price-check-item p-4 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 cursor-pointer border-b border-slate-100 dark:border-slate-700 last:border-0 flex justify-between items-center transition-colors"
-             data-id="${p.id}">
+             data-id="${p.id}" data-index="${index}">
             <div class="flex-1">
                 <div class="font-bold text-slate-800 dark:text-white text-base">${p.name}</div>
                 <div class="text-xs text-slate-500 dark:text-slate-400 font-mono">${p.barcode || 'Sin código'}</div>
@@ -1783,8 +1848,6 @@ export class POS {
         if (this.dom.priceCheckPlaceholder) this.dom.priceCheckPlaceholder.classList.add('hidden');
         if (this.dom.priceCheckResult) this.dom.priceCheckResult.classList.add('hidden');
 
-        this.priceCheckSelectedIndex = -1;
-
         // Re-bind listeners for the newly injected items
         this.dom.priceCheckList.querySelectorAll('.price-check-item').forEach(item => {
             item.addEventListener('click', (e) => {
@@ -1795,14 +1858,34 @@ export class POS {
         });
     }
 
+    highlightPriceCheckItem(index) {
+        if (!this.dom.priceCheckList) return;
+
+        const items = this.dom.priceCheckList.querySelectorAll('.price-check-item');
+        items.forEach((item, i) => {
+            if (i === index) {
+                // Active style
+                item.classList.add('bg-emerald-100', 'dark:bg-emerald-900/40', 'border-l-4', 'border-emerald-500');
+                item.scrollIntoView({ block: 'nearest' });
+            } else {
+                // Inactive style
+                item.classList.remove('bg-emerald-100', 'dark:bg-emerald-900/40', 'border-l-4', 'border-emerald-500');
+            }
+        });
+    }
+
     selectPriceCheckProduct(id) {
         console.log('selectPriceCheckProduct called with ID:', id);
         const product = this.products.find(p => String(p.id) === String(id));
         if (product) {
             console.log('Product found:', product.name);
+            this.currentPriceCheckProduct = product; // Store active product
             this.displayPriceCheckResult(product);
             if (this.dom.priceCheckList) this.dom.priceCheckList.classList.add('hidden');
-            if (this.dom.priceCheckInput) this.dom.priceCheckInput.value = ''; // Clear input
+            if (this.dom.priceCheckInput) {
+                this.dom.priceCheckInput.value = ''; // Clear input
+                this.dom.priceCheckInput.focus();   // Keep focus for 'Enter' to add
+            }
         } else {
             console.error('Product not found in local cache for ID:', id);
         }

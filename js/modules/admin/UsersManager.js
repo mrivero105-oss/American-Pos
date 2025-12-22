@@ -1,5 +1,7 @@
 import { api } from '../../api.js';
 import { ui } from '../../ui.js';
+import { authService } from '../../auth.js';
+import { currencySettings } from '../../utils.js';
 
 export class UsersManager {
     constructor() {
@@ -419,6 +421,27 @@ export class UsersManager {
         try {
             if (this.editingUserId) {
                 await api.users.update(this.editingUserId, data);
+
+                // If editing current user, update local storage and reload to apply changes
+                const currentUser = authService.getUser();
+                if (currentUser && currentUser.id === this.editingUserId) {
+                    // Update local user object
+                    const updatedUser = { ...currentUser, ...data };
+                    // Ensure businessInfo is object if it was string (though here it is object)
+                    updatedUser.businessInfo = data.businessInfo;
+
+                    localStorage.setItem('user', JSON.stringify(updatedUser));
+
+                    // Update currency settings immediately
+                    if (data.businessInfo && data.businessInfo.currencies) {
+                        currencySettings.setEnabled(data.businessInfo.currencies);
+                    }
+
+                    ui.showNotification('Perfil actualizado. Recargando...', 'success');
+                    setTimeout(() => window.location.reload(), 1500);
+                    return;
+                }
+
                 ui.showNotification('Usuario actualizado exitosamente');
             } else {
                 await api.users.create({ ...data, password });

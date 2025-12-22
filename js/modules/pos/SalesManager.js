@@ -183,6 +183,9 @@ export class SalesManager {
     }
 
     renderHeldSalesList(heldSales) {
+        // Update Cache
+        this.cachedHeldSales = heldSales;
+
         if (!this.pos.dom.heldSalesList) return;
 
         if (heldSales.length === 0) {
@@ -230,47 +233,49 @@ export class SalesManager {
             `;
         }).join('');
 
-        // Bind events explicitly after rendering
-        const restoreBtns = this.pos.dom.heldSalesList.querySelectorAll('.restore-held-btn');
-        restoreBtns.forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                e.stopImmediatePropagation();
-                const id = btn.dataset.id;
-                console.log('CLICK EVENT FIRED: restoreSale', id);
-                // alert('DEBUG: Intentando recuperar venta ID: ' + id); // Debug removed
-                this.restoreSale(id);
-            });
-        });
-
-        const deleteBtns = this.pos.dom.heldSalesList.querySelectorAll('.delete-held-btn');
-        deleteBtns.forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const id = btn.dataset.id;
-                console.log('CLICK EVENT FIRED: deleteHeldSale', id);
-                this.deleteHeldSale(id);
-            });
-        });
+        // Local event binding removed in favor of Global Delegation in pos.v4.js (bindGlobalHeldSalesEvents)
+        // This prevents double-firing and propagation issues.
+        console.log('POS: renderHeldSalesList complete. Cached items:', this.cachedHeldSales.length);
     }
 
     restoreSale(id) {
-        // AGGRESSIVE DEBUG REMOVED
-        console.log('POS: restoreSale called with id:', id, 'type:', typeof id);
+        console.log('POS: restoreSale called with id:', id);
 
-        const heldSales = JSON.parse(localStorage.getItem('held_sales') || '[]');
-        console.log('POS: heldSales count:', heldSales.length, 'IDs:', heldSales.map(s => s.id));
+        let heldSales = [];
+        try {
+            heldSales = JSON.parse(localStorage.getItem('held_sales') || '[]');
+        } catch (e) {
+            console.error('POS: Error parsing held_sales from LS', e);
+        }
 
-        // Convert both to strings to avoid type mismatch
-        const saleIndex = heldSales.findIndex(s => String(s.id) === String(id));
-        console.log('POS: saleIndex found:', saleIndex);
+        const availableIds = heldSales.map(s => String(s.id));
+        console.log('POS: Available Held IDs (LS):', availableIds);
 
-        if (saleIndex === -1) {
-            console.warn('POS: Sale not found in held_sales!');
+        // Convert both to strings for safe comparison
+        let saleIndex = heldSales.findIndex(s => String(s.id) === String(id));
+        let sale = null;
+
+        // Fallback to Memory Cache in case LS was wiped
+        if (saleIndex === -1 && this.cachedHeldSales) {
+            console.warn('POS: Sale not found in LS! Checking Memory Cache...');
+            const cachedIndex = this.cachedHeldSales.findIndex(s => String(s.id) === String(id));
+            if (cachedIndex !== -1) {
+                console.log('POS: Sale FOUND in Memory Cache! Recovering data...');
+                sale = this.cachedHeldSales[cachedIndex];
+                // Merge cache back into heldSales to "heal" the storage
+                heldSales.push(sale);
+                saleIndex = heldSales.length - 1;
+                // Don't save yet, doRestore will save (or we save below if we just needed to find it)
+            }
+        }
+
+        if (saleIndex === -1 && !sale) {
+            console.error(`POS: Sale not found! Searched for ${id} in [${availableIds.join(', ')}]`);
+            ui.showNotification('Error Sync: Venta no encontrada.', 'error');
             return;
         }
 
-        const sale = heldSales[saleIndex];
+        if (!sale) sale = heldSales[saleIndex];
 
         const doRestore = () => {
             this.pos.cart = sale.items;
@@ -280,14 +285,24 @@ export class SalesManager {
             heldSales.splice(saleIndex, 1);
             localStorage.setItem('held_sales', JSON.stringify(heldSales));
 
+            // Sync Memory Cache & Immediate UI Update
+            this.cachedHeldSales = heldSales;
+            this.renderHeldSalesList(heldSales); // Visually remove row immediately
+
             this.pos.renderCart();
             this.updateHeldSalesCount();
+
             this.closeHeldSalesDrawer();
             ui.showNotification('Venta recuperada', 'success');
         };
 
-        // Confirm if cart is not empty
-        if (this.pos.cart.length > 0) {
+        // Robust Cart Check: Filter out invalid entries just in case
+        console.log('POS: Current Cart before restore:', this.pos.cart);
+        const validItems = Array.isArray(this.pos.cart) ? this.pos.cart.filter(i => i && i.price > 0 && i.quantity > 0) : [];
+        console.log('POS: Valid Cart Items:', validItems.length);
+
+        // Confirm only if we have VALID items
+        if (validItems.length > 0) {
             this.closeHeldSalesDrawer(); // Close drawer to show modal clearly
             this.pos.showConfirmationModal(
                 '¿Reemplazar carrito?',
@@ -301,6 +316,7 @@ export class SalesManager {
                 'Cancelar'
             );
         } else {
+            console.log('POS: Cart considered empty. Restoring directly.');
             doRestore();
         }
     }

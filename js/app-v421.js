@@ -306,6 +306,21 @@ class App {
                 this.views.pos.closeHeldSalesDrawer();
             }
 
+            // Force close global drawer DOM element (Robust Fix)
+            const heldDrawer = document.getElementById('held-sales-drawer');
+            if (heldDrawer) {
+                heldDrawer.classList.add('translate-x-full');
+                heldDrawer.style.display = 'none';
+                // Also hide overlay if it was open for this drawer
+                if (window.innerWidth < 768) {
+                    const overlay = document.getElementById('mobile-overlay');
+                    if (overlay && !document.getElementById('mobile-cart-sidebar')?.classList.contains('translate-x-full') === false && !document.getElementById('sidebar')?.classList.contains('-translate-x-full') === false) {
+                        // Only hide if other sidebars are also closed
+                        overlay.classList.add('hidden');
+                    }
+                }
+            }
+
             // Trigger data load if needed
             try {
                 if (viewName === 'dashboard') this.views.dashboard.loadData();

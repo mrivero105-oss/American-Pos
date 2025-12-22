@@ -412,18 +412,11 @@ export const Products = {
 
         const id = this.dom.inputId.value;
 
-        // DEBUG LOGGING
-        console.log('[products.js] Saving product. ID:', id, 'imageUri length:', productData.imageUri?.length || 0);
-
         try {
             if (id) {
-                console.log('[products.js] Calling API.products.update...');
                 await API.products.update(id, productData);
-                console.log('[products.js] Update completed successfully');
             } else {
-                console.log('[products.js] Calling API.products.create...');
                 await API.products.create(productData);
-                console.log('[products.js] Create completed successfully');
             }
 
             this.closeModal();

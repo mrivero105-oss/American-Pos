@@ -103,14 +103,12 @@ export const api = {
             return response.json();
         },
         update: async (id, product) => {
-            console.log('[API] Updating product:', id, 'imageUri length:', product.imageUri?.length || 0);
             const response = await fetchWithTimeout(`${API_BASE_URL}/products/${id}`, {
                 method: 'PUT',
                 headers: await getAuthHeaders(),
                 body: JSON.stringify(product),
                 timeout: 60000 // 60 seconds for large images
             });
-            console.log('[API] Update response status:', response.status);
             handleAuthError(response);
             if (!response.ok) throw new Error('Error updating product');
             return response.json();
