@@ -103,11 +103,14 @@ export const api = {
             return response.json();
         },
         update: async (id, product) => {
+            console.log('[API] Updating product:', id, 'imageUri length:', product.imageUri?.length || 0);
             const response = await fetchWithTimeout(`${API_BASE_URL}/products/${id}`, {
                 method: 'PUT',
                 headers: await getAuthHeaders(),
-                body: JSON.stringify(product)
+                body: JSON.stringify(product),
+                timeout: 60000 // 60 seconds for large images
             });
+            console.log('[API] Update response status:', response.status);
             handleAuthError(response);
             if (!response.ok) throw new Error('Error updating product');
             return response.json();
@@ -557,21 +560,5 @@ export const api = {
             return res.json();
         }
     },
-    dashboard: {
-        getSummary: async () => {
-            // Client-side calculation to avoid backend dependency for now
-            try {
-                const products = await api.products.getAll();
-                const lowStockItems = products.filter(p => {
-                    const stock = parseFloat(p.stock || 0);
-                    const minStock = parseFloat(p.min_stock || 0); // Assuming min_stock field exists
-                    return stock <= minStock && p.track_inventory;
-                });
-                return { lowStockItems };
-            } catch (error) {
-                console.warn('Error calculating dashboard summary:', error);
-                return { lowStockItems: [] };
-            }
-        }
-    }
+
 };
