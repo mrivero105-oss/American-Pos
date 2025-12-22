@@ -201,19 +201,25 @@ export const Products = {
         });
 
         // Search
-        this.dom.searchInput?.addEventListener('input', debounce((e) => {
-            const term = e.target.value.toLowerCase();
+        // Search
+        const debouncedProductSearch = debounce((term) => {
+            const lowerTerm = term.toLowerCase();
             const filtered = this.products.filter(p =>
-                p.name.toLowerCase().includes(term) ||
-                (p.category && p.category.toLowerCase().includes(term)) ||
-                (p.barcode && p.barcode.includes(term))
+                p.name.toLowerCase().includes(lowerTerm) ||
+                (p.category && p.category.toLowerCase().includes(lowerTerm)) ||
+                (p.barcode && p.barcode.includes(lowerTerm))
             );
 
             // Use requestAnimationFrame for smoother UI update
             requestAnimationFrame(() => {
                 this.renderProductList(filtered);
             });
-        }, 300));
+        }, 300);
+
+        this.dom.searchInput?.addEventListener('input', (e) => {
+            e.stopPropagation();
+            debouncedProductSearch(e.target.value);
+        });
 
         // Barcode Scanner
         const btnScan = document.getElementById('scan-barcode-btn');
@@ -406,11 +412,18 @@ export const Products = {
 
         const id = this.dom.inputId.value;
 
+        // DEBUG LOGGING
+        console.log('[products.js] Saving product. ID:', id, 'imageUri length:', productData.imageUri?.length || 0);
+
         try {
             if (id) {
+                console.log('[products.js] Calling API.products.update...');
                 await API.products.update(id, productData);
+                console.log('[products.js] Update completed successfully');
             } else {
+                console.log('[products.js] Calling API.products.create...');
                 await API.products.create(productData);
+                console.log('[products.js] Create completed successfully');
             }
 
             this.closeModal();
