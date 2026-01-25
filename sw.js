@@ -1,4 +1,4 @@
-const CACHE_NAME = 'american-pos-v441-ghost-button-removal';
+const CACHE_NAME = 'american-pos-v4.2.2-modular';
 
 // Assets to cache immediately on install (App Shell)
 const ASSETS_TO_CACHE = [
@@ -6,9 +6,11 @@ const ASSETS_TO_CACHE = [
     './index.html',
     './login.html',
     './manifest.json',
+    './img/logo-monitor-new.png',
     './js/app-v421.js',
     './js/auth.js',
     './js/api.js',
+    './js/db.js',
     './js/config.js',
     './js/pos.v4.js',
     './js/products.js',
@@ -21,6 +23,14 @@ const ASSETS_TO_CACHE = [
     './js/ui.js',
     './js/sounds.js',
     './js/swipe-manager.js',
+    './js/utils/boot.js',
+    './js/utils/theme.js',
+    './js/utils/ui-utils.js',
+    './js/components/ComponentLoader.js',
+    './components/AdminModals.html',
+    './components/CheckoutModals.html',
+    './components/CashModals.html',
+    './components/UtilityModals.html',
     './js/modules/pos/CartManager.js',
     './js/modules/pos/SalesManager.js',
     './js/modules/pos/CustomerManager.js',
